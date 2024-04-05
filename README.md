@@ -1,4 +1,4 @@
-# New Roam extension
+# Calendar component in Roam
 
 🚧 under development
 

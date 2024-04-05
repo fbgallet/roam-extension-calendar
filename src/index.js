@@ -3,7 +3,7 @@
 import { renderApp } from "./components/App";
 
 const panelConfig = {
-  tabTitle: "___",
+  tabTitle: "Calendar",
   settings: [
     // INPUT example
     // {
