@@ -1,0 +1,20 @@
+[data-tag="sup"] + .rm-highlight {
+  vertical-align: super;
+  font-size: x-small;
+  background-color: inherit;
+}
+
+[data-tag="sub"] + .rm-highlight {
+  vertical-align: sub;
+  font-size: x-small;
+  background-color: inherit;
+}
+
+[data-tag="sub"],
+[data-tag="sup"] {
+  display: none;
+}
+
+.rm-block-ref [data-tag="sup"] {
+  display: none;
+}
