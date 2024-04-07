@@ -2,23 +2,13 @@ export const uidRegex = /\(\([^\)]{9}\)\)/g;
 export const pageRegex = /\[\[.*\]\]/g; // very simplified, not recursive...
 
 export function getTreeByUid(uid) {
-  if (uid) {
-    return window.roamAlphaAPI.pull(
-      "[:block/uid :block/string :block/children {:block/children  ...} :block/open {:block/refs [:block/uid]} :block/order {:block/page [:block/uid]}]",
-      [":block/uid", uid]
-    );
-  } else return null;
+  if (uid)
+    return window.roamAlphaAPI.q(`[:find (pull ?page
+                       [:block/uid :block/string :block/children {:block/refs [:block/uid]} :block/order
+                          {:block/children ...} ])
+                        :where [?page :block/uid "${uid}"]  ]`)[0];
+  else return null;
 }
-// Same function with .q
-//
-// export function getTreeByUid(uid) {
-//   if (uid)
-//     return window.roamAlphaAPI.q(`[:find (pull ?page
-//                      [:block/uid :block/string :block/children :block/refs
-//                         {:block/children ...} ])
-//                       :where [?page :block/uid "${uid}"]  ]`)[0];
-//   else return null;
-// }
 
 export function getBlockContentByUid(uid) {
   let result = window.roamAlphaAPI.pull("[:block/string]", [":block/uid", uid]);
@@ -40,20 +30,16 @@ function getOrderedDirectChildren(uid) {
     .map((block) => ({ string: block.string, uid: block.uid }));
 }
 
-export async function getTopOrActiveBlockUid() {
-  let currentBlockUid = window.roamAlphaAPI.ui.getFocusedBlock()?.["block-uid"];
-  if (currentBlockUid) return currentBlockUid;
-  else {
-    let uid = await window.roamAlphaAPI.ui.mainWindow.getOpenPageOrBlockUid();
-    return getFirstChildUid(uid);
-  }
+export function getPageNameByPageUid(uid) {
+  let r = window.roamAlphaAPI.data.pull("[:node/title]", [":block/uid", uid]);
+  if (r != null) return r[":node/title"];
+  else return "undefined";
 }
 
-function getFirstChildUid(uid) {
-  let q = `[:find (pull ?c
-                       [:block/uid :block/children {:block/children ...}])
-                    :where [?c :block/uid "${uid}"]  ]`;
-  return window.roamAlphaAPI.q(q)[0][0].children[0].uid;
+export function getPageUidByPageName(title) {
+  let r = window.roamAlphaAPI.data.pull("[:block/uid]", [":node/title", title]);
+  if (r != null) return r[":block/uid"];
+  else return null;
 }
 
 export function processNotesInTree(tree, callback, callbackArgs) {
