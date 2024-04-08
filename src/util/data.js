@@ -1,14 +1,35 @@
+import { dateToISOString, getDistantDate } from "./dates";
 import { getPageUidByPageName, getTreeByUid } from "./roamApi";
 
-export const getBlocksToDisplayFromDNP = () => {
-  const dnpTree = getTreeByUid("04-05-2024");
-  const events = filterTreeToGetEvents(dnpTree, ["TODO"]);
+export const getBlocksToDisplayFromDNP = (start, end) => {
+  let events = [];
+  //   const currentDnp = window.roamAlphaAPI.util.dateToPageUid(start);
+  //   const endDnp = window.roamAlphaAPI.util.dateToPageUid(end);
+  for (
+    let currentDate = start;
+    currentDate <= end;
+    currentDate = getDistantDate(currentDate, 1)
+  ) {
+    const dnpTree = getTreeByUid(
+      window.roamAlphaAPI.util.dateToPageUid(currentDate)
+    );
+    // console.log(window.roamAlphaAPI.util.dateToPageUid(currentDate), dnpTree);
+    if (dnpTree) {
+      const filteredEvents = filterTreeToGetEvents(currentDate, dnpTree, [
+        "TODO",
+      ]);
+      console.log("filteredEvents :>> ", filteredEvents);
+      if (filteredEvents.length > 0) events = events.concat(filteredEvents);
+    }
+  }
   console.log("events :>> ", events);
   return events;
 };
 
-const filterTreeToGetEvents = (tree, toInclude) => {
+const filterTreeToGetEvents = (currentDate, tree, toInclude) => {
+  console.log("currentDate :>> ", currentDate);
   const events = [];
+  let dateString;
   const uidsToInclude = toInclude.map((title) => getPageUidByPageName(title));
   processTreeRecursively(tree, uidsToInclude);
   return events;
@@ -21,12 +42,14 @@ const filterTreeToGetEvents = (tree, toInclude) => {
           tree[i].refs.map((ref) => ref.uid),
           toInclude
         )
-      )
+      ) {
+        dateString = dateString || dateToISOString(currentDate);
         events.push({
           id: tree[i].uid,
           title: tree[i].string,
-          date: "2024-04-05",
+          date: dateString,
         });
+      }
       let subTree = tree[i].children;
       if (subTree) {
         processTreeRecursively(subTree, toInclude);

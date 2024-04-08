@@ -42,6 +42,10 @@ export function getPageUidByPageName(title) {
   else return null;
 }
 
+export function updateBlock(uid, content) {
+  window.roamAlphaAPI.updateBlock({ block: { uid: uid, string: content } });
+}
+
 export function processNotesInTree(tree, callback, callbackArgs) {
   //  tree = tree.sort((a, b) => a.order - b.order);
   for (let i = 0; i < tree.length; i++) {

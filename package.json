@@ -16,6 +16,7 @@
     "@fullcalendar/daygrid": "^6.1.10",
     "@fullcalendar/interaction": "^6.1.10",
     "@fullcalendar/react": "^6.1.10",
+    "luxon": "^3.4.4",
     "roamjs-scripts": "^0.27.0"
   }
 }
