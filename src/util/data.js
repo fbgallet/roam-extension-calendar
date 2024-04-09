@@ -1,8 +1,10 @@
 import { dateToISOString, getDistantDate } from "./dates";
 import { getPageUidByPageName, getTreeByUid } from "./roamApi";
 
-export const getBlocksToDisplayFromDNP = (start, end) => {
+export const getBlocksToDisplayFromDNP = (start, end, toInclude = "TODO") => {
   let events = [];
+  const mapToInclude = toInclude.map((title) => {return {title, uid: getPageUidByPageName(title)}});
+  const uidsToInclude = mapToInclude.map((ref) => ref.uid);
   //   const currentDnp = window.roamAlphaAPI.util.dateToPageUid(start);
   //   const endDnp = window.roamAlphaAPI.util.dateToPageUid(end);
   for (
@@ -15,9 +17,7 @@ export const getBlocksToDisplayFromDNP = (start, end) => {
     );
     // console.log(window.roamAlphaAPI.util.dateToPageUid(currentDate), dnpTree);
     if (dnpTree) {
-      const filteredEvents = filterTreeToGetEvents(currentDate, dnpTree, [
-        "TODO",
-      ]);
+      const filteredEvents = filterTreeToGetEvents(currentDate, dnpTree, mapToInclude, uidsToInclude);
       console.log("filteredEvents :>> ", filteredEvents);
       if (filteredEvents.length > 0) events = events.concat(filteredEvents);
     }
@@ -26,21 +26,22 @@ export const getBlocksToDisplayFromDNP = (start, end) => {
   return events;
 };
 
-const filterTreeToGetEvents = (currentDate, tree, toInclude) => {
+const filterTreeToGetEvents = (currentDate, tree, mapToInclude, uidsToInclude) => {
   console.log("currentDate :>> ", currentDate);
   const events = [];
   let dateString;
-  const uidsToInclude = toInclude.map((title) => getPageUidByPageName(title));
-  processTreeRecursively(tree, uidsToInclude);
+  
+  processTreeRecursively(tree);
   return events;
 
-  function processTreeRecursively(tree, toInclude) {
+  function processTreeRecursively(tree) {
     for (let i = 0; i < tree.length; i++) {
+      const matchingRefs;
       if (
         tree[i].refs?.length > 0 &&
         hasCommonElement(
           tree[i].refs.map((ref) => ref.uid),
-          toInclude
+          uidsToInclude
         )
       ) {
         dateString = dateString || dateToISOString(currentDate);
@@ -48,6 +49,7 @@ const filterTreeToGetEvents = (currentDate, tree, toInclude) => {
           id: tree[i].uid,
           title: tree[i].string,
           date: dateString,
+          className: mapToInclude.filter(
         });
       }
       let subTree = tree[i].children;
@@ -56,6 +58,10 @@ const filterTreeToGetEvents = (currentDate, tree, toInclude) => {
       }
     }
   }
+};
+
+const getMatchingRefs = (uidsArr, arr2) => {
+  return arr1.some((item) => arr2.includes(item));
 };
 
 const hasCommonElement = (arr1, arr2) => {

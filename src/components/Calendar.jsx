@@ -1,6 +1,7 @@
 import FullCalendar from "@fullcalendar/react";
 import interactionPlugin, { Draggable } from "@fullcalendar/interaction";
 import dayGridPlugin from "@fullcalendar/daygrid";
+import multiMonthPlugin from "@fullcalendar/multimonth";
 import { Checkbox, Tooltip } from "@blueprintjs/core";
 import { getBlocksToDisplayFromDNP } from "../util/data";
 import { useState } from "react";
@@ -37,6 +38,7 @@ const Calendar = () => {
           <Checkbox
             checked={isChecked}
             onChange={(e) => {
+              if (e.nativeEvent.shiftKey) return;
               e.stopPropagation();
               const updatedTitle = isChecked
                 ? info.event.title.replace("{{[[DONE]]}}", "{{[[TODO]]}}")
@@ -81,12 +83,12 @@ const Calendar = () => {
 
   return (
     <FullCalendar
-      plugins={[dayGridPlugin, interactionPlugin]}
+      plugins={[dayGridPlugin, multiMonthPlugin, interactionPlugin]}
       initialView="dayGridMonth"
       headerToolbar={{
         left: "prev,next today",
         center: "title",
-        right: "dayGridDay,dayGridWeek,dayGridMonth",
+        right: "multiMonthYear,dayGridMonth,dayGridWeek,dayGridDay",
       }}
       firstDay={1}
       navLinks={true}
@@ -120,15 +122,20 @@ const Calendar = () => {
       //   getEventsFromDNP,
       // ]}
       eventContent={(info, jsEvent) => renderEventContent(info, jsEvent)}
-      // eventClick={(info) => {
-      //   console.log("Event: ", info.event);
-      //   console.log("JS: ", info.jsEvent);
-      //   console.log("View: ", info.view);
-      //   window.roamAlphaAPI.ui.components.renderBlock({
-      //     uid: "zNLBAJtII",
-      //     el: info.jsEvent.target,
-      //   });
-      // }}
+      eventClick={(info) => {
+        console.log("Event: ", info.event);
+        console.log("JS: ", info.jsEvent);
+        if (info.jsEvent.shiftKey) {
+          window.roamAlphaAPI.ui.rightSidebar.addWindow({
+            window: { type: "block", "block-uid": info.event.id },
+          });
+        }
+        // console.log("View: ", info.view);
+        // window.roamAlphaAPI.ui.components.renderBlock({
+        //   uid: "zNLBAJtII",
+        //   el: info.jsEvent.target,
+        // });
+      }}
       eventDrop={handleEventDrop}
       select={handleDayClick}
     />
