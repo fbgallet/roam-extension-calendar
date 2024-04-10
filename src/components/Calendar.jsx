@@ -2,10 +2,10 @@ import FullCalendar from "@fullcalendar/react";
 import interactionPlugin, { Draggable } from "@fullcalendar/interaction";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import multiMonthPlugin from "@fullcalendar/multimonth";
-import { Checkbox, Tooltip } from "@blueprintjs/core";
 import { getBlocksToDisplayFromDNP } from "../util/data";
 import { useState } from "react";
 import { updateBlock } from "../util/roamApi";
+import Event from "./Event";
 
 console.log("fullCalendar cmpt", FullCalendar);
 
@@ -32,34 +32,14 @@ const Calendar = () => {
       isChecked = true;
       title = title.replace("{{[[DONE]]}}", "");
     }
+    // info.event.setProp("color", "red");
     return (
-      <Tooltip content={info.event.title}>
-        {hasCheckbox ? (
-          <Checkbox
-            checked={isChecked}
-            onChange={(e) => {
-              if (e.nativeEvent.shiftKey) return;
-              e.stopPropagation();
-              const updatedTitle = isChecked
-                ? info.event.title.replace("{{[[DONE]]}}", "{{[[TODO]]}}")
-                : info.event.title.replace("{{[[TODO]]}}", "{{[[DONE]]}}");
-              info.event.setProp("title", updatedTitle);
-              updateBlock(info.event.id, updatedTitle);
-              // setEvents((prev) => {
-              //   let clone = [...prev];
-              //   const event = clone.find((elt) => elt.id === info.event.id);
-              //   console.log("event.title :>> ", event.title);
-              //   return clone;
-              // });
-              // console.log("is checked ?", e);
-            }}
-          >
-            {title}
-          </Checkbox>
-        ) : (
-          info.event.title
-        )}
-      </Tooltip>
+      <Event
+        displayTitle={title}
+        event={info.event}
+        hasCheckbox={hasCheckbox}
+        isChecked={isChecked}
+      ></Event>
     );
   };
 
