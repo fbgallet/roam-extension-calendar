@@ -11,19 +11,10 @@ export function renderApp() {
   root.classList.add("calendar");
   block.appendChild(root);
 
-  ReactDOM.render(<Calendar />, root);
-
-  // let calendar = new Calendar(root, {
-  //   plugins: [dayGridPlugin, interactionPlugin],
-  //   droppable: true,
-  //   drop: function (info) {
-  //     console.log(info.draggedEl);
-  //   },
-  //   initialView: "dayGridMonth",
-  //   headerToolbar: {
-  //     left: "prev,next today",
-  //     center: "title",
-  //     right: "dayGridDay,dayGridWeek,dayGridMonth",
-  //   },
-  // });
+  ReactDOM.render(
+    <div className="full-calendar-comp">
+      <Calendar />
+    </div>,
+    root
+  );
 }

@@ -1,5 +1,6 @@
 import { Checkbox, Tooltip } from "@blueprintjs/core";
 import { updateBlock } from "../util/roamApi";
+import { replaceItemAndGetUpdatedArray } from "../util/data";
 
 const Event = ({ displayTitle, event, hasCheckbox, isChecked }) => {
   return (
@@ -8,6 +9,7 @@ const Event = ({ displayTitle, event, hasCheckbox, isChecked }) => {
         <Checkbox
           checked={isChecked}
           onChange={(e) => {
+            // console.log("EVENT :>> ", event);
             if (e.nativeEvent.shiftKey) return;
             e.stopPropagation();
             let updatedTitle, updatedClassNames, updatedTags;
@@ -17,25 +19,36 @@ const Event = ({ displayTitle, event, hasCheckbox, isChecked }) => {
                 "{{[[DONE]]}}",
                 "{{[[TODO]]}}"
               );
-              updatedTags = event.extendedProps.eventTags.splice(
-                event.extendedProps.eventTags.indexOf("DONE"),
-                1,
+              updatedClassNames = replaceItemAndGetUpdatedArray(
+                [...event.classNames],
+                "DONE",
+                "TODO"
+              );
+              updatedTags = replaceItemAndGetUpdatedArray(
+                [...event.extendedProps.eventTags],
+                "DONE",
                 "TODO"
               );
             } else {
-              event.setProp("color", "grey");
+              event.setProp("color", "lightgrey");
               updatedTitle = event.title.replace(
                 "{{[[TODO]]}}",
                 "{{[[DONE]]}}"
               );
-              updatedTags = event.extendedProps.eventTags.splice(
-                event.extendedProps.eventTags.indexOf("DONE"),
-                1,
-                "TODO"
+              updatedClassNames = replaceItemAndGetUpdatedArray(
+                [...event.classNames],
+                "TODO",
+                "DONE"
+              );
+              updatedTags = replaceItemAndGetUpdatedArray(
+                [...event.extendedProps.eventTags],
+                "TODO",
+                "DONE"
               );
             }
             event.setProp("title", updatedTitle);
-            event.setProp("eventTags", updatedTags);
+            event.setProp("classNames", updatedClassNames);
+            event.setExtendedProp("eventTags", updatedTags);
             console.log("event :>> ", event);
             updateBlock(event.id, updatedTitle);
           }}
