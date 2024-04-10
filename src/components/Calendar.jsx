@@ -3,12 +3,11 @@ import interactionPlugin, { Draggable } from "@fullcalendar/interaction";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import multiMonthPlugin from "@fullcalendar/multimonth";
 import { getBlocksToDisplayFromDNP } from "../util/data";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Event from "./Event";
 import Filters from "./Filters";
 
 const Calendar = () => {
-  const [events, setEvents] = useState([]);
   const [filters, setFilters] = useState({
     TODO: true,
     DONE: true,
@@ -19,17 +18,13 @@ const Calendar = () => {
     urgent: true,
     other: true,
   });
-  const [isDataToReload, setIsDataToReload] = useState(true);
+  const isDataToReload = useRef(true);
+  const events = useRef([]);
 
-  console.log("events // :>> ", events);
+  console.log("events // :>> ", events.current);
 
   useEffect(() => {
-    setIsDataToReload(false);
-    setEvents((prev) =>
-      prev.filter((evt) =>
-        evt.extendedProp?.eventTags?.some((tag) => filters[tag])
-      )
-    );
+    if (events.current.length !== 0) isDataToReload.current = false;
   }, [filters]);
 
   const handleDayClick = (e) => {
@@ -61,11 +56,16 @@ const Calendar = () => {
   };
 
   const getEventsFromDNP = async (info) => {
-    let dnpEvents = getBlocksToDisplayFromDNP(info.start, info.end);
-    console.log("events in Calendar :>> ", dnpEvents);
-    // setEvents(dnpEvents);
-    // setIsDataToReload(true);
-    return dnpEvents;
+    console.log("events.current :>> ", events.current);
+    if (isDataToReload.current)
+      events.current = getBlocksToDisplayFromDNP(info.start, info.end);
+    else isDataToReload.current = true;
+    const eventsToDisplay = events.current.filter((evt) =>
+      evt.extendedProps?.eventTags?.some((tag) => filters[tag])
+    );
+    console.log("events to display:>> ", eventsToDisplay);
+
+    return eventsToDisplay;
   };
 
   const handleEventDrop = (info) => {
