@@ -1,8 +1,10 @@
 import { Checkbox, Tooltip } from "@blueprintjs/core";
-import { useState } from "react";
+import { useEffect } from "react";
 
 const Filters = ({ filters, setFilters }) => {
-  console.log("filters :>> ", filters);
+  // useEffect(() => {
+  //   console.log("filter changed");
+  // }, []);
 
   const handleCheck = (filter) => {
     setFilters((prev) => {
@@ -12,14 +14,38 @@ const Filters = ({ filters, setFilters }) => {
     });
   };
 
+  const switchFilters = () => {
+    const switchTo = Object.values(filters).some((filter) => !filter)
+      ? true
+      : false;
+    setFilters((prev) => {
+      const clone = { ...prev };
+      for (let key in clone) {
+        clone[key] = switchTo;
+      }
+      console.log("clone :>> ", clone);
+      return clone;
+    });
+  };
+
   return (
     <div className="full-calendar-filters">
+      <b>Filter events: </b>
       <Checkbox checked={filters.TODO} onChange={() => handleCheck("TODO")}>
         TODO
       </Checkbox>
       <Checkbox checked={filters.DONE} onChange={() => handleCheck("DONE")}>
         DONE
       </Checkbox>
+      <Checkbox
+        checked={filters.important}
+        onChange={() => handleCheck("important")}
+      >
+        Important
+      </Checkbox>
+      <button onClick={switchFilters}>
+        {Object.values(filters).some((filter) => !filter) ? "All" : "None"}
+      </button>
     </div>
   );
 };

@@ -60,8 +60,10 @@ const Calendar = () => {
     if (isDataToReload.current)
       events.current = getBlocksToDisplayFromDNP(info.start, info.end);
     else isDataToReload.current = true;
-    const eventsToDisplay = events.current.filter((evt) =>
-      evt.extendedProps?.eventTags?.some((tag) => filters[tag])
+    const eventsToDisplay = events.current.filter(
+      (evt) =>
+        !(evt.extendedProps?.eventTags[0] === "DONE" && !filters["DONE"]) &&
+        evt.extendedProps?.eventTags?.some((tag) => filters[tag])
     );
     console.log("events to display:>> ", eventsToDisplay);
 

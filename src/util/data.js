@@ -28,13 +28,13 @@ const getTagColor = (title) => {
 };
 
 const tagsTitle = [
+  "DONE",
   "important",
   "urgent",
   "in progress",
   "due",
   "scheduled",
   "TODO",
-  "DONE",
 ];
 const mapOfTags = tagsTitle.map((tag) => {
   return {
