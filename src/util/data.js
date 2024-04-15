@@ -1,9 +1,15 @@
 import { dateToISOString, getDistantDate } from "./dates";
-import { getPageUidByPageName, getTreeByUid } from "./roamApi";
+import {
+  getLinkedReferencesTrees,
+  getPageUidByPageName,
+  getTreeByUid,
+} from "./roamApi";
+
+const dnpUidRegex = /(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])-[0-9]{4}/;
 
 // new Map(tagsTitle.map((tag) => [getPageUidByPageName(tag), tag]));
 
-const getTagColor = (title) => {
+export const getTagColor = (title) => {
   switch (title) {
     case "TODO":
       return "blue";
@@ -52,15 +58,19 @@ export const getBlocksToDisplayFromDNP = (start, end, toInclude = "TODO") => {
     currentDate <= end;
     currentDate = getDistantDate(currentDate, 1)
   ) {
-    const dnpTree = getTreeByUid(
-      window.roamAlphaAPI.util.dateToPageUid(currentDate)
-    );
-    // console.log(window.roamAlphaAPI.util.dateToPageUid(currentDate), dnpTree);
-    if (dnpTree) {
+    const dnpUid = window.roamAlphaAPI.util.dateToPageUid(currentDate);
+    let pageAndRefsTrees = [];
+    pageAndRefsTrees.push(getTreeByUid(dnpUid));
+    const refTrees = getLinkedReferencesTrees(dnpUid);
+    pageAndRefsTrees = pageAndRefsTrees.concat(refTrees);
+    // console.log("pageAndRefsTrees :>> ", pageAndRefsTrees);
+    for (let i = 0; i < pageAndRefsTrees.length; i++) {
       const filteredEvents = filterTreeToGetEvents(
+        dnpUid,
         currentDate,
-        dnpTree,
-        mapOfTags
+        pageAndRefsTrees[i],
+        mapOfTags,
+        i > 0 ? true : false
       );
       // console.log("filteredEvents :>> ", filteredEvents);
       if (filteredEvents.length > 0) events = events.concat(filteredEvents);
@@ -70,16 +80,23 @@ export const getBlocksToDisplayFromDNP = (start, end, toInclude = "TODO") => {
   return events;
 };
 
-const filterTreeToGetEvents = (currentDate, tree, mapToInclude) => {
+const filterTreeToGetEvents = (
+  dnpUid,
+  currentDate,
+  tree,
+  mapToInclude,
+  isRef
+) => {
   // console.log("currentDate :>> ", currentDate);
   const events = [];
   let dateString;
 
-  processTreeRecursively(tree);
+  if (tree && tree.length) processTreeRecursively(tree);
   return events;
 
   function processTreeRecursively(tree) {
     for (let i = 0; i < tree.length; i++) {
+      if (tree[i].refs && isReferencingDNP(tree[i].refs, dnpUid)) continue;
       const matchingRefs = getMatchingTags(
         mapToInclude,
         tree[i].refs?.map((ref) => ref.uid)
@@ -92,14 +109,19 @@ const filterTreeToGetEvents = (currentDate, tree, mapToInclude) => {
           title: tree[i].string,
           date: dateString,
           classNames: matchingRefs.map((ref) => ref.replace(" ", "_")),
-          extendedProps: { eventTags: matchingRefs },
+          extendedProps: { eventTags: matchingRefs, isRef: isRef },
           color: matchingRefs.length
             ? mapOfTags.find((tag) => tag.title === matchingRefs[0]).color
             : undefined,
+          borderColor: isRef ? "red" : "transparent",
         });
       }
       let subTree = tree[i].children;
-      if (subTree) {
+      if (
+        (!matchingRefs.length ||
+          !(matchingRefs.includes("TODO") || matchingRefs.includes("DONE"))) &&
+        subTree
+      ) {
         processTreeRecursively(subTree);
       }
     }
@@ -113,6 +135,10 @@ const getMatchingTags = (mapOfTags, refUidArray) => {
     .map(({ title }) => title);
 };
 
+const isReferencingDNP = (refs, dnpUid) => {
+  return refs.some((ref) => ref.uid !== dnpUid && ref.uid.match(dnpUidRegex));
+};
+
 export const replaceItemAndGetUpdatedArray = (
   array,
   itemToReplace,
@@ -120,7 +146,15 @@ export const replaceItemAndGetUpdatedArray = (
 ) => {
   const indexOfItemToReplace = array.indexOf(itemToReplace);
   if (indexOfItemToReplace === -1) return array;
-  return array.splice(indexOfItemToReplace, 1, newItem);
+  if (itemToReplace === "TODO") {
+    array.pop();
+    array.unshift("DONE");
+    return array;
+  } else if (itemToReplace === "DONE") {
+    array.shift();
+    array.push("TODO");
+    return array;
+  } else return array.splice(indexOfItemToReplace, 1, newItem);
 };
 
 // const hasCommonElement = (arr1, arr2) => {

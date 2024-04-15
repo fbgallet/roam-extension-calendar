@@ -16,6 +16,28 @@ export function getBlockContentByUid(uid) {
   else return "";
 }
 
+export function isExistingNode(uid) {
+  let result = window.roamAlphaAPI.pull("[:db/id]", [":block/uid", uid]);
+  if (result === null) return false;
+  return true;
+}
+
+export function getLinkedReferencesTrees(pageUid) {
+  if (!pageUid) return null;
+  let result = window.roamAlphaAPI.q(
+    `[:find
+      (pull ?node [:block/uid :block/string :edit/time {:block/refs [:block/uid]} :block/children
+      {:block/children ...}])
+  :where
+    [?test-Ref :block/uid "${pageUid}"]
+    [?node :block/refs ?test-Ref]
+  ]`
+  );
+  // sorted by edit time from most recent to older
+  const reverseTimeSorted = result.sort((a, b) => b[0].time - a[0].time);
+  return reverseTimeSorted;
+}
+
 function getOrderedDirectChildren(uid) {
   if (!uid) return null;
   let result = window.roamAlphaAPI.q(`[:find (pull ?page

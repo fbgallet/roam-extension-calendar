@@ -1,6 +1,6 @@
 import { Checkbox, Tooltip } from "@blueprintjs/core";
 import { updateBlock } from "../util/roamApi";
-import { replaceItemAndGetUpdatedArray } from "../util/data";
+import { getTagColor, replaceItemAndGetUpdatedArray } from "../util/data";
 
 const Event = ({ displayTitle, event, hasCheckbox, isChecked }) => {
   return (
@@ -14,7 +14,6 @@ const Event = ({ displayTitle, event, hasCheckbox, isChecked }) => {
             e.stopPropagation();
             let updatedTitle, updatedClassNames, updatedTags;
             if (isChecked) {
-              event.setProp("color", "blue");
               updatedTitle = event.title.replace(
                 "{{[[DONE]]}}",
                 "{{[[TODO]]}}"
@@ -29,8 +28,8 @@ const Event = ({ displayTitle, event, hasCheckbox, isChecked }) => {
                 "DONE",
                 "TODO"
               );
+              event.setProp("color", getTagColor(updatedTags[0]));
             } else {
-              event.setProp("color", "lightgrey");
               updatedTitle = event.title.replace(
                 "{{[[TODO]]}}",
                 "{{[[DONE]]}}"
@@ -45,6 +44,7 @@ const Event = ({ displayTitle, event, hasCheckbox, isChecked }) => {
                 "TODO",
                 "DONE"
               );
+              event.setProp("color", getTagColor(updatedTags[0]));
             }
             event.setProp("title", updatedTitle);
             event.setProp("classNames", updatedClassNames);

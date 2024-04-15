@@ -6,6 +6,7 @@ import { getBlocksToDisplayFromDNP } from "../util/data";
 import { useState, useEffect, useRef } from "react";
 import Event from "./Event";
 import Filters from "./Filters";
+import { isExistingNode } from "../util/roamApi";
 
 const Calendar = () => {
   const [filters, setFilters] = useState({
@@ -45,6 +46,9 @@ const Calendar = () => {
       title = title.replace("{{[[DONE]]}}", "");
     }
     // info.event.setProp("color", "red");
+    // console.log(info.event);
+    // if (info.event.extendedProps.isRef)
+    //   info.event.setProp("borderColor", "red");
     return (
       <Event
         displayTitle={title}
@@ -70,10 +74,20 @@ const Calendar = () => {
     return eventsToDisplay;
   };
 
-  const handleEventDrop = (info) => {
+  const handleEventDrop = async (info) => {
+    const targetPageUid = window.roamAlphaAPI.util.dateToPageUid(
+      info.event.start
+    );
+    if (!isExistingNode(targetPageUid))
+      await window.roamAlphaAPI.data.page.create({
+        page: {
+          title: window.roamAlphaAPI.util.dateToPageTitle(info.event.start),
+          uid: targetPageUid,
+        },
+      });
     window.roamAlphaAPI.moveBlock({
       location: {
-        "parent-uid": window.roamAlphaAPI.util.dateToPageUid(info.event.start),
+        "parent-uid": targetPageUid,
         order: "last",
       },
       block: { uid: info.event.id },

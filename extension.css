@@ -5,8 +5,10 @@
   font-weight: normal;
 }
 
-.full-calendar-comp .bp3-control.bp3-checkbox .bp3-control-indicator:focus {
-  outline: none;
+.full-calendar-comp
+  /* label.bp3-control.bp3-checkbox */
+  input[type="checkbox"]:focus {
+  outline: none !important;
 }
 
 .full-calendar-comp .bp3-control.bp3-checkbox .bp3-control-indicator,
