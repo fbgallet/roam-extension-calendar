@@ -4,6 +4,7 @@ import {
   getLinkedReferencesTrees,
   getPageUidByPageName,
   getTreeByUid,
+  resolveReferences,
 } from "./roamApi";
 
 // new Map(tagsTitle.map((tag) => [getPageUidByPageName(tag), tag]));
@@ -106,7 +107,7 @@ const filterTreeToGetEvents = (
         dateString = dateString || dateToISOString(currentDate);
         events.push({
           id: tree[i].uid,
-          title: tree[i].string,
+          title: resolveReferences(tree[i].string),
           date: dateString,
           classNames: matchingRefs.map((ref) => ref.replace(" ", "_")),
           extendedProps: { eventTags: matchingRefs, isRef: isRef },

@@ -6,7 +6,11 @@ import { getBlocksToDisplayFromDNP, removeSquareBrackets } from "../util/data";
 import { useState, useEffect, useRef } from "react";
 import Event from "./Event";
 import Filters from "./Filters";
-import { isExistingNode } from "../util/roamApi";
+import {
+  getBlockContentByUid,
+  isExistingNode,
+  resolveReferences,
+} from "../util/roamApi";
 import { roamDateRegex } from "../util/regex";
 
 const Calendar = () => {
@@ -77,7 +81,7 @@ const Calendar = () => {
       info.event.start
     );
     if (info.event.extendedProps.isRef) {
-      let blockContent = info.event.title;
+      let blockContent = getBlockContentByUid(info.event.id);
       let matchingDates = blockContent.match(roamDateRegex);
       const newRoamDate = window.roamAlphaAPI.util.dateToPageTitle(
         info.event.start
@@ -89,7 +93,7 @@ const Calendar = () => {
       window.roamAlphaAPI.updateBlock({
         block: { uid: info.event.id, string: blockContent },
       });
-      info.event.setProp("title", blockContent);
+      info.event.setProp("title", resolveReferences(blockContent));
     } else {
       if (!isExistingNode(targetPageUid))
         await window.roamAlphaAPI.data.page.create({

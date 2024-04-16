@@ -1,5 +1,4 @@
-export const uidRegex = /\(\([^\)]{9}\)\)/g;
-export const pageRegex = /\[\[.*\]\]/g; // very simplified, not recursive...
+import { uidRegex } from "./regex";
 
 export function getTreeByUid(uid) {
   if (uid)
@@ -79,3 +78,23 @@ export function processNotesInTree(tree, callback, callbackArgs) {
     }
   }
 }
+
+export const resolveReferences = (content, refsArray = [], once = false) => {
+  uidRegex.lastIndex = 0;
+  if (uidRegex.test(content)) {
+    uidRegex.lastIndex = 0;
+    let matches = content.matchAll(uidRegex);
+    for (const match of matches) {
+      let refUid = match[0].slice(2, -2);
+      // prevent infinite loop !
+      let isNewRef = !refsArray.includes(refUid);
+      refsArray.push(refUid);
+      let resolvedRef = getBlockContentByUid(refUid);
+      uidRegex.lastIndex = 0;
+      if (uidRegex.test(resolvedRef) && isNewRef && !once)
+        resolvedRef = resolveReferences(resolvedRef, refsArray);
+      content = content.replace(match, resolvedRef);
+    }
+  }
+  return content;
+};
