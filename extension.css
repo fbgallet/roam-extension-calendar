@@ -35,3 +35,8 @@
   flex-direction: row;
   gap: 12px;
 }
+
+.fc-event .fc-event-main {
+  padding-left: 3px;
+  overflow: hidden;
+}

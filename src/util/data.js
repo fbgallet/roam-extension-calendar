@@ -1,11 +1,10 @@
 import { dateToISOString, getDistantDate } from "./dates";
+import { dnpUidRegex } from "./regex";
 import {
   getLinkedReferencesTrees,
   getPageUidByPageName,
   getTreeByUid,
 } from "./roamApi";
-
-const dnpUidRegex = /(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])-[0-9]{4}/;
 
 // new Map(tagsTitle.map((tag) => [getPageUidByPageName(tag), tag]));
 
@@ -96,7 +95,8 @@ const filterTreeToGetEvents = (
 
   function processTreeRecursively(tree) {
     for (let i = 0; i < tree.length; i++) {
-      if (tree[i].refs && isReferencingDNP(tree[i].refs, dnpUid)) continue;
+      if (/*!isRef && */ tree[i].refs && isReferencingDNP(tree[i].refs, dnpUid))
+        continue;
       const matchingRefs = getMatchingTags(
         mapToInclude,
         tree[i].refs?.map((ref) => ref.uid)
@@ -136,7 +136,8 @@ const getMatchingTags = (mapOfTags, refUidArray) => {
 };
 
 const isReferencingDNP = (refs, dnpUid) => {
-  return refs.some((ref) => ref.uid !== dnpUid && ref.uid.match(dnpUidRegex));
+  dnpUidRegex.lastIndex = 0;
+  return refs.some((ref) => ref.uid !== dnpUid && dnpUidRegex.test(ref.uid));
 };
 
 export const replaceItemAndGetUpdatedArray = (
@@ -160,3 +161,7 @@ export const replaceItemAndGetUpdatedArray = (
 // const hasCommonElement = (arr1, arr2) => {
 //   return arr1.some((item) => arr2.includes(item));
 // };
+
+export const removeSquareBrackets = (str) => {
+  return str.replace("[[", "").replace("]]", "");
+};

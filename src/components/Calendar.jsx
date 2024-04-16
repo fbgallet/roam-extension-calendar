@@ -2,11 +2,12 @@ import FullCalendar from "@fullcalendar/react";
 import interactionPlugin, { Draggable } from "@fullcalendar/interaction";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import multiMonthPlugin from "@fullcalendar/multimonth";
-import { getBlocksToDisplayFromDNP } from "../util/data";
+import { getBlocksToDisplayFromDNP, removeSquareBrackets } from "../util/data";
 import { useState, useEffect, useRef } from "react";
 import Event from "./Event";
 import Filters from "./Filters";
 import { isExistingNode } from "../util/roamApi";
+import { roamDateRegex } from "../util/regex";
 
 const Calendar = () => {
   const [filters, setFilters] = useState({
@@ -45,10 +46,7 @@ const Calendar = () => {
       isChecked = true;
       title = title.replace("{{[[DONE]]}}", "");
     }
-    // info.event.setProp("color", "red");
     // console.log(info.event);
-    // if (info.event.extendedProps.isRef)
-    //   info.event.setProp("borderColor", "red");
     return (
       <Event
         displayTitle={title}
@@ -78,20 +76,36 @@ const Calendar = () => {
     const targetPageUid = window.roamAlphaAPI.util.dateToPageUid(
       info.event.start
     );
-    if (!isExistingNode(targetPageUid))
-      await window.roamAlphaAPI.data.page.create({
-        page: {
-          title: window.roamAlphaAPI.util.dateToPageTitle(info.event.start),
-          uid: targetPageUid,
-        },
+    if (info.event.extendedProps.isRef) {
+      let blockContent = info.event.title;
+      let matchingDates = blockContent.match(roamDateRegex);
+      const newRoamDate = window.roamAlphaAPI.util.dateToPageTitle(
+        info.event.start
+      );
+      if (matchingDates && matchingDates.length) {
+        let currentDateStr = removeSquareBrackets(matchingDates[0]);
+        blockContent = blockContent.replace(currentDateStr, newRoamDate);
+      } else blockContent += ` [[${newRoamDate}]]`;
+      window.roamAlphaAPI.updateBlock({
+        block: { uid: info.event.id, string: blockContent },
       });
-    window.roamAlphaAPI.moveBlock({
-      location: {
-        "parent-uid": targetPageUid,
-        order: "last",
-      },
-      block: { uid: info.event.id },
-    });
+      info.event.setProp("title", blockContent);
+    } else {
+      if (!isExistingNode(targetPageUid))
+        await window.roamAlphaAPI.data.page.create({
+          page: {
+            title: window.roamAlphaAPI.util.dateToPageTitle(info.event.start),
+            uid: targetPageUid,
+          },
+        });
+      window.roamAlphaAPI.moveBlock({
+        location: {
+          "parent-uid": targetPageUid,
+          order: "last",
+        },
+        block: { uid: info.event.id },
+      });
+    }
   };
 
   return (
