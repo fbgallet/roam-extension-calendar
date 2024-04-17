@@ -22,6 +22,7 @@ const Calendar = () => {
     progress: true,
     important: true,
     urgent: true,
+    calendar: true,
     other: true,
   });
   const isDataToReload = useRef(true);

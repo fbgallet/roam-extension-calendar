@@ -28,6 +28,8 @@ export const getTagColor = (title) => {
     case "do date":
     case "scheduled":
       return "green";
+    case "calendar":
+      return "none";
     default:
       return "grey";
   }
@@ -38,8 +40,10 @@ const tagsTitle = [
   "important",
   "urgent",
   "in progress",
-  "due",
+  "due date",
+  "do date",
   "scheduled",
+  "calendar",
   "TODO",
 ];
 const mapOfTags = tagsTitle.map((tag) => {
@@ -50,7 +54,7 @@ const mapOfTags = tagsTitle.map((tag) => {
   };
 });
 
-export const getBlocksToDisplayFromDNP = (start, end, toInclude = "TODO") => {
+export const getBlocksToDisplayFromDNP = (start, end, onlyCalendarTag) => {
   console.log("mapOfTags :>> ", mapOfTags);
   let events = [];
   for (
@@ -70,6 +74,7 @@ export const getBlocksToDisplayFromDNP = (start, end, toInclude = "TODO") => {
         currentDate,
         pageAndRefsTrees[i],
         mapOfTags,
+        onlyCalendarTag,
         i > 0 ? true : false
       );
       // console.log("filteredEvents :>> ", filteredEvents);
@@ -85,45 +90,62 @@ const filterTreeToGetEvents = (
   currentDate,
   tree,
   mapToInclude,
+  onlyCalendarTag,
   isRef
 ) => {
   // console.log("currentDate :>> ", currentDate);
   const events = [];
-  let dateString;
+  const dateString = dateToISOString(currentDate);
 
   if (tree && tree.length) processTreeRecursively(tree);
   return events;
 
-  function processTreeRecursively(tree) {
+  function processTreeRecursively(tree, isCalendarTree) {
+    let isCalendarParent = false;
     for (let i = 0; i < tree.length; i++) {
       if (/*!isRef && */ tree[i].refs && isReferencingDNP(tree[i].refs, dnpUid))
         continue;
-      const matchingRefs = getMatchingTags(
+      let matchingTags = getMatchingTags(
         mapToInclude,
         tree[i].refs?.map((ref) => ref.uid)
       );
-      // console.log("matchingRefs :>> ", matchingRefs);
-      if (tree[i].refs?.length > 0 && matchingRefs.length > 0) {
-        dateString = dateString || dateToISOString(currentDate);
-        events.push({
-          id: tree[i].uid,
-          title: resolveReferences(tree[i].string),
-          date: dateString,
-          classNames: matchingRefs.map((ref) => ref.replace(" ", "_")),
-          extendedProps: { eventTags: matchingRefs, isRef: isRef },
-          color: matchingRefs.length
-            ? mapOfTags.find((tag) => tag.title === matchingRefs[0]).color
-            : undefined,
-          borderColor: isRef ? "red" : "transparent",
-        });
+      if (
+        isCalendarTree ||
+        (tree[i].refs?.length > 0 && matchingTags.length > 0)
+      ) {
+        if (!isCalendarTree && matchingTags[0] === "calendar")
+          isCalendarParent = true;
+        else {
+          if (isCalendarTree) matchingTags.push("calendar");
+          if (isCalendarTree) console.log(tree[i].string, matchingTags);
+          // dateString = dateString || dateToISOString(currentDate);
+          events.push({
+            id: tree[i].uid,
+            title: resolveReferences(tree[i].string),
+            date: dateString,
+            classNames: matchingTags.length
+              ? matchingTags.map((tag) => tag.replace(" ", "_"))
+              : "",
+            eventDisplay:
+              matchingTags.length === 1 && matchingTags[0] === "calendar"
+                ? "list-item"
+                : "block",
+            extendedProps: { eventTags: matchingTags, isRef: isRef },
+            color: matchingTags.length
+              ? mapOfTags.find((tag) => tag.title === matchingTags[0]).color
+              : undefined,
+            borderColor: isRef ? "red" : "transparent",
+          });
+        }
       }
       let subTree = tree[i].children;
       if (
-        (!matchingRefs.length ||
-          !(matchingRefs.includes("TODO") || matchingRefs.includes("DONE"))) &&
+        !isCalendarTree &&
+        (!matchingTags.length ||
+          !(matchingTags.includes("TODO") || matchingTags.includes("DONE"))) &&
         subTree
       ) {
-        processTreeRecursively(subTree);
+        processTreeRecursively(subTree, isCalendarParent);
       }
     }
   }
