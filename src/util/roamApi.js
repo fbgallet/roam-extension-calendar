@@ -9,6 +9,20 @@ export function getTreeByUid(uid) {
   else return null;
 }
 
+export function getFirstChildrenOfReferenceByNameOnPageByUid(refName, pageUid) {
+  const result = window.roamAlphaAPI.q(`[:find
+    (pull ?children [:block/string :block/uid :block/refs])
+  :where
+    [?page :block/uid "${pageUid}"]
+    [?reference :node/title "${refName}"]
+    [?node :block/page ?page]
+    [?node :block/refs ?reference]
+    [?node :block/children ?children]
+    [?children :block/parents ?node]]`);
+  if (result) return result.map((child) => child[0]);
+  else return null;
+}
+
 export function getBlockContentByUid(uid) {
   let result = window.roamAlphaAPI.pull("[:block/string]", [":block/uid", uid]);
   if (result) return result[":block/string"];

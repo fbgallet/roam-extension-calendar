@@ -1,6 +1,7 @@
 import { dateToISOString, getDistantDate } from "./dates";
 import { dnpUidRegex } from "./regex";
 import {
+  getFirstChildrenOfReferenceByNameOnPageByUid,
   getLinkedReferencesTrees,
   getPageUidByPageName,
   getTreeByUid,
@@ -94,6 +95,11 @@ const filterTreeToGetEvents = (
   isRef
 ) => {
   // console.log("currentDate :>> ", currentDate);
+  const test = getFirstChildrenOfReferenceByNameOnPageByUid(
+    "calendar",
+    "04-18-2024"
+  );
+  console.log("test :>> ", test);
   const events = [];
   const dateString = dateToISOString(currentDate);
 
