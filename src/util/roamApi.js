@@ -23,6 +23,34 @@ export function getFirstChildrenOfReferenceByNameOnPageByUid(refName, pageUid) {
   else return null;
 }
 
+export function getFirstBlockUidByReferenceOnPage(refName, pageUid) {
+  const result = window.roamAlphaAPI.q(`[:find
+    (pull ?node [:block/string :block/uid])
+  :where
+    [?page :block/uid "${pageUid}"]
+    [?reference :node/title "${refName}"]
+    [?node :block/page ?page]
+    [?node :block/refs ?reference]
+    ]`);
+  console.log("result :>> ", result);
+  if (result.length !== 0) return result[0][0]["uid"];
+  else return null;
+}
+
+export function createChildBlock(
+  parentUid,
+  content = "",
+  order = "last",
+  open = true
+) {
+  const uid = window.roamAlphaAPI.util.generateUID();
+  window.roamAlphaAPI.createBlock({
+    location: { "parent-uid": parentUid, order: order },
+    block: { string: content, uid: uid, open: open },
+  });
+  return uid;
+}
+
 export function getBlockContentByUid(uid) {
   let result = window.roamAlphaAPI.pull("[:block/string]", [":block/uid", uid]);
   if (result) return result[":block/string"];

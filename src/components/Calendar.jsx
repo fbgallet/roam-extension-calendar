@@ -7,7 +7,9 @@ import { useState, useEffect, useRef } from "react";
 import Event from "./Event";
 import Filters from "./Filters";
 import {
+  createChildBlock,
   getBlockContentByUid,
+  getFirstBlockUidByReferenceOnPage,
   isExistingNode,
   resolveReferences,
 } from "../util/roamApi";
@@ -103,9 +105,16 @@ const Calendar = () => {
             uid: targetPageUid,
           },
         });
+      console.log("target page:", targetPageUid);
+      let targetBlockUid = getFirstBlockUidByReferenceOnPage(
+        "calendar",
+        targetPageUid
+      );
+      if (!targetBlockUid)
+        targetBlockUid = createChildBlock(targetPageUid, "#calendar");
       window.roamAlphaAPI.moveBlock({
         location: {
-          "parent-uid": targetPageUid,
+          "parent-uid": targetBlockUid, //targetPageUid,
           order: "last",
         },
         block: { uid: info.event.id },
