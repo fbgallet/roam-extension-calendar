@@ -95,11 +95,6 @@ const filterTreeToGetEvents = (
   isRef
 ) => {
   // console.log("currentDate :>> ", currentDate);
-  const test = getFirstChildrenOfReferenceByNameOnPageByUid(
-    "calendar",
-    "04-18-2024"
-  );
-  console.log("test :>> ", test);
   const events = [];
   const dateString = dateToISOString(currentDate);
 
@@ -122,8 +117,8 @@ const filterTreeToGetEvents = (
         if (!isCalendarTree && matchingTags[0] === "calendar")
           isCalendarParent = true;
         else {
+          if (!isCalendarTree && onlyCalendarTag) continue;
           if (isCalendarTree) matchingTags.push("calendar");
-          if (isCalendarTree) console.log(tree[i].string, matchingTags);
           // dateString = dateString || dateToISOString(currentDate);
           events.push({
             id: tree[i].uid,

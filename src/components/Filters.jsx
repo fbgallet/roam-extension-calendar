@@ -1,7 +1,9 @@
 import { Checkbox, Tooltip } from "@blueprintjs/core";
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
+import EditEvent from "./EditEvent";
 
 const Filters = ({ filters, setFilters }) => {
+  const [popoverIsOpen, setPopoverIsOpen] = useState(false);
   // useEffect(() => {
   //   console.log("filter changed");
   // }, []);
@@ -46,6 +48,8 @@ const Filters = ({ filters, setFilters }) => {
       <button onClick={switchFilters}>
         {Object.values(filters).some((filter) => !filter) ? "All" : "None"}
       </button>
+      <button onClick={() => setPopoverIsOpen((prev) => !prev)}>Open</button>
+      <EditEvent popoverIsOpen={popoverIsOpen} />
     </div>
   );
 };

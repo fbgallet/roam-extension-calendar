@@ -40,3 +40,19 @@
   padding-left: 3px;
   overflow: hidden;
 }
+
+.fc-day-header {
+  display: flex;
+  justify-content: space-between;
+}
+
+.fc-event-popover,
+.fc-event-popover > div {
+  display: flex;
+  flex-direction: column;
+}
+.fc-event-popover span,
+.fc-event-popover button {
+  cursor: pointer;
+  align-self: flex-end;
+}

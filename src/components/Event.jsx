@@ -1,8 +1,12 @@
-import { Checkbox, Tooltip } from "@blueprintjs/core";
+import { Checkbox, Tooltip, Popover, Classes } from "@blueprintjs/core";
 import { updateBlock } from "../util/roamApi";
 import { getTagColor, replaceItemAndGetUpdatedArray } from "../util/data";
+import { useState, useRef } from "react";
 
 const Event = ({ displayTitle, event, hasCheckbox, isChecked }) => {
+  const [popoverIsOpen, setPopoverIsOpen] = useState(false);
+  const popoverRef = useRef(null);
+
   return (
     <Tooltip content={event.title}>
       {hasCheckbox ? (
@@ -56,10 +60,42 @@ const Event = ({ displayTitle, event, hasCheckbox, isChecked }) => {
           {displayTitle}
         </Checkbox>
       ) : (
-        event.title
+        <Popover
+          isOpen={popoverIsOpen}
+          position={"bottom"}
+          popoverClassName={Classes.POPOVER_CONTENT_SIZING}
+          content={
+            <div class={"fc-event-popover popover" + event.id}>
+              <span onClick={() => setPopoverIsOpen((prev) => !prev)}>x</span>
+              <div ref={popoverRef}>
+                {event.title}
+                <button
+                  onClick={() => {
+                    window.roamAlphaAPI.ui.components.renderBlock({
+                      uid: event.id,
+                      el: popoverRef.current,
+                    });
+                  }}
+                >
+                  🖋️
+                </button>
+              </div>
+            </div>
+          }
+          usePortal={true}
+        >
+          <div onClick={() => setPopoverIsOpen((prev) => !prev)}>
+            {event.title}
+          </div>
+        </Popover>
       )}
     </Tooltip>
   );
 };
+
+// {window.roamAlphaAPI.ui.components.renderBlock({
+//   uid: event.id,
+//   el: popoverRef.current,
+// })}
 
 export default Event;

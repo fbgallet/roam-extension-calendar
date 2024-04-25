@@ -14,8 +14,12 @@ import {
   resolveReferences,
 } from "../util/roamApi";
 import { roamDateRegex } from "../util/regex";
+import EditEvent from "./EditEvent";
+import NewEventDialog from "./NewEventDialog";
 
 const Calendar = () => {
+  const [newEventDialogIsOpen, setNewEventDialogIsOpen] = useState(false);
+
   const [filters, setFilters] = useState({
     TODO: true,
     DONE: true,
@@ -36,8 +40,14 @@ const Calendar = () => {
     if (events.current.length !== 0) isDataToReload.current = false;
   }, [filters]);
 
-  const handleDayClick = (e) => {
-    console.log("Day clicked", e);
+  const handleSelectDays = (e) => {
+    console.log("Day clicked", e.jsEvent);
+  };
+
+  const handleSquareDayClick = (info) => {
+    const targetDnpUid = window.roamAlphaAPI.util.dateToPageUid(info.date);
+    console.log(targetDnpUid);
+    setNewEventDialogIsOpen(true);
   };
 
   const renderEventContent = (info) => {
@@ -64,10 +74,15 @@ const Calendar = () => {
     );
   };
 
+  const renderDayContent = (info, elt) => {
+    console.log("day:", info);
+    // return <EditEvent />;
+  };
+
   const getEventsFromDNP = async (info) => {
     console.log("events.current :>> ", events.current);
     if (isDataToReload.current)
-      events.current = getBlocksToDisplayFromDNP(info.start, info.end);
+      events.current = getBlocksToDisplayFromDNP(info.start, info.end, true);
     else isDataToReload.current = true;
     const eventsToDisplay = events.current.filter(
       (evt) =>
@@ -124,6 +139,11 @@ const Calendar = () => {
 
   return (
     <>
+      <NewEventDialog
+        newEventDialogIsOpen={newEventDialogIsOpen}
+        setNewEventDialogIsOpen={setNewEventDialogIsOpen}
+        pageUid={pageUid}
+      />
       <Filters filters={filters} setFilters={setFilters} />
       <FullCalendar
         plugins={[dayGridPlugin, multiMonthPlugin, interactionPlugin]}
@@ -180,7 +200,10 @@ const Calendar = () => {
           // });
         }}
         eventDrop={handleEventDrop}
-        select={handleDayClick}
+        dateClick={handleSquareDayClick}
+        select={handleSelectDays}
+        dayHeaders={false}
+        // dayCellContent={renderDayContent}
       />
     </>
   );
