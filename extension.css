@@ -40,6 +40,16 @@
   padding-left: 3px;
   overflow: hidden;
 }
+.fc-event:not(.fc-event-main) {
+  overflow: hidden;
+}
+
+.fc-event-content {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+}
 
 .fc-day-header {
   display: flex;

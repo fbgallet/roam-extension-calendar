@@ -17,6 +17,7 @@
     "@fullcalendar/interaction": "^6.1.10",
     "@fullcalendar/multimonth": "^6.1.11",
     "@fullcalendar/react": "^6.1.10",
+    "@fullcalendar/timegrid": "^6.1.11",
     "luxon": "^3.4.4",
     "roamjs-scripts": "^0.27.0"
   }

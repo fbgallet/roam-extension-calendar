@@ -3,7 +3,14 @@ import { updateBlock } from "../util/roamApi";
 import { getTagColor, replaceItemAndGetUpdatedArray } from "../util/data";
 import { useState, useRef } from "react";
 
-const Event = ({ displayTitle, event, hasCheckbox, isChecked }) => {
+const Event = ({
+  displayTitle,
+  event,
+  timeText,
+  hasCheckbox,
+  isChecked,
+  backgroundColor,
+}) => {
   const [popoverIsOpen, setPopoverIsOpen] = useState(false);
   const popoverRef = useRef(null);
 
@@ -84,8 +91,23 @@ const Event = ({ displayTitle, event, hasCheckbox, isChecked }) => {
           }
           usePortal={true}
         >
-          <div onClick={() => setPopoverIsOpen((prev) => !prev)}>
-            {event.title}
+          <div
+            className="fc-event-content"
+            onClick={() => setPopoverIsOpen((prev) => !prev)}
+          >
+            <div
+              // style={roundStyle}
+              style={{
+                width: "10px",
+                height: "10px",
+                borderRadius: "50%",
+                backgroundColor: backgroundColor,
+              }}
+            ></div>
+            <div>
+              {timeText ? <b>{timeText} </b> : ""}
+              {event.title}
+            </div>
           </div>
         </Popover>
       )}

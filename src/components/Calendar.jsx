@@ -1,6 +1,7 @@
 import FullCalendar from "@fullcalendar/react";
 import interactionPlugin, { Draggable } from "@fullcalendar/interaction";
 import dayGridPlugin from "@fullcalendar/daygrid";
+import timeGridPlugin from "@fullcalendar/timegrid";
 import multiMonthPlugin from "@fullcalendar/multimonth";
 import {
   getBlocksToDisplayFromDNP,
@@ -15,6 +16,7 @@ import {
   createChildBlock,
   getBlockContentByUid,
   getFirstBlockUidByReferenceOnPage,
+  getPageNameByPageUid,
   isExistingNode,
   resolveReferences,
 } from "../util/roamApi";
@@ -47,17 +49,32 @@ const Calendar = () => {
   }, [filters]);
 
   const handleSelectDays = (e) => {
-    console.log("Day clicked", e.jsEvent);
+    console.log("Day selected");
   };
 
-  const handleSquareDayClick = (info) => {
-    const targetDnpUid = window.roamAlphaAPI.util.dateToPageUid(info.date);
-    console.log(targetDnpUid);
-    setFocusedPageUid(targetDnpUid);
-    setNewEventDialogIsOpen(true);
+  const handleSquareDayClick = async (info) => {
+    console.log("Day clicked", info.jsEvent);
+    if (info.jsEvent.shiftKey) {
+      const targetDnpUid = window.roamAlphaAPI.util.dateToPageUid(info.date);
+      if (!isExistingNode(targetDnpUid)) {
+        await window.roamAlphaAPI.data.page.create({
+          page: {
+            title: window.roamAlphaAPI.util.dateToPageTitle(info.date),
+            uid: targetDnpUid,
+          },
+        });
+      }
+      window.roamAlphaAPI.ui.rightSidebar.addWindow({
+        window: { type: "outline", "block-uid": targetDnpUid },
+      });
+    } else {
+      setFocusedPageUid(targetDnpUid);
+      setNewEventDialogIsOpen(true);
+    }
   };
 
   const renderEventContent = (info) => {
+    console.log(info);
     let title = info.event.title;
     let hasCheckbox = false;
     let isChecked;
@@ -75,8 +92,10 @@ const Calendar = () => {
       <Event
         displayTitle={title}
         event={info.event}
+        timeText={info.timeText}
         hasCheckbox={hasCheckbox}
         isChecked={isChecked}
+        backgroundColor={info.backgroundColor}
       ></Event>
     );
   };
@@ -142,44 +161,49 @@ const Calendar = () => {
       />
       <Filters filters={filters} setFilters={setFilters} />
       <FullCalendar
-        plugins={[dayGridPlugin, multiMonthPlugin, interactionPlugin]}
+        plugins={[
+          dayGridPlugin,
+          timeGridPlugin,
+          multiMonthPlugin,
+          interactionPlugin,
+        ]}
         initialView="dayGridMonth"
         headerToolbar={{
           left: "prev,next today",
           center: "title",
-          right: "multiMonthYear,dayGridMonth,dayGridWeek,dayGridDay",
+          right: "multiMonthYear,dayGridMonth,timeGridWeek,timeGridDay",
         }}
         firstDay={1}
+        nowIndicator={true}
+        slotMinTime="06:00"
+        slotMaxTime="22:00"
         navLinks={true}
         editable={true}
         selectable={true}
         droppable={true}
         dayMaxEvents={true}
-        events={getEventsFromDNP}
+        // events={getEventsFromDNP}
         // initialEvents={getEventsFromDNP}
         // events={events}
-        // eventSources={[
-        //   [
-        //     { title: "My First Event", date: "2024-04-06", editable: true },
-        //     {
-        //       title:
-        //         "My second event with a very very very long title, will it be shortened ?",
-        //       date: "2024-04-08",
-        //       display: "list-item",
-        //     },
-        //     {
-        //       title: "My third event",
-        //       date: "2024-04-08",
-        //       display: "list-item",
-        //     },
-        //     {
-        //       title: "My event 4",
-        //       date: "2024-04-08",
-        //       display: "list-item",
-        //     },
-        //   ],
-        //   getEventsFromDNP,
-        // ]}
+        events={[
+          { title: "My First Event", date: "2024-04-06", editable: true },
+          {
+            title: "My second event",
+            start: "2024-04-08T09:30:00",
+            end: "2024-04-08T11:00:00",
+            // start: "2024-04-08 11:00",
+            // end: "11:00",
+            display: "list-item",
+            color: "red",
+            // allDay: false,
+          },
+        ]}
+        // eventTimeFormat={{
+        //   // like '14:30:00'
+        //   hour: "2-digit",
+        //   minute: "2-digit",
+        //   meridiem: false,
+        // }}
         eventContent={(info, jsEvent) => renderEventContent(info, jsEvent)}
         eventClick={(info) => {
           // console.log("Event: ", info.event);
@@ -189,16 +213,11 @@ const Calendar = () => {
               window: { type: "block", "block-uid": info.event.id },
             });
           }
-          // console.log("View: ", info.view);
-          // window.roamAlphaAPI.ui.components.renderBlock({
-          //   uid: "zNLBAJtII",
-          //   el: info.jsEvent.target,
-          // });
         }}
         eventDrop={handleEventDrop}
         dateClick={handleSquareDayClick}
         select={handleSelectDays}
-        dayHeaders={false}
+        dayHeaders={true}
         // dayCellContent={renderDayContent}
       />
     </>
