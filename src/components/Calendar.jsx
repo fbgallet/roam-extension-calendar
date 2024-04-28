@@ -2,7 +2,12 @@ import FullCalendar from "@fullcalendar/react";
 import interactionPlugin, { Draggable } from "@fullcalendar/interaction";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import multiMonthPlugin from "@fullcalendar/multimonth";
-import { getBlocksToDisplayFromDNP, removeSquareBrackets } from "../util/data";
+import {
+  getBlocksToDisplayFromDNP,
+  getCalendarUidFromPage,
+  insertEventOnPage,
+  removeSquareBrackets,
+} from "../util/data";
 import { useState, useEffect, useRef } from "react";
 import Event from "./Event";
 import Filters from "./Filters";
@@ -19,6 +24,7 @@ import NewEventDialog from "./NewEventDialog";
 
 const Calendar = () => {
   const [newEventDialogIsOpen, setNewEventDialogIsOpen] = useState(false);
+  const [focusedPageUid, setFocusedPageUid] = useState(null);
 
   const [filters, setFilters] = useState({
     TODO: true,
@@ -47,6 +53,7 @@ const Calendar = () => {
   const handleSquareDayClick = (info) => {
     const targetDnpUid = window.roamAlphaAPI.util.dateToPageUid(info.date);
     console.log(targetDnpUid);
+    setFocusedPageUid(targetDnpUid);
     setNewEventDialogIsOpen(true);
   };
 
@@ -82,7 +89,7 @@ const Calendar = () => {
   const getEventsFromDNP = async (info) => {
     console.log("events.current :>> ", events.current);
     if (isDataToReload.current)
-      events.current = getBlocksToDisplayFromDNP(info.start, info.end, true);
+      events.current = getBlocksToDisplayFromDNP(info.start, info.end, false);
     else isDataToReload.current = true;
     const eventsToDisplay = events.current.filter(
       (evt) =>
@@ -113,23 +120,12 @@ const Calendar = () => {
       });
       info.event.setProp("title", resolveReferences(blockContent));
     } else {
-      if (!isExistingNode(targetPageUid))
-        await window.roamAlphaAPI.data.page.create({
-          page: {
-            title: window.roamAlphaAPI.util.dateToPageTitle(info.event.start),
-            uid: targetPageUid,
-          },
-        });
-      console.log("target page:", targetPageUid);
-      let targetBlockUid = getFirstBlockUidByReferenceOnPage(
-        "calendar",
-        targetPageUid
+      let calendarBlockUid = await getCalendarUidFromPage(
+        window.roamAlphaAPI.util.dateToPageTitle(info.event.start)
       );
-      if (!targetBlockUid)
-        targetBlockUid = createChildBlock(targetPageUid, "#calendar");
       window.roamAlphaAPI.moveBlock({
         location: {
-          "parent-uid": targetBlockUid, //targetPageUid,
+          "parent-uid": calendarBlockUid,
           order: "last",
         },
         block: { uid: info.event.id },
@@ -142,7 +138,7 @@ const Calendar = () => {
       <NewEventDialog
         newEventDialogIsOpen={newEventDialogIsOpen}
         setNewEventDialogIsOpen={setNewEventDialogIsOpen}
-        pageUid={pageUid}
+        pageUid={focusedPageUid}
       />
       <Filters filters={filters} setFilters={setFilters} />
       <FullCalendar

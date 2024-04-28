@@ -1,10 +1,13 @@
 import { dateToISOString, getDistantDate } from "./dates";
 import { dnpUidRegex } from "./regex";
 import {
+  createChildBlock,
+  getFirstBlockUidByReferenceOnPage,
   getFirstChildrenOfReferenceByNameOnPageByUid,
   getLinkedReferencesTrees,
   getPageUidByPageName,
   getTreeByUid,
+  isExistingNode,
   resolveReferences,
 } from "./roamApi";
 
@@ -188,4 +191,22 @@ export const replaceItemAndGetUpdatedArray = (
 
 export const removeSquareBrackets = (str) => {
   return str.replace("[[", "").replace("]]", "");
+};
+
+export const getCalendarUidFromPage = async (targetPageTitle) => {
+  const targetPageUid = getPageUidByPageName(targetPageTitle);
+  if (!isExistingNode(targetPageUid))
+    await window.roamAlphaAPI.data.page.create({
+      page: {
+        title: targetPageTitle,
+        uid: targetPageUid,
+      },
+    });
+  let targetBlockUid = getFirstBlockUidByReferenceOnPage(
+    "calendar",
+    targetPageUid
+  );
+  if (!targetBlockUid)
+    targetBlockUid = createChildBlock(targetPageUid, "#calendar");
+  return targetBlockUid;
 };

@@ -45,11 +45,17 @@ const Filters = ({ filters, setFilters }) => {
       >
         Important
       </Checkbox>
+      <Checkbox checked={filters.due} onChange={() => handleCheck("due")}>
+        Due date
+      </Checkbox>
+      <Checkbox checked={filters.do} onChange={() => handleCheck("do")}>
+        Do date
+      </Checkbox>
       <button onClick={switchFilters}>
         {Object.values(filters).some((filter) => !filter) ? "All" : "None"}
       </button>
-      <button onClick={() => setPopoverIsOpen((prev) => !prev)}>Open</button>
-      <EditEvent popoverIsOpen={popoverIsOpen} />
+      {/* <button onClick={() => setPopoverIsOpen((prev) => !prev)}>Open</button>
+      <EditEvent popoverIsOpen={popoverIsOpen} /> */}
     </div>
   );
 };
