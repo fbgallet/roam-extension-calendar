@@ -48,12 +48,26 @@ const panelConfig = {
 };
 
 const handleClickOnCalendarBtn = (e) => {
-  // if (e.shiftKey) {
   e.preventDefault();
-  const appWrapper = document.querySelector(`.full-calendar-comp`);
-  if (!appWrapper) renderApp();
-  else unmountApp(appWrapper);
-  // }
+  let appWrapper;
+  let inSidebar = false;
+  if (e.shiftKey) {
+    window.roamAlphaAPI.ui.rightSidebar.open();
+    inSidebar = true;
+    appWrapper = document.querySelector(".full-calendar-comp.fc-sidebar");
+  } else {
+    appWrapper = document.querySelector(".full-calendar-comp:not(.fc-sidebar)");
+  }
+  if (!appWrapper) {
+    setTimeout(
+      () => {
+        renderApp(inSidebar);
+      },
+      inSidebar && !document.querySelector("#roam-right-sidebar-content")
+        ? 250
+        : 0
+    );
+  } else unmountApp(appWrapper);
 };
 
 export default {
