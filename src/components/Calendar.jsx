@@ -152,6 +152,12 @@ const Calendar = () => {
     }
   };
 
+  const handleExernalDrop = (info) => {
+    console.log("info :>> ", info);
+    console.log("info.draggedEl :>> ", info.draggedEl);
+    console.log("info.jsEvent :>> ", info.jsEvent);
+  };
+
   return (
     <>
       <NewEventDialog
@@ -181,6 +187,7 @@ const Calendar = () => {
         editable={true}
         selectable={true}
         droppable={true}
+        draggable={true}
         dayMaxEvents={true}
         // events={getEventsFromDNP}
         // initialEvents={getEventsFromDNP}
@@ -218,6 +225,7 @@ const Calendar = () => {
         dateClick={handleSquareDayClick}
         select={handleSelectDays}
         dayHeaders={true}
+        drop={handleExernalDrop}
         // dayCellContent={renderDayContent}
       />
     </>

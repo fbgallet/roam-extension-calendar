@@ -1,6 +1,7 @@
 // import { addObserver, disconnectObserver } from "./observers";
 
-import { renderApp } from "./components/App";
+import { preventDefault } from "@fullcalendar/core/internal";
+import { renderApp, unmountApp } from "./components/App";
 
 const panelConfig = {
   tabTitle: "Calendar",
@@ -44,6 +45,15 @@ const panelConfig = {
     //   },
     // },
   ],
+};
+
+const handleClickOnCalendarBtn = (e) => {
+  // if (e.shiftKey) {
+  e.preventDefault();
+  const appWrapper = document.querySelector(`.full-calendar-comp`);
+  if (!appWrapper) renderApp();
+  else unmountApp(appWrapper);
+  // }
 };
 
 export default {
@@ -95,6 +105,16 @@ export default {
 
     // addObserver();
 
+    const calendarBtnElt = document.querySelector(
+      "button:has(span[icon='calendar'])"
+    );
+    calendarBtnElt.parentElement.parentElement.addEventListener(
+      "contextmenu",
+      (e) => {
+        handleClickOnCalendarBtn(e);
+      }
+    );
+
     console.log("Extension loaded.");
     //return;
   },
@@ -104,6 +124,13 @@ export default {
     // roamAlphaAPI.ui.blockContextMenu.removeCommand({
     //   label: "Color Highlighter: Remove color tags",
     // });
+    const calendarBtnElt = document.querySelector(
+      "button:has(span[icon='calendar'])"
+    );
+    calendarBtnElt.removeEventListener("contextmenu", (e) => {
+      handleClickOnCalendarBtn(e);
+    });
+
     console.log("Extension unloaded");
   },
 };

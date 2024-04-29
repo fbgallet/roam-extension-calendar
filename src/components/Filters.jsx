@@ -30,6 +30,11 @@ const Filters = ({ filters, setFilters }) => {
     });
   };
 
+  const handleSticky = () => {
+    const calendarElt = document.querySelector(".full-calendar-comp");
+    calendarElt.classList.add("fc-sticky");
+  };
+
   return (
     <div className="full-calendar-filters">
       <b>Filter events: </b>
@@ -54,6 +59,7 @@ const Filters = ({ filters, setFilters }) => {
       <button onClick={switchFilters}>
         {Object.values(filters).some((filter) => !filter) ? "All" : "None"}
       </button>
+      <button onClick={handleSticky}>📌</button>
       {/* <button onClick={() => setPopoverIsOpen((prev) => !prev)}>Open</button>
       <EditEvent popoverIsOpen={popoverIsOpen} /> */}
     </div>

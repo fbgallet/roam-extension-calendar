@@ -1,3 +1,18 @@
+.full-calendar-comp {
+  padding: 0 20px;
+  overflow-y: auto;
+}
+
+.full-calendar-comp.fc-sticky {
+  max-height: 50%;
+  resize: vertical;
+  overflow-y: auto;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--fc-page-bg-color);
+}
+
 .full-calendar-comp .fc-event-main .bp3-control,
 .full-calendar-filters .bp3-control {
   margin-bottom: 0;
