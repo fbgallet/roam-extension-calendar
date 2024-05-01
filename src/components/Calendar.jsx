@@ -23,10 +23,18 @@ import {
 import { roamDateRegex } from "../util/regex";
 import EditEvent from "./EditEvent";
 import NewEventDialog from "./NewEventDialog";
+import { dateToISOString } from "../util/dates";
+
+// let draggable = new Draggable(document.querySelector(".roam-app"), {
+//   itemSelector: ".rm-bullet",
+// });
+let events = [];
 
 const Calendar = () => {
   const [newEventDialogIsOpen, setNewEventDialogIsOpen] = useState(false);
   const [focusedPageUid, setFocusedPageUid] = useState(null);
+  // const [events, setEvents] = useState([]);
+  const [addedEvent, setAddedEvent] = useState(null);
 
   const [filters, setFilters] = useState({
     TODO: true,
@@ -40,12 +48,10 @@ const Calendar = () => {
     other: true,
   });
   const isDataToReload = useRef(true);
-  const events = useRef([]);
-
-  console.log("events // :>> ", events.current);
+  // const events = useRef([]);
 
   useEffect(() => {
-    if (events.current.length !== 0) isDataToReload.current = false;
+    if (events.length !== 0) isDataToReload.current = false;
   }, [filters]);
 
   const handleSelectDays = (e) => {
@@ -54,8 +60,8 @@ const Calendar = () => {
 
   const handleSquareDayClick = async (info) => {
     console.log("Day clicked", info.jsEvent);
+    const targetDnpUid = window.roamAlphaAPI.util.dateToPageUid(info.date);
     if (info.jsEvent.shiftKey) {
-      const targetDnpUid = window.roamAlphaAPI.util.dateToPageUid(info.date);
       if (!isExistingNode(targetDnpUid)) {
         await window.roamAlphaAPI.data.page.create({
           page: {
@@ -74,7 +80,6 @@ const Calendar = () => {
   };
 
   const renderEventContent = (info) => {
-    console.log(info);
     let title = info.event.title;
     let hasCheckbox = false;
     let isChecked;
@@ -106,11 +111,12 @@ const Calendar = () => {
   };
 
   const getEventsFromDNP = async (info) => {
-    console.log("events.current :>> ", events.current);
-    if (isDataToReload.current)
-      events.current = getBlocksToDisplayFromDNP(info.start, info.end, false);
-    else isDataToReload.current = true;
-    const eventsToDisplay = events.current.filter(
+    console.log("events :>> ", events);
+    if (isDataToReload.current) {
+      events = getBlocksToDisplayFromDNP(info.start, info.end, false);
+    } else isDataToReload.current = true;
+    // if (!events.length) return [];
+    const eventsToDisplay = events.filter(
       (evt) =>
         !(evt.extendedProps?.eventTags[0] === "DONE" && !filters["DONE"]) &&
         evt.extendedProps?.eventTags?.some((tag) => filters[tag])
@@ -152,18 +158,67 @@ const Calendar = () => {
     }
   };
 
-  const handleExernalDrop = (info) => {
-    console.log("info :>> ", info);
-    console.log("info.draggedEl :>> ", info.draggedEl);
-    console.log("info.jsEvent :>> ", info.jsEvent);
-  };
+  // const handleExernalDrop = (info) => {
+  //   // console.log("info :>> ", info);
+  //   console.log("info.draggedEl :>> ", info.draggedEl);
+  //   console.log(
+  //     "uid :>> ",
+  //     info.draggedEl.parentElement?.nextElementSibling?.id?.slice(-9)
+  //   );
+  //   // console.log("info.jsEvent :>> ", info.jsEvent);
+  // };
 
   return (
-    <>
+    <div
+      onDragOver={(e) => {
+        e.preventDefault();
+      }}
+      onDragEnter={(e) => {
+        e.preventDefault();
+      }}
+      onDrop={async (e) => {
+        e.preventDefault();
+        const sourceUid = e.dataTransfer.getData("text");
+        const blockContent = getBlockContentByUid(sourceUid);
+        const targetDateString = e.target.parentNode.dataset["date"];
+        const targetDate = new Date(targetDateString);
+        const isoDate = dateToISOString(targetDate);
+        let calendarBlockUid = await getCalendarUidFromPage(
+          window.roamAlphaAPI.util.dateToPageTitle(targetDate)
+        );
+        createChildBlock(calendarBlockUid, `((${sourceUid}))`);
+        events.push({
+          id: sourceUid,
+          title: blockContent,
+          date: isoDate,
+          extendedProps: { eventTags: ["calendar"], isRef: false },
+          borderColor: "transparent",
+          color: "none",
+          classNames: ["calendar"],
+        });
+        isDataToReload.current = false;
+        setAddedEvent(sourceUid);
+
+        // setEvents((prev) => {
+        //   const clone = [...prev];
+        //   clone.push({
+        //     id: sourceUid,
+        //     title: blockContent,
+        //     date: isoDate,
+        //     extendedProps: { eventTags: ["calendar"], isRef: false },
+        //     borderColor: "transparent",
+        //     color: "none",
+        //     classNames: ["calendar"],
+        //   });
+        //   return clone;
+        // });
+      }}
+    >
       <NewEventDialog
         newEventDialogIsOpen={newEventDialogIsOpen}
         setNewEventDialogIsOpen={setNewEventDialogIsOpen}
         pageUid={focusedPageUid}
+        // setEvents={setEvents}
       />
       <Filters filters={filters} setFilters={setFilters} />
       <FullCalendar
@@ -180,6 +235,7 @@ const Calendar = () => {
           right: "multiMonthYear,dayGridMonth,timeGridWeek,timeGridDay",
         }}
         firstDay={1}
+        fixedWeekCount={false}
         nowIndicator={true}
         slotMinTime="06:00"
         slotMaxTime="22:00"
@@ -187,24 +243,24 @@ const Calendar = () => {
         editable={true}
         selectable={true}
         droppable={true}
-        draggable={true}
+        // draggable={true}
         dayMaxEvents={true}
-        // events={getEventsFromDNP}
         // initialEvents={getEventsFromDNP}
+        events={getEventsFromDNP}
         // events={events}
-        events={[
-          { title: "My First Event", date: "2024-04-06", editable: true },
-          {
-            title: "My second event",
-            start: "2024-04-08T09:30:00",
-            end: "2024-04-08T11:00:00",
-            // start: "2024-04-08 11:00",
-            // end: "11:00",
-            display: "list-item",
-            color: "red",
-            // allDay: false,
-          },
-        ]}
+        // events={[
+        //   { title: "My First Event", date: "2024-04-06", editable: true },
+        //   {
+        //     title: "My second event",
+        //     start: "2024-04-08T09:30:00",
+        //     end: "2024-04-08T11:00:00",
+        //     // start: "2024-04-08 11:00",
+        //     // end: "11:00",
+        //     display: "list-item",
+        //     color: "red",
+        //     // allDay: false,
+        //   },
+        // ]}
         // eventTimeFormat={{
         //   // like '14:30:00'
         //   hour: "2-digit",
@@ -225,10 +281,10 @@ const Calendar = () => {
         dateClick={handleSquareDayClick}
         select={handleSelectDays}
         dayHeaders={true}
-        drop={handleExernalDrop}
+        viewWillUnmount={() => (isDataToReload.current = true)}
         // dayCellContent={renderDayContent}
       />
-    </>
+    </div>
   );
 };
 

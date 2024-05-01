@@ -1,6 +1,9 @@
 .full-calendar-comp {
-  padding: 0 20px;
+  padding: 0 10px;
   overflow-y: auto;
+}
+.full-calendar-comp.fc-sidebar {
+  padding: 0 5px;
 }
 
 .full-calendar-comp.fc-sticky {

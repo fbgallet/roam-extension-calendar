@@ -3,6 +3,10 @@
 import { preventDefault } from "@fullcalendar/core/internal";
 import { renderApp, unmountApp } from "./components/App";
 
+const calendarBtnElt = document.querySelector(
+  "button:has(span[icon='calendar'])"
+);
+
 const panelConfig = {
   tabTitle: "Calendar",
   settings: [
@@ -70,6 +74,35 @@ const handleClickOnCalendarBtn = (e) => {
   } else unmountApp(appWrapper);
 };
 
+const onDragStart = (event) => {
+  if (
+    event.srcElement.tagName === "SPAN" &&
+    event.srcElement.classList[0] === "rm-bullet"
+  ) {
+    const sourceBlockUid =
+      event.srcElement.parentElement?.nextElementSibling?.id?.slice(-9);
+    event.dataTransfer.setData("text/plain", sourceBlockUid);
+  }
+};
+
+const addListeners = () => {
+  removeListeners();
+  document.addEventListener("dragstart", onDragStart);
+  calendarBtnElt.parentElement.parentElement.addEventListener(
+    "contextmenu",
+    (e) => {
+      handleClickOnCalendarBtn(e);
+    }
+  );
+};
+
+const removeListeners = () => {
+  document.removeEventListener("dragstart", onDragStart);
+  calendarBtnElt.removeEventListener("contextmenu", (e) => {
+    handleClickOnCalendarBtn(e);
+  });
+};
+
 export default {
   onload: async ({ extensionAPI }) => {
     extensionAPI.settings.panel.create(panelConfig);
@@ -119,15 +152,7 @@ export default {
 
     // addObserver();
 
-    const calendarBtnElt = document.querySelector(
-      "button:has(span[icon='calendar'])"
-    );
-    calendarBtnElt.parentElement.parentElement.addEventListener(
-      "contextmenu",
-      (e) => {
-        handleClickOnCalendarBtn(e);
-      }
-    );
+    addListeners();
 
     console.log("Extension loaded.");
     //return;
@@ -138,12 +163,7 @@ export default {
     // roamAlphaAPI.ui.blockContextMenu.removeCommand({
     //   label: "Color Highlighter: Remove color tags",
     // });
-    const calendarBtnElt = document.querySelector(
-      "button:has(span[icon='calendar'])"
-    );
-    calendarBtnElt.removeEventListener("contextmenu", (e) => {
-      handleClickOnCalendarBtn(e);
-    });
+    removeListeners();
 
     console.log("Extension unloaded");
   },

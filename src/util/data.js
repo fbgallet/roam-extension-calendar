@@ -59,7 +59,7 @@ const mapOfTags = tagsTitle.map((tag) => {
 });
 
 export const getBlocksToDisplayFromDNP = (start, end, onlyCalendarTag) => {
-  console.log("mapOfTags :>> ", mapOfTags);
+  // console.log("mapOfTags :>> ", mapOfTags);
   let events = [];
   for (
     let currentDate = start;
@@ -85,7 +85,7 @@ export const getBlocksToDisplayFromDNP = (start, end, onlyCalendarTag) => {
       if (filteredEvents.length > 0) events = events.concat(filteredEvents);
     }
   }
-  // console.log("events :>> ", events);
+  console.log("events from data.js :>> ", events);
   return events;
 };
 

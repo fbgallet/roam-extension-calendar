@@ -12,6 +12,7 @@ const NewEventDialog = ({
   newEventDialogIsOpen,
   setNewEventDialogIsOpen,
   pageUid,
+  setEvents,
 }) => {
   const [isBlockRendering, setIsBlockRendering] = useState(false);
   const [eventUid, setEventUid] = useState(null);
@@ -34,8 +35,29 @@ const NewEventDialog = ({
 
   const handleClose = () => {
     if (isBlockRendering) deleteBlock(eventUid);
+    setIsBlockRendering(false);
     setNewEventDialogIsOpen(false);
   };
+
+  const handleConfirm = () => {
+    // setEvents(prev => {
+    //   const clone = [...prev];
+    //       clone.push({
+    //         id: targetUid,
+    //         title: blockContent,
+    //         date: isoDate,
+    //         extendedProps: { eventTags: ["calendar"], isRef: false },
+    //         borderColor: "transparent",
+    //         color: "none",
+    //         classNames: ["calendar"],
+    //       });
+    //       return clone;}
+    //   )
+    console.log(renderRef.current);
+    setIsBlockRendering(false);
+    setNewEventDialogIsOpen(false);
+  };
+
   const pageTitle = getPageNameByPageUid(pageUid);
 
   return (
@@ -56,7 +78,7 @@ const NewEventDialog = ({
       <Button
         intent="primary"
         text={isBlockRendering ? "Confirm" : "New event"}
-        onClick={handleNew}
+        onClick={isBlockRendering ? () => handleConfirm() : () => handleNew()}
         style={{ width: "60px" }}
       />
       {/* <DialogBody> */}
