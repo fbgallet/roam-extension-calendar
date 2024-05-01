@@ -2,10 +2,16 @@
 
 import { preventDefault } from "@fullcalendar/core/internal";
 import { renderApp, unmountApp } from "./components/App";
+import { Tag } from "./models/Tag";
 
 const calendarBtnElt = document.querySelector(
   "button:has(span[icon='calendar'])"
 );
+
+export const mapOfTags = [];
+let importantPages = ["important", "Important"];
+let doPages = ["do", "do date", "scheduled"];
+let duePages = ["due date", "deadline"];
 
 const panelConfig = {
   tabTitle: "Calendar",
@@ -103,6 +109,15 @@ const removeListeners = () => {
   });
 };
 
+const initializeMapOfTags = () => {
+  mapOfTags.push(new Tag("DONE", "grey"));
+  mapOfTags.push(new Tag("important", "red", importantPages));
+  mapOfTags.push(new Tag("do", "orange", doPages));
+  mapOfTags.push(new Tag("due", "purple", duePages));
+  mapOfTags.push(new Tag("other", "lightgrey", ["test"]));
+  mapOfTags.push(new Tag("TODO", "blue"));
+};
+
 export default {
   onload: async ({ extensionAPI }) => {
     extensionAPI.settings.panel.create(panelConfig);
@@ -153,6 +168,8 @@ export default {
     // addObserver();
 
     addListeners();
+    initializeMapOfTags();
+    console.log("mapOfTags :>> ", mapOfTags);
 
     console.log("Extension loaded.");
     //return;

@@ -2,6 +2,7 @@ import { Checkbox, Tooltip, Popover, Classes } from "@blueprintjs/core";
 import { updateBlock } from "../util/roamApi";
 import { getTagColor, replaceItemAndGetUpdatedArray } from "../util/data";
 import { useState, useRef } from "react";
+import { getTagColorFromName } from "../models/Tag";
 
 const Event = ({
   displayTitle,
@@ -39,7 +40,7 @@ const Event = ({
                 "DONE",
                 "TODO"
               );
-              event.setProp("color", getTagColor(updatedTags[0]));
+              event.setProp("color", getTagColorFromName(updatedTags[0]));
             } else {
               updatedTitle = event.title.replace(
                 "{{[[TODO]]}}",
@@ -55,7 +56,7 @@ const Event = ({
                 "TODO",
                 "DONE"
               );
-              event.setProp("color", getTagColor(updatedTags[0]));
+              event.setProp("color", getTagColorFromName(updatedTags[0]));
             }
             event.setProp("title", updatedTitle);
             event.setProp("classNames", updatedClassNames);

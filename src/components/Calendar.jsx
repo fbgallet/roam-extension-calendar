@@ -228,6 +228,7 @@ const Calendar = () => {
           multiMonthPlugin,
           interactionPlugin,
         ]}
+        initialDate={"2024-04-20"}
         initialView="dayGridMonth"
         headerToolbar={{
           left: "prev,next today",

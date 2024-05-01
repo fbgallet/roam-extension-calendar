@@ -1,9 +1,9 @@
+import { mapOfTags } from "..";
 import { dateToISOString, getDistantDate } from "./dates";
 import { dnpUidRegex } from "./regex";
 import {
   createChildBlock,
   getFirstBlockUidByReferenceOnPage,
-  getFirstChildrenOfReferenceByNameOnPageByUid,
   getLinkedReferencesTrees,
   getPageUidByPageName,
   getTreeByUid,
@@ -12,51 +12,6 @@ import {
 } from "./roamApi";
 
 // new Map(tagsTitle.map((tag) => [getPageUidByPageName(tag), tag]));
-
-export const getTagColor = (title) => {
-  switch (title) {
-    case "TODO":
-      return "blue";
-    case "DONE":
-      return "lightgrey";
-    case "doing":
-    case "in progress":
-      return "organge";
-    case "important":
-    case "urgent":
-      return "red";
-    case "due":
-    case "due date":
-    case "deadline":
-      return "purple";
-    case "do date":
-    case "scheduled":
-      return "green";
-    case "calendar":
-      return "none";
-    default:
-      return "grey";
-  }
-};
-
-const tagsTitle = [
-  "DONE",
-  "important",
-  "urgent",
-  "in progress",
-  "due date",
-  "do date",
-  "scheduled",
-  "calendar",
-  "TODO",
-];
-const mapOfTags = tagsTitle.map((tag) => {
-  return {
-    uid: getPageUidByPageName(tag),
-    title: tag,
-    color: getTagColor(tag),
-  };
-});
 
 export const getBlocksToDisplayFromDNP = (start, end, onlyCalendarTag) => {
   // console.log("mapOfTags :>> ", mapOfTags);
@@ -136,7 +91,7 @@ const filterTreeToGetEvents = (
                 : "block",
             extendedProps: { eventTags: matchingTags, isRef: isRef },
             color: matchingTags.length
-              ? mapOfTags.find((tag) => tag.title === matchingTags[0]).color
+              ? mapOfTags.find((tag) => tag.name === matchingTags[0]).color
               : undefined,
             borderColor: isRef ? "red" : "transparent",
           });
@@ -158,8 +113,8 @@ const filterTreeToGetEvents = (
 const getMatchingTags = (mapOfTags, refUidArray) => {
   if (!refUidArray) return [];
   return mapOfTags
-    .filter(({ uid }) => refUidArray.includes(uid))
-    .map(({ title }) => title);
+    .filter(({ uids }) => refUidArray.some((uid) => uids.includes(uid)))
+    .map(({ name }) => name);
 };
 
 const isReferencingDNP = (refs, dnpUid) => {
