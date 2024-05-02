@@ -83,7 +83,7 @@ const filterTreeToGetEvents = (
             title: resolveReferences(tree[i].string),
             date: dateString,
             classNames: matchingTags.length
-              ? matchingTags.map((tag) => tag.replace(" ", "_"))
+              ? matchingTags.map((tag) => tag.name.replace(" ", "_"))
               : "",
             eventDisplay:
               matchingTags.length === 1 && matchingTags[0] === "calendar"
@@ -91,7 +91,7 @@ const filterTreeToGetEvents = (
                 : "block",
             extendedProps: { eventTags: matchingTags, isRef: isRef },
             color: matchingTags.length
-              ? mapOfTags.find((tag) => tag.name === matchingTags[0]).color
+              ? mapOfTags.find((tag) => tag.name === matchingTags[0].name).color
               : undefined,
             borderColor: isRef ? "red" : "transparent",
           });
@@ -112,9 +112,10 @@ const filterTreeToGetEvents = (
 
 const getMatchingTags = (mapOfTags, refUidArray) => {
   if (!refUidArray) return [];
-  return mapOfTags
-    .filter(({ uids }) => refUidArray.some((uid) => uids.includes(uid)))
-    .map(({ name }) => name);
+  return mapOfTags.filter(({ uids }) =>
+    refUidArray.some((uid) => uids.includes(uid))
+  );
+  // .map(({ name }) => name);
 };
 
 const isReferencingDNP = (refs, dnpUid) => {

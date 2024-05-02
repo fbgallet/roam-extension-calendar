@@ -1,9 +1,7 @@
 import { Checkbox, Tooltip } from "@blueprintjs/core";
 import { useState, useEffect } from "react";
-import EditEvent from "./EditEvent";
 
 const Filters = ({ filters, setFilters }) => {
-  const [popoverIsOpen, setPopoverIsOpen] = useState(false);
   // useEffect(() => {
   //   console.log("filter changed");
   // }, []);

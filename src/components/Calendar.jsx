@@ -12,6 +12,7 @@ import {
 import { useState, useEffect, useRef } from "react";
 import Event from "./Event";
 import Filters from "./Filters";
+import MultiSelectFilter from "./MultiSelectFilter";
 import {
   createChildBlock,
   getBlockContentByUid,
@@ -24,6 +25,7 @@ import { roamDateRegex } from "../util/regex";
 import EditEvent from "./EditEvent";
 import NewEventDialog from "./NewEventDialog";
 import { dateToISOString } from "../util/dates";
+import { mapOfTags } from "..";
 
 // let draggable = new Draggable(document.querySelector(".roam-app"), {
 //   itemSelector: ".rm-bullet",
@@ -36,23 +38,15 @@ const Calendar = () => {
   // const [events, setEvents] = useState([]);
   const [addedEvent, setAddedEvent] = useState(null);
 
-  const [filters, setFilters] = useState({
-    TODO: true,
-    DONE: true,
-    due: true,
-    do: true,
-    progress: true,
-    important: true,
-    urgent: true,
-    calendar: true,
-    other: true,
-  });
+  const [tagsToDisplay, setTagsToDisplay] = useState(
+    mapOfTags.filter((tag) => tag.isToDisplay)
+  );
   const isDataToReload = useRef(true);
   // const events = useRef([]);
 
   useEffect(() => {
     if (events.length !== 0) isDataToReload.current = false;
-  }, [filters]);
+  }, [tagsToDisplay]);
 
   const handleSelectDays = (e) => {
     console.log("Day selected");
@@ -116,10 +110,9 @@ const Calendar = () => {
       events = getBlocksToDisplayFromDNP(info.start, info.end, false);
     } else isDataToReload.current = true;
     // if (!events.length) return [];
-    const eventsToDisplay = events.filter(
-      (evt) =>
-        !(evt.extendedProps?.eventTags[0] === "DONE" && !filters["DONE"]) &&
-        evt.extendedProps?.eventTags?.some((tag) => filters[tag])
+    const eventsToDisplay = events.filter((evt) =>
+      // !(evt.extendedProps?.eventTags[0] === "DONE" && !filters["DONE"]) &&
+      evt.extendedProps?.eventTags?.some((tag) => tag.isToDisplay)
     );
     console.log("events to display:>> ", eventsToDisplay);
 
@@ -220,7 +213,11 @@ const Calendar = () => {
         pageUid={focusedPageUid}
         // setEvents={setEvents}
       />
-      <Filters filters={filters} setFilters={setFilters} />
+      {/* <Filters filters={filters} setFilters={setFilters} /> */}
+      <MultiSelectFilter
+        tagsToDisplay={tagsToDisplay}
+        setTagsToDisplay={setTagsToDisplay}
+      />
       <FullCalendar
         plugins={[
           dayGridPlugin,
