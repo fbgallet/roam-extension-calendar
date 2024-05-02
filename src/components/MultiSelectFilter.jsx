@@ -1,9 +1,23 @@
-import { Checkbox, MenuItem, Tooltip } from "@blueprintjs/core";
+import {
+  Checkbox,
+  Classes,
+  Colors,
+  HTMLSelect,
+  MenuItem,
+  Popover,
+  Tooltip,
+} from "@blueprintjs/core";
 import { MultiSelect } from "@blueprintjs/select";
 import { useState, useEffect } from "react";
 import { mapOfTags } from "..";
+import { TOOLTIP } from "@blueprintjs/core/lib/esm/common/classes";
 
-const MultiSelectFilter = ({ tagsToDisplay, setTagsToDisplay }) => {
+const MultiSelectFilter = ({
+  tagsToDisplay,
+  setTagsToDisplay,
+  isDataToReload,
+}) => {
+  const [popoverToOpen, setPopoverToOpen] = useState("");
   // useEffect(() => {
   //   console.log("filter changed");
   // }, []);
@@ -44,6 +58,7 @@ const MultiSelectFilter = ({ tagsToDisplay, setTagsToDisplay }) => {
       );
     }
   };
+
   const renderTagInList = (tag, { handleClick, modifiers }) => {
     if (!modifiers.matchesPredicate) return null;
     return (
@@ -52,6 +67,7 @@ const MultiSelectFilter = ({ tagsToDisplay, setTagsToDisplay }) => {
         key={tag.pages[0]}
         text={tag.pages[0]}
         onClick={handleClick}
+        // onDoubleClick={(e) => console.log(e)}
         active={modifiers.active}
         icon={
           tagsToDisplay.find((t) => t.pages[0] === tag.pages[0])
@@ -67,23 +83,61 @@ const MultiSelectFilter = ({ tagsToDisplay, setTagsToDisplay }) => {
     setTagsToDisplay([]);
   };
 
-  const renderTag = (tag) => tag.pages[0];
+  const renderTag = (tag) => {
+    const title = tag.pages[0];
+    const aliases = tag.pages.slice(1).join(", ");
+    return (
+      <Popover
+        isOpen={popoverToOpen === tag.pages[0] ? true : false}
+        canEscapeKeyClose={true}
+        position={"bottom"}
+        popoverClassName={Classes.POPOVER_CONTENT_SIZING}
+        content={
+          <>
+            {aliases.length ? <p>Aliases: {aliases}</p> : null}
+            <label htmlFor="tagColorsSelect">Change color </label>
+            <HTMLSelect
+              name="colors"
+              id="tagColorsSelect"
+              options={["red", "blue", "yellow"]}
+              onChange={(e) => {
+                tag.setColor(e.currentTarget.value);
+                setTagsToDisplay((prev) => [...prev]);
+                isDataToReload.current = true;
+              }}
+              value={tag.color}
+            ></HTMLSelect>
+          </>
+        }
+        usePortal={true}
+        onClose={() => setPopoverToOpen("")}
+      >
+        {title}
+      </Popover>
+    );
+  };
 
-  const handleTagRemove = (name) => {
-    const tagToRemove = tagsToDisplay.filter((tag) => tag.pages[0] === name);
-    handleTagSelect(tagToRemove[0]);
+  const handleTagRemove = ({ props }) => {
+    const tagName = props.children;
+    console.log(tagName);
+    const tagToRemove = tagsToDisplay.find((tag) => tag.pages[0] === tagName);
+    console.log("tagToRemove :>> ", tagToRemove);
+    handleTagSelect(tagToRemove);
   };
 
   const handleClickOnTag = (e) => {
     e.stopPropagation();
-    if (e.metaKey) {
-      tagsToDisplay.forEach(
-        (tag) => tag.pages[0] !== e.target.innerText && tag.hide()
-      );
-      setTagsToDisplay([
-        tagsToDisplay.find((tag) => tag.pages[0] === e.target.innerText),
-      ]);
+    if (e.metaKey || e.ctrlKey) {
+      const tagName = e.target.innerText;
+      setPopoverToOpen(tagName);
     }
+  };
+
+  const handleDoubleClickOnTag = (e) => {
+    const tagName = e.target.innerText;
+    e.stopPropagation();
+    tagsToDisplay.forEach((tag) => tag.pages[0] !== tagName && tag.hide());
+    setTagsToDisplay([tagsToDisplay.find((tag) => tag.pages[0] === tagName)]);
   };
 
   return (
@@ -100,10 +154,22 @@ const MultiSelectFilter = ({ tagsToDisplay, setTagsToDisplay }) => {
         onClear={handleClear}
         tagInputProps={{
           onRemove: handleTagRemove,
-          tagProps: {
-            interactive: true,
-            onClick: handleClickOnTag,
+          tagProps: ({ props }) => {
+            const tag = mapOfTags.find(
+              (tag) => tag.pages[0] === props.children
+            );
+            return {
+              style: { backgroundColor: tag.color },
+              interactive: true,
+              onClick: handleClickOnTag,
+              onDoubleClick: handleDoubleClickOnTag,
+            };
           },
+          //   {
+          //     interactive: true,
+          //     onClick: handleClickOnTag,
+          //     onDoubleClick: handleDoubleClickOnTag,
+          //   },
         }}
         popoverProps={{ minimal: true }}
       />

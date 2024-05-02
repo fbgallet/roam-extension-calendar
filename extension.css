@@ -1,3 +1,7 @@
+.red {
+  background-color: red;
+}
+
 .full-calendar-comp {
   padding: 0 10px;
   overflow-y: auto;

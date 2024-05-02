@@ -1,4 +1,5 @@
 // import { addObserver, disconnectObserver } from "./observers";
+import { Colors } from "@blueprintjs/core";
 
 import { preventDefault } from "@fullcalendar/core/internal";
 import { renderApp, unmountApp } from "./components/App";
@@ -110,12 +111,12 @@ const removeListeners = () => {
 };
 
 const initializeMapOfTags = () => {
-  mapOfTags.push(new Tag("DONE", "grey"));
-  mapOfTags.push(new Tag("important", "red", importantPages));
-  mapOfTags.push(new Tag("do", "orange", doPages));
-  mapOfTags.push(new Tag("due", "purple", duePages));
-  mapOfTags.push(new Tag("other", "lightgrey", ["test"]));
-  mapOfTags.push(new Tag("TODO", "blue"));
+  mapOfTags.push(new Tag("DONE", Colors.GRAY5));
+  mapOfTags.push(new Tag("important", Colors.RED3, importantPages));
+  mapOfTags.push(new Tag("do", Colors.ORANGE4, doPages));
+  mapOfTags.push(new Tag("due", Colors.VIOLET2, duePages));
+  mapOfTags.push(new Tag("other", Colors.GRAY1, ["test"]));
+  mapOfTags.push(new Tag("TODO", Colors.BLUE2));
 };
 
 export default {

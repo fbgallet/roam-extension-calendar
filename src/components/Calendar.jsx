@@ -220,6 +220,7 @@ const Calendar = () => {
       <MultiSelectFilter
         tagsToDisplay={tagsToDisplay}
         setTagsToDisplay={setTagsToDisplay}
+        isDataToReload={isDataToReload}
       />
       <FullCalendar
         plugins={[
