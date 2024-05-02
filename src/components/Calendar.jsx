@@ -110,9 +110,12 @@ const Calendar = () => {
       events = getBlocksToDisplayFromDNP(info.start, info.end, false);
     } else isDataToReload.current = true;
     // if (!events.length) return [];
-    const eventsToDisplay = events.filter((evt) =>
-      // !(evt.extendedProps?.eventTags[0] === "DONE" && !filters["DONE"]) &&
-      evt.extendedProps?.eventTags?.some((tag) => tag.isToDisplay)
+    const eventsToDisplay = events.filter(
+      (evt) =>
+        !(
+          evt.extendedProps?.eventTags[0].name === "DONE" &&
+          !tagsToDisplay.some((tag) => tag.name === "DONE")
+        ) && evt.extendedProps?.eventTags?.some((tag) => tag.isToDisplay)
     );
     console.log("events to display:>> ", eventsToDisplay);
 

@@ -28,24 +28,37 @@ const MultiSelectFilter = ({ tagsToDisplay, setTagsToDisplay }) => {
   };
 
   const handleTagSelect = (tag) => {
-    if (!tagsToDisplay.some((tagToDisplay) => tagToDisplay.name === tag.name)) {
+    if (
+      !tagsToDisplay.some(
+        (tagToDisplay) => tagToDisplay.pages[0] === tag.pages[0]
+      )
+    ) {
       tag.display();
       setTagsToDisplay([...tagsToDisplay, tag]);
     } else {
       tag.hide();
       setTagsToDisplay(
-        tagsToDisplay.filter((tagToDisplay) => tagToDisplay.name !== tag.name)
+        tagsToDisplay.filter(
+          (tagToDisplay) => tagToDisplay.pages[0] !== tag.pages[0]
+        )
       );
     }
   };
-  const renderTagInList = (Tag, { handleClick, modifiers }) => {
+  const renderTagInList = (tag, { handleClick, modifiers }) => {
     if (!modifiers.matchesPredicate) return null;
     return (
       <MenuItem
-        key={Tag.name}
-        text={Tag.name}
+        style={{ minWidth: "300px" }}
+        key={tag.pages[0]}
+        text={tag.pages[0]}
         onClick={handleClick}
         active={modifiers.active}
+        icon={
+          tagsToDisplay.find((t) => t.pages[0] === tag.pages[0])
+            ? "small-tick"
+            : null
+        }
+        label={tag.pages.slice(1).join(", ")}
       />
     );
   };
@@ -54,11 +67,23 @@ const MultiSelectFilter = ({ tagsToDisplay, setTagsToDisplay }) => {
     setTagsToDisplay([]);
   };
 
-  const renderTag = (tag) => tag.name;
+  const renderTag = (tag) => tag.pages[0];
 
   const handleTagRemove = (name) => {
-    const tagToRemove = tagsToDisplay.filter((tag) => tag.name === name);
+    const tagToRemove = tagsToDisplay.filter((tag) => tag.pages[0] === name);
     handleTagSelect(tagToRemove[0]);
+  };
+
+  const handleClickOnTag = (e) => {
+    e.stopPropagation();
+    if (e.metaKey) {
+      tagsToDisplay.forEach(
+        (tag) => tag.pages[0] !== e.target.innerText && tag.hide()
+      );
+      setTagsToDisplay([
+        tagsToDisplay.find((tag) => tag.pages[0] === e.target.innerText),
+      ]);
+    }
   };
 
   return (
@@ -74,8 +99,13 @@ const MultiSelectFilter = ({ tagsToDisplay, setTagsToDisplay }) => {
         selectedItems={tagsToDisplay}
         onClear={handleClear}
         tagInputProps={{
-          onRemove: (e) => handleTagRemove(e),
+          onRemove: handleTagRemove,
+          tagProps: {
+            interactive: true,
+            onClick: handleClickOnTag,
+          },
         }}
+        popoverProps={{ minimal: true }}
       />
       {/* <button onClick={switchFilters}>
         {Object.values(filters).some((filter) => !filter) ? "All" : "None"}
