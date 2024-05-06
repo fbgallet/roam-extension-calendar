@@ -9,6 +9,8 @@ import { getTrimedArrayFromList } from "./util/data";
 const calendarBtnElt = document.querySelector(
   "button:has(span[icon='calendar'])"
 );
+const storedTagsInfo = JSON.parse(localStorage.getItem("fc-tags-info"));
+console.log("storedTagsInfo :>> ", storedTagsInfo);
 
 export let mapOfTags = [];
 // let importantPages = ["important", "Important"];
@@ -154,34 +156,44 @@ const removeListeners = () => {
 };
 
 const initializeMapOfTags = (extensionAPI) => {
-  mapOfTags.push(new EventTag({ name: "DONE", color: Colors.GRAY5 }));
+  mapOfTags.push(
+    new EventTag({
+      name: "DONE",
+      color: getStoredTagColor("DONE") || Colors.GRAY5,
+    })
+  );
   mapOfTags.push(
     new EventTag({
       name: "important",
-      color: Colors.RED3,
+      color: getStoredTagColor("important") || Colors.RED3,
       pages: getTrimedArrayFromList(extensionAPI.settings.get("importantTag")),
     })
   );
   mapOfTags.push(
     new EventTag({
       name: "do",
-      color: Colors.ORANGE4,
+      color: getStoredTagColor("do") || Colors.ORANGE3,
       pages: getTrimedArrayFromList(extensionAPI.settings.get("doTag")),
     })
   );
   mapOfTags.push(
     new EventTag({
       name: "due",
-      color: Colors.VIOLET2,
+      color: getStoredTagColor("due") || Colors.VIOLET3,
       pages: getTrimedArrayFromList(extensionAPI.settings.get("dueTag")),
     })
   );
   const userTags = extensionAPI.settings.get("userTags");
-  if (userTags) updageUserTags(userTags, Colors.GRAY1);
-  mapOfTags.push(new EventTag({ name: "TODO", color: Colors.BLUE2 }));
+  if (userTags) updageUserTags(userTags);
+  mapOfTags.push(
+    new EventTag({
+      name: "TODO",
+      color: getStoredTagColor("TODO") || Colors.BLUE3,
+    })
+  );
 };
 
-const updageUserTags = (list, color) => {
+const updageUserTags = (list) => {
   if (!list.trim()) return;
   const defaultTags = mapOfTags.filter((tag) => !tag.isUserDefined);
   console.log("defaultTags :>> ", defaultTags);
@@ -190,7 +202,7 @@ const updageUserTags = (list, color) => {
     (tagName) =>
       new EventTag({
         name: tagName,
-        color: color,
+        color: getStoredTagColor("tagName") || Colors.GRAY3,
         isUserDefined: true,
       })
   );
@@ -203,6 +215,12 @@ const updageUserTags = (list, color) => {
   mapOfTags = defaultTags;
   mapOfTags.splice(indexToInsert, 0, ...userTags);
   console.log("mapOfTags with user tags :>> ", mapOfTags);
+};
+
+const getStoredTagColor = (tagName) => {
+  if (!storedTagsInfo) return null;
+  const matchingTag = storedTagsInfo.find((tag) => tagName === tag.name);
+  return matchingTag?.color;
 };
 
 export default {

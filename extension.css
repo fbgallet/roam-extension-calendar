@@ -32,6 +32,10 @@
   font-weight: normal;
 }
 
+.full-calendar-comp .bp3-tag.bp3-interactive:hover {
+  filter: saturate(1.2) contrast(1.2);
+}
+
 .full-calendar-comp
   /* label.bp3-control.bp3-checkbox */
   input[type="checkbox"]:focus {

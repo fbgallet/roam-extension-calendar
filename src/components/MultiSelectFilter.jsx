@@ -13,6 +13,7 @@ import { useState, useEffect } from "react";
 import { mapOfTags } from "..";
 import { TOOLTIP } from "@blueprintjs/core/lib/esm/common/classes";
 import { EventTag } from "../models/EventTag";
+import ColorPicker from "./ColorPicker";
 
 const MultiSelectFilter = ({
   tagsToDisplay,
@@ -99,8 +100,13 @@ const MultiSelectFilter = ({
         content={
           <>
             {aliases.length ? <p>Aliases: {aliases}</p> : null}
-            <label htmlFor="tagColorsSelect">Change color </label>
-            <HTMLSelect
+            {/* <label htmlFor="tagColorsSelect">Change color </label> */}
+            <ColorPicker
+              tag={tag}
+              setTagsToDisplay={setTagsToDisplay}
+              isDataToReload={isDataToReload}
+            />
+            {/* <HTMLSelect
               name="colors"
               id="tagColorsSelect"
               options={["red", "blue", "yellow"]}
@@ -110,7 +116,7 @@ const MultiSelectFilter = ({
                 isDataToReload.current = true;
               }}
               value={tag.color}
-            ></HTMLSelect>
+            ></HTMLSelect> */}
           </>
         }
         usePortal={true}
@@ -123,9 +129,9 @@ const MultiSelectFilter = ({
 
   const handleTagRemove = ({ props }) => {
     const tagName = props.children;
-    console.log(tagName);
+    // console.log(tagName);
     const tagToRemove = tagsToDisplay.find((tag) => tag.pages[0] === tagName);
-    console.log("tagToRemove :>> ", tagToRemove);
+    // console.log("tagToRemove :>> ", tagToRemove);
     handleTagSelect(tagToRemove);
   };
 
@@ -162,12 +168,12 @@ const MultiSelectFilter = ({
         tagInputProps={{
           onRemove: handleTagRemove,
           tagProps: ({ props }) => {
-            console.log("props :>> ", props);
-            console.log("mapOfTags :>> ", mapOfTags);
+            // console.log("props :>> ", props);
+            // console.log("mapOfTags :>> ", mapOfTags);
             const tag = mapOfTags.find(
               (tag) => tag.pages[0] === props.children
             );
-            console.log("tag :>> ", tag);
+            // console.log("tag :>> ", tag);
             if (!tag) return;
             return {
               style: { backgroundColor: tag.color },
