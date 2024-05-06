@@ -166,3 +166,8 @@ export const getCalendarUidFromPage = async (targetPageTitle) => {
     targetBlockUid = createChildBlock(targetPageUid, "#calendar");
   return targetBlockUid;
 };
+
+export const getTrimedArrayFromList = (list) => {
+  const arr = list.split(",");
+  return arr.map((elt) => elt.trim());
+};

@@ -5,12 +5,14 @@ import {
   HTMLSelect,
   MenuItem,
   Popover,
+  Tag,
   Tooltip,
 } from "@blueprintjs/core";
 import { MultiSelect } from "@blueprintjs/select";
 import { useState, useEffect } from "react";
 import { mapOfTags } from "..";
 import { TOOLTIP } from "@blueprintjs/core/lib/esm/common/classes";
+import { EventTag } from "../models/EventTag";
 
 const MultiSelectFilter = ({
   tagsToDisplay,
@@ -18,6 +20,7 @@ const MultiSelectFilter = ({
   isDataToReload,
 }) => {
   const [popoverToOpen, setPopoverToOpen] = useState("");
+  const [queryStr, setQueryStr] = useState("");
   // useEffect(() => {
   //   console.log("filter changed");
   // }, []);
@@ -57,6 +60,7 @@ const MultiSelectFilter = ({
         )
       );
     }
+    setQueryStr("");
   };
 
   const renderTagInList = (tag, { handleClick, modifiers }) => {
@@ -142,7 +146,6 @@ const MultiSelectFilter = ({
 
   return (
     <div className="full-calendar-filters">
-      <b>Filter events: </b>
       <MultiSelect
         placeholder="Click to Multiselect"
         items={mapOfTags}
@@ -152,12 +155,20 @@ const MultiSelectFilter = ({
         tagRenderer={renderTag}
         selectedItems={tagsToDisplay}
         onClear={handleClear}
+        query={queryStr}
+        onQueryChange={(q) => {
+          setQueryStr(q);
+        }}
         tagInputProps={{
           onRemove: handleTagRemove,
           tagProps: ({ props }) => {
+            console.log("props :>> ", props);
+            console.log("mapOfTags :>> ", mapOfTags);
             const tag = mapOfTags.find(
               (tag) => tag.pages[0] === props.children
             );
+            console.log("tag :>> ", tag);
+            if (!tag) return;
             return {
               style: { backgroundColor: tag.color },
               interactive: true,
@@ -165,13 +176,30 @@ const MultiSelectFilter = ({
               onDoubleClick: handleDoubleClickOnTag,
             };
           },
-          //   {
-          //     interactive: true,
-          //     onClick: handleClickOnTag,
-          //     onDoubleClick: handleDoubleClickOnTag,
-          //   },
         }}
         popoverProps={{ minimal: true }}
+        itemPredicate={(query, item) => {
+          if (!query.trim()) return true;
+          return item.pages.some((page) =>
+            page.toLowerCase().includes(query.toLowerCase())
+          );
+        }}
+        // createNewItemFromQuery={(query) => {
+        //   const newTag = new EventTag(query);
+        //   // mapOfTags.push(newTag);
+        //   return newTag;
+        // }}
+        // // createNewItemPosition={"last"}
+        // createNewItemRenderer={(query, active, handleClick) => (
+        //   <MenuItem
+        //     icon="add"
+        //     text={`Create ${query}`}
+        //     roleStructure="listoption"
+        //     active={active}
+        //     onClick={handleClick}
+        //     shouldDismissPopover={false}
+        //   />
+        // )}
       />
       {/* <button onClick={switchFilters}>
         {Object.values(filters).some((filter) => !filter) ? "All" : "None"}

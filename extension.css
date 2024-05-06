@@ -1,5 +1,10 @@
-.red {
-  background-color: red;
+.full-calendar-comp .fc {
+  max-height: calc(100vh - 90px);
+}
+
+.full-calendar-comp .fc .fc-toolbar.fc-header-toolbar {
+  margin-bottom: 1em;
+  font-size: small;
 }
 
 .full-calendar-comp {
@@ -52,11 +57,14 @@
 } */
 
 .full-calendar-filters {
-  padding: 10px 0;
+  padding: 2px 0 10px 0;
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 12px;
+}
+.full-calendar-filters .bp3-tag-input .bp3-input-ghost {
+  width: 50px;
 }
 
 .fc-event .fc-event-main {

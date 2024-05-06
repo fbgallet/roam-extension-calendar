@@ -2,7 +2,7 @@ import { Checkbox, Tooltip, Popover, Classes } from "@blueprintjs/core";
 import { updateBlock } from "../util/roamApi";
 import { getTagColor, replaceItemAndGetUpdatedArray } from "../util/data";
 import { useState, useRef } from "react";
-import { getTagColorFromName } from "../models/Tag";
+import { getTagColorFromName } from "../models/EventTag";
 
 const Event = ({
   displayTitle,

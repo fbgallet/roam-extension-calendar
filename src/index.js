@@ -3,32 +3,70 @@ import { Colors } from "@blueprintjs/core";
 
 import { preventDefault } from "@fullcalendar/core/internal";
 import { renderApp, unmountApp } from "./components/App";
-import { Tag } from "./models/Tag";
+import { EventTag, getTagFromName } from "./models/EventTag";
+import { getTrimedArrayFromList } from "./util/data";
 
 const calendarBtnElt = document.querySelector(
   "button:has(span[icon='calendar'])"
 );
 
-export const mapOfTags = [];
-let importantPages = ["important", "Important"];
-let doPages = ["do", "do date", "scheduled"];
-let duePages = ["due date", "deadline"];
+export let mapOfTags = [];
+// let importantPages = ["important", "Important"];
+// let doPages = ["do", "do date", "scheduled"];
+// let duePages = ["due date", "deadline"];
 
 const panelConfig = {
   tabTitle: "Calendar",
   settings: [
-    // INPUT example
-    // {
-    //   id: "footnotesHeader",
-    //   name: "Footnotes header",
-    //   description: "Text inserted as the parent block of footnotes:",
-    //   action: {
-    //     type: "input",
-    //     onChange: (evt) => {
-    //       //   footnotesTag = evt.target.value;
-    //     },
-    //   },
-    // },
+    {
+      id: "importantTag",
+      name: "Important",
+      description:
+        "Page reference for important event and aliases separated by a comma. E.g.: important,urgent",
+      action: {
+        type: "input",
+        onChange: (evt) => {
+          updateTagPagesWithUserList("important", evt.target.value);
+        },
+      },
+    },
+    {
+      id: "doTag",
+      name: "Do date",
+      description:
+        "Page reference for event with do date and aliases separated by a comma.",
+      action: {
+        type: "input",
+        onChange: (evt) => {
+          updateTagPagesWithUserList("do", evt.target.value);
+        },
+      },
+    },
+    {
+      id: "dueTag",
+      name: "Due date",
+      description:
+        "Page reference for event with due date and aliases separated by a comma.",
+      action: {
+        type: "input",
+        onChange: (evt) => {
+          updateTagPagesWithUserList("due", evt.target.value);
+        },
+      },
+    },
+    {
+      id: "userTags",
+      name: "User defined tags",
+      description:
+        "Page references for user defined tags, separated by a comma.",
+      action: {
+        type: "input",
+        onChange: (evt) => {
+          updageUserTags(evt.target.value, Colors.GRAY1);
+        },
+      },
+    },
+
     // SWITCH example
     // {
     //   id: "insertLine",
@@ -56,6 +94,11 @@ const panelConfig = {
     //   },
     // },
   ],
+};
+
+const updateTagPagesWithUserList = (tagName, pageList) => {
+  const tag = getTagFromName(tagName);
+  tag.updatePages(getTrimedArrayFromList(pageList));
 };
 
 const handleClickOnCalendarBtn = (e) => {
@@ -110,13 +153,56 @@ const removeListeners = () => {
   });
 };
 
-const initializeMapOfTags = () => {
-  mapOfTags.push(new Tag("DONE", Colors.GRAY5));
-  mapOfTags.push(new Tag("important", Colors.RED3, importantPages));
-  mapOfTags.push(new Tag("do", Colors.ORANGE4, doPages));
-  mapOfTags.push(new Tag("due", Colors.VIOLET2, duePages));
-  mapOfTags.push(new Tag("other", Colors.GRAY1, ["test"]));
-  mapOfTags.push(new Tag("TODO", Colors.BLUE2));
+const initializeMapOfTags = (extensionAPI) => {
+  mapOfTags.push(new EventTag({ name: "DONE", color: Colors.GRAY5 }));
+  mapOfTags.push(
+    new EventTag({
+      name: "important",
+      color: Colors.RED3,
+      pages: getTrimedArrayFromList(extensionAPI.settings.get("importantTag")),
+    })
+  );
+  mapOfTags.push(
+    new EventTag({
+      name: "do",
+      color: Colors.ORANGE4,
+      pages: getTrimedArrayFromList(extensionAPI.settings.get("doTag")),
+    })
+  );
+  mapOfTags.push(
+    new EventTag({
+      name: "due",
+      color: Colors.VIOLET2,
+      pages: getTrimedArrayFromList(extensionAPI.settings.get("dueTag")),
+    })
+  );
+  const userTags = extensionAPI.settings.get("userTags");
+  if (userTags) updageUserTags(userTags, Colors.GRAY1);
+  mapOfTags.push(new EventTag({ name: "TODO", color: Colors.BLUE2 }));
+};
+
+const updageUserTags = (list, color) => {
+  if (!list.trim()) return;
+  const defaultTags = mapOfTags.filter((tag) => !tag.isUserDefined);
+  console.log("defaultTags :>> ", defaultTags);
+  const userTagsNameArr = getTrimedArrayFromList(list);
+  const userTags = userTagsNameArr.map(
+    (tagName) =>
+      new EventTag({
+        name: tagName,
+        color: color,
+        isUserDefined: true,
+      })
+  );
+  console.log("userTags :>> ", userTags);
+  const indexToInsert =
+    defaultTags.at(-1).name === "TODO"
+      ? defaultTags.length - 1
+      : defaultTags.length;
+  console.log("indexToInsert :>> ", indexToInsert);
+  mapOfTags = defaultTags;
+  mapOfTags.splice(indexToInsert, 0, ...userTags);
+  console.log("mapOfTags with user tags :>> ", mapOfTags);
 };
 
 export default {
@@ -124,9 +210,15 @@ export default {
     extensionAPI.settings.panel.create(panelConfig);
 
     // get settings from setting panel
-    // if (extensionAPI.settings.get("footnotesHeader") === null)
-    //   extensionAPI.settings.set("footnotesHeader", "#footnotes");
-    // footnotesTag = await extensionAPI.settings.get("footnotesHeader");
+    if (extensionAPI.settings.get("importantTag") === null)
+      await extensionAPI.settings.set("importantTag", "important");
+    // footnotesTag = extensionAPI.settings.get("footnotesHeader");
+    if (extensionAPI.settings.get("doTag") === null)
+      await extensionAPI.settings.set("doTag", "do");
+    if (extensionAPI.settings.get("dueTag") === null)
+      await extensionAPI.settings.set("dueTag", "due");
+    if (extensionAPI.settings.get("userTags") === null)
+      await extensionAPI.settings.set("userTags", "");
 
     extensionAPI.ui.commandPalette.addCommand({
       label: "Insert calendar",
@@ -169,7 +261,7 @@ export default {
     // addObserver();
 
     addListeners();
-    initializeMapOfTags();
+    initializeMapOfTags(extensionAPI);
     console.log("mapOfTags :>> ", mapOfTags);
 
     console.log("Extension loaded.");
