@@ -29,8 +29,7 @@ function ColorPicker({ tag, setTagsToDisplay, isDataToReload }) {
     COLORS_LIST.find((color) => color.value === tag.color) || tag.color
   );
 
-  const handleColorSelect = (color) => {
-    console.log(color);
+  const handleColorSelect = (color, f) => {
     tag.setColor(color.value);
     setSelectedColor([color]);
     setTagsToDisplay((prev) => [...prev]);
@@ -43,17 +42,12 @@ function ColorPicker({ tag, setTagsToDisplay, isDataToReload }) {
     );
   };
 
-  const renderFilm = (color, { handleClick, modifiers }) => {
+  const renderColor = (color, { handleClick, modifiers }) => {
     if (!modifiers.matchesPredicate) return null;
     return (
       <MenuItem
         roleStructure="listoption"
         key={color.title}
-        // icon={
-        //   selectedColor.find((f) => f.title === color.title)
-        //     ? "small-tick"
-        //     : null
-        // }
         text={`${color.title}`}
         onClick={handleClick}
         active={modifiers.active}
@@ -66,59 +60,35 @@ function ColorPicker({ tag, setTagsToDisplay, isDataToReload }) {
     );
   };
 
-  const handleClear = () => {
-    setSelectedColor([]);
-  };
-
-  const renderTag = (color) => color.title;
-
-  const handleTagRemove = (title) => {
-    const filmToRemove = selectedColor.filter((film) => color.title === title);
-    handleColorSelect(filmToRemove[0]);
+  const renderTag = (color, a, b, c) => {
+    console.log(a, b, c);
+    return color.title;
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "row", gap: "5px" }}>
       <Select
         items={COLORS_LIST}
-        itemRenderer={renderFilm}
-        noResults={<MenuItem disabled text="No results." />}
+        itemRenderer={renderColor}
+        noResults={<MenuItem disabled text="No matching color" />}
         onItemSelect={handleColorSelect}
         tagRenderer={renderTag}
         selectedItems={selectedColor}
-        onClear={handleClear}
-        query={queryStr}
-        onQueryChange={(q) => {
-          setQueryStr(q);
+        menuProps={{
+          small: true,
         }}
-        tagInputProps={{
-          onRemove: handleTagRemove,
-          tagProps: {
-            interactive: true,
-            onClick: (e) => {
-              e.stopPropagation();
-            },
-          },
+        inputProps={{
+          small: true,
+        }}
+        onQueryChange={(q, e) => {
+          e?.preventDefault();
+          e?.stopPropagation();
         }}
         popoverProps={{ minimal: true }}
         itemPredicate={(query, item) => {
           if (!query.trim()) return true;
           return item.title.toLowerCase().includes(query.toLowerCase());
         }}
-        createNewItemFromQuery={(query) => {
-          return { rank: 0, title: query };
-        }}
-        createNewItemPosition={"last"}
-        createNewItemRenderer={(query, active, handleClick) => (
-          <MenuItem
-            icon="add"
-            text={`Create ${query}`}
-            roleStructure="listoption"
-            active={active}
-            onClick={handleClick}
-            shouldDismissPopover={false}
-          />
-        )}
       >
         <Button
           text={

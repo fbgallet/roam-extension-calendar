@@ -1,5 +1,5 @@
 .full-calendar-comp .fc {
-  max-height: calc(100vh - 90px);
+  max-height: calc(100vh - 85px);
 }
 
 .full-calendar-comp .fc .fc-toolbar.fc-header-toolbar {

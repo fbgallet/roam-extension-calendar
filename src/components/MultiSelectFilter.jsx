@@ -2,7 +2,7 @@ import {
   Checkbox,
   Classes,
   Colors,
-  HTMLSelect,
+  Icon,
   MenuItem,
   Popover,
   Tag,
@@ -22,6 +22,7 @@ const MultiSelectFilter = ({
 }) => {
   const [popoverToOpen, setPopoverToOpen] = useState("");
   const [queryStr, setQueryStr] = useState("");
+  const [isMultiSelectDisabled, setIsMultiSelectDisabled] = useState(false);
   // useEffect(() => {
   //   console.log("filter changed");
   // }, []);
@@ -39,6 +40,8 @@ const MultiSelectFilter = ({
   //       return clone;
   //     });
   //   };
+
+  console.log("query change in Multi", queryStr);
 
   const handleSticky = () => {
     const calendarElt = document.querySelector(".full-calendar-comp");
@@ -84,15 +87,16 @@ const MultiSelectFilter = ({
     );
   };
 
-  const handleClear = () => {
-    setTagsToDisplay([]);
-  };
+  // const handleClear = () => {
+  //   setTagsToDisplay([]);
+  // };
 
   const renderTag = (tag) => {
     const title = tag.pages[0];
     const aliases = tag.pages.slice(1).join(", ");
     return (
       <Popover
+        captureDismiss={true}
         isOpen={popoverToOpen === tag.pages[0] ? true : false}
         canEscapeKeyClose={true}
         position={"bottom"}
@@ -100,27 +104,18 @@ const MultiSelectFilter = ({
         content={
           <>
             {aliases.length ? <p>Aliases: {aliases}</p> : null}
-            {/* <label htmlFor="tagColorsSelect">Change color </label> */}
             <ColorPicker
               tag={tag}
               setTagsToDisplay={setTagsToDisplay}
               isDataToReload={isDataToReload}
             />
-            {/* <HTMLSelect
-              name="colors"
-              id="tagColorsSelect"
-              options={["red", "blue", "yellow"]}
-              onChange={(e) => {
-                tag.setColor(e.currentTarget.value);
-                setTagsToDisplay((prev) => [...prev]);
-                isDataToReload.current = true;
-              }}
-              value={tag.color}
-            ></HTMLSelect> */}
           </>
         }
         usePortal={true}
-        onClose={() => setPopoverToOpen("")}
+        onClose={() => {
+          setQueryStr("");
+          setPopoverToOpen("");
+        }}
       >
         {title}
       </Popover>
@@ -155,15 +150,22 @@ const MultiSelectFilter = ({
       <MultiSelect
         placeholder="Click to Multiselect"
         items={mapOfTags}
+        menuProps={{
+          className: "fc-filter-menu",
+        }}
         itemRenderer={renderTagInList}
         noResults={<MenuItem disabled text="No corresponding tag" />}
         onItemSelect={handleTagSelect}
         tagRenderer={renderTag}
         selectedItems={tagsToDisplay}
-        onClear={handleClear}
+        // onClear={handleClear}
         query={queryStr}
-        onQueryChange={(q) => {
+        onQueryChange={(q, e) => {
+          console.log("query change in Multi", q);
           setQueryStr(q);
+        }}
+        inputProps={{
+          leftIcon: "tag",
         }}
         tagInputProps={{
           onRemove: handleTagRemove,
@@ -183,7 +185,8 @@ const MultiSelectFilter = ({
             };
           },
         }}
-        popoverProps={{ minimal: true }}
+        // usePortal={false}
+        popoverProps={{ minimal: true, disabled: popoverToOpen.length > 0 }}
         itemPredicate={(query, item) => {
           if (!query.trim()) return true;
           return item.pages.some((page) =>
