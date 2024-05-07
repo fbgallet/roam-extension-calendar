@@ -41,8 +41,6 @@ const MultiSelectFilter = ({
   //     });
   //   };
 
-  console.log("query change in Multi", queryStr);
-
   const handleSticky = () => {
     const calendarElt = document.querySelector(".full-calendar-comp");
     calendarElt.classList.add("fc-sticky");
@@ -87,15 +85,17 @@ const MultiSelectFilter = ({
     );
   };
 
-  // const handleClear = () => {
-  //   setTagsToDisplay([]);
-  // };
+  const handleClear = () => {
+    setTagsToDisplay([]);
+  };
 
   const renderTag = (tag) => {
     const title = tag.pages[0];
     const aliases = tag.pages.slice(1).join(", ");
     return (
       <Popover
+        // autoFocus={false}
+        className="fc-popover"
         captureDismiss={true}
         isOpen={popoverToOpen === tag.pages[0] ? true : false}
         canEscapeKeyClose={true}
@@ -161,7 +161,6 @@ const MultiSelectFilter = ({
         // onClear={handleClear}
         query={queryStr}
         onQueryChange={(q, e) => {
-          console.log("query change in Multi", q);
           setQueryStr(q);
         }}
         inputProps={{
@@ -169,6 +168,8 @@ const MultiSelectFilter = ({
         }}
         tagInputProps={{
           onRemove: handleTagRemove,
+          leftIcon: "tag",
+          rightElement: <Icon icon="small-cross" onClick={handleClear} />,
           tagProps: ({ props }) => {
             // console.log("props :>> ", props);
             // console.log("mapOfTags :>> ", mapOfTags);

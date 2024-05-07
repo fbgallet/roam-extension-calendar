@@ -24,12 +24,11 @@ const COLORS_LIST = [
 ];
 
 function ColorPicker({ tag, setTagsToDisplay, isDataToReload }) {
-  const [queryStr, setQueryStr] = useState("");
   const [selectedColor, setSelectedColor] = useState(
     COLORS_LIST.find((color) => color.value === tag.color) || tag.color
   );
 
-  const handleColorSelect = (color, f) => {
+  const handleColorSelect = (color) => {
     tag.setColor(color.value);
     setSelectedColor([color]);
     setTagsToDisplay((prev) => [...prev]);
@@ -80,10 +79,6 @@ function ColorPicker({ tag, setTagsToDisplay, isDataToReload }) {
         inputProps={{
           small: true,
         }}
-        onQueryChange={(q, e) => {
-          e?.preventDefault();
-          e?.stopPropagation();
-        }}
         popoverProps={{ minimal: true }}
         itemPredicate={(query, item) => {
           if (!query.trim()) return true;
@@ -91,6 +86,7 @@ function ColorPicker({ tag, setTagsToDisplay, isDataToReload }) {
         }}
       >
         <Button
+          minimal={true}
           text={
             selectedColor?.title ? (
               <div style={{ display: "flex", gap: "10px" }}>
@@ -108,7 +104,7 @@ function ColorPicker({ tag, setTagsToDisplay, isDataToReload }) {
             )
           }
           rightIcon="double-caret-vertical"
-          placeholder="Select a film"
+          placeholder="Select a color"
         />
       </Select>
     </div>

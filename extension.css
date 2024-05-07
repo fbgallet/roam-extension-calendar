@@ -101,3 +101,8 @@
   cursor: pointer;
   align-self: flex-end;
 }
+
+/* FILTERS */
+.bp3-multi-select {
+  min-width: 200px;
+}
