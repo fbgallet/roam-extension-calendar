@@ -26,7 +26,7 @@
 }
 
 .full-calendar-comp .fc-event-main .bp3-control,
-.full-calendar-filters .bp3-control {
+.fc-filters .bp3-control {
   margin-bottom: 0;
   padding-top: 1px;
   font-weight: normal;
@@ -51,7 +51,7 @@
   border-radius: 2px;
 }
 .full-calendar-comp
-  .full-calendar-filters
+  .fc-filters
   .bp3-control.bp3-checkbox
   .bp3-control-indicator {
   margin-right: 5px;
@@ -59,17 +59,6 @@
 /* .full-calendar-comp .fc-event-main .bp3-checkbox {
   scale: 0.8;
 } */
-
-.full-calendar-filters {
-  padding: 2px 0 10px 0;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
-}
-.full-calendar-filters .bp3-tag-input .bp3-input-ghost {
-  width: 50px;
-}
 
 .fc-event .fc-event-main {
   padding-left: 3px;
@@ -103,6 +92,27 @@
 }
 
 /* FILTERS */
-.bp3-multi-select {
+.fc-filters {
+  padding: 2px 0 10px 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+.fc-filters .bp3-tag-input .bp3-input-ghost {
+  width: 50px;
+}
+
+.fc-filters .bp3-multi-select {
   min-width: 200px;
+}
+
+.fc-filters .bp3-multi-select > .bp3-icon.bp3-icon-small-cross {
+  align-self: center;
+  cursor: pointer;
+  opacity: 0.5;
+  padding: 2px;
+}
+.fc-filters .bp3-multi-select > .bp3-icon.bp3-icon-small-cross:hover {
+  opacity: 1;
 }

@@ -86,6 +86,7 @@ const MultiSelectFilter = ({
   };
 
   const handleClear = () => {
+    tagsToDisplay.forEach((tag) => tag.hide());
     setTagsToDisplay([]);
   };
 
@@ -146,7 +147,7 @@ const MultiSelectFilter = ({
   };
 
   return (
-    <div className="full-calendar-filters">
+    <div className="fc-filters">
       <MultiSelect
         placeholder="Click to Multiselect"
         items={mapOfTags}

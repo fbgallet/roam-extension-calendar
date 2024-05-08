@@ -34,7 +34,7 @@ const Filters = ({ filters, setFilters }) => {
   };
 
   return (
-    <div className="full-calendar-filters">
+    <div className="fc-filters">
       <b>Filter events: </b>
       <Checkbox checked={filters.TODO} onChange={() => handleCheck("TODO")}>
         TODO
