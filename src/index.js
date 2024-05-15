@@ -159,27 +159,31 @@ const initializeMapOfTags = (extensionAPI) => {
   mapOfTags.push(
     new EventTag({
       name: "DONE",
-      color: getStoredTagColor("DONE") || Colors.GRAY5,
+      color: Colors.GRAY5,
+      ...getStoredTagInfos("DONE"),
     })
   );
   mapOfTags.push(
     new EventTag({
       name: "important",
-      color: getStoredTagColor("important") || Colors.RED3,
+      color: Colors.RED3,
+      ...getStoredTagInfos("important"),
       pages: getTrimedArrayFromList(extensionAPI.settings.get("importantTag")),
     })
   );
   mapOfTags.push(
     new EventTag({
       name: "do",
-      color: getStoredTagColor("do") || Colors.ORANGE3,
+      color: Colors.ORANGE3,
+      ...getStoredTagInfos("do"),
       pages: getTrimedArrayFromList(extensionAPI.settings.get("doTag")),
     })
   );
   mapOfTags.push(
     new EventTag({
       name: "due",
-      color: getStoredTagColor("due") || Colors.VIOLET3,
+      color: Colors.VIOLET3,
+      ...getStoredTagInfos("due"),
       pages: getTrimedArrayFromList(extensionAPI.settings.get("dueTag")),
     })
   );
@@ -188,7 +192,8 @@ const initializeMapOfTags = (extensionAPI) => {
   mapOfTags.push(
     new EventTag({
       name: "TODO",
-      color: getStoredTagColor("TODO") || Colors.BLUE3,
+      color: Colors.BLUE3,
+      ...getStoredTagInfos("TODO"),
     })
   );
 };
@@ -202,7 +207,9 @@ const updageUserTags = (list) => {
     (tagName) =>
       new EventTag({
         name: tagName,
-        color: getStoredTagColor("tagName") || Colors.GRAY3,
+        // color: getStoredTagColor(tagName) || Colors.GRAY3,
+        color: Colors.GRAY3,
+        ...getStoredTagInfos(tagName),
         isUserDefined: true,
       })
   );
@@ -217,10 +224,18 @@ const updageUserTags = (list) => {
   console.log("mapOfTags with user tags :>> ", mapOfTags);
 };
 
-const getStoredTagColor = (tagName) => {
+// const getStoredTagColor = (tagName) => {
+//   if (!storedTagsInfo) return null;
+//   const matchingTag = storedTagsInfo.find((tag) => tagName === tag.name);
+//   return matchingTag?.color;
+// };
+
+const getStoredTagInfos = (tagName) => {
   if (!storedTagsInfo) return null;
   const matchingTag = storedTagsInfo.find((tag) => tagName === tag.name);
-  return matchingTag?.color;
+  return matchingTag
+    ? { color: matchingTag.color, isToDisplay: matchingTag.isToDisplay }
+    : null;
 };
 
 export default {

@@ -26,24 +26,6 @@ const MultiSelectFilter = ({
 }) => {
   const [popoverToOpen, setPopoverToOpen] = useState("");
   const [queryStr, setQueryStr] = useState("");
-  const [isMultiSelectDisabled, setIsMultiSelectDisabled] = useState(false);
-  // useEffect(() => {
-  //   console.log("filter changed");
-  // }, []);
-
-  //   const switchFilters = () => {
-  //     const switchTo = Object.values(filters).some((filter) => !filter)
-  //       ? true
-  //       : false;
-  //     setFilters((prev) => {
-  //       const clone = { ...prev };
-  //       for (let key in clone) {
-  //         clone[key] = switchTo;
-  //       }
-  //       console.log("clone :>> ", clone);
-  //       return clone;
-  //     });
-  //   };
 
   const handleSticky = () => {
     const calendarElt = document.querySelector(".full-calendar-comp");
@@ -191,7 +173,6 @@ const MultiSelectFilter = ({
               <Icon icon="small-cross" onClick={handleClear} />
             </>
           ),
-          // rightElement: ,
           tagProps: ({ props }) => {
             // console.log("props :>> ", props);
             // console.log("mapOfTags :>> ", mapOfTags);

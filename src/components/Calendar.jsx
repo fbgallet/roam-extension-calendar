@@ -47,6 +47,16 @@ const Calendar = () => {
 
   useEffect(() => {
     if (events.length !== 0) isDataToReload.current = false;
+    localStorage.setItem(
+      "fc-tags-info",
+      JSON.stringify(
+        mapOfTags.map((tag) => ({
+          name: tag.name,
+          color: tag.color,
+          isToDisplay: tag.isToDisplay,
+        }))
+      )
+    );
   }, [tagsToDisplay]);
 
   const handleSelectDays = (e) => {

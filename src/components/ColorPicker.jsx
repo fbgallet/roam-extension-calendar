@@ -36,7 +36,11 @@ function ColorPicker({ tag, setTagsToDisplay, isDataToReload }) {
     localStorage.setItem(
       "fc-tags-info",
       JSON.stringify(
-        mapOfTags.map((tag) => ({ name: tag.name, color: tag.color }))
+        mapOfTags.map((tag) => ({
+          name: tag.name,
+          color: tag.color,
+          isToDisplay: tag.isToDisplay,
+        }))
       )
     );
   };
