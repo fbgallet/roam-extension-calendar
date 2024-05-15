@@ -1,7 +1,9 @@
 import {
+  Button,
   Checkbox,
   Classes,
   Colors,
+  HTMLSelect,
   Icon,
   MenuItem,
   Popover,
@@ -19,6 +21,8 @@ const MultiSelectFilter = ({
   tagsToDisplay,
   setTagsToDisplay,
   isDataToReload,
+  filterLogic,
+  setFilterLogic,
 }) => {
   const [popoverToOpen, setPopoverToOpen] = useState("");
   const [queryStr, setQueryStr] = useState("");
@@ -170,7 +174,24 @@ const MultiSelectFilter = ({
         tagInputProps={{
           onRemove: handleTagRemove,
           leftIcon: "tag",
-          rightElement: <Icon icon="small-cross" onClick={handleClear} />,
+          rightElement: (
+            <>
+              <HTMLSelect
+                value={filterLogic}
+                iconName={"caret-down"}
+                options={["Or", "And"]}
+                minimal={true}
+                onClick={(e) => {
+                  e.stopPropagation();
+                }}
+                onChange={(evt) => {
+                  setFilterLogic(evt.currentTarget.value);
+                }}
+              />
+              <Icon icon="small-cross" onClick={handleClear} />
+            </>
+          ),
+          // rightElement: ,
           tagProps: ({ props }) => {
             // console.log("props :>> ", props);
             // console.log("mapOfTags :>> ", mapOfTags);

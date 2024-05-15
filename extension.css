@@ -116,3 +116,7 @@
 .fc-filters .bp3-multi-select > .bp3-icon.bp3-icon-small-cross:hover {
   opacity: 1;
 }
+
+.fc-filters select {
+  text-align: center;
+}

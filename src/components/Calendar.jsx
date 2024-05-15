@@ -38,6 +38,7 @@ const Calendar = () => {
   // const [events, setEvents] = useState([]);
   const [addedEvent, setAddedEvent] = useState(null);
 
+  const [filterLogic, setFilterLogic] = useState("Or");
   const [tagsToDisplay, setTagsToDisplay] = useState(
     mapOfTags.filter((tag) => tag.isToDisplay)
   );
@@ -110,13 +111,21 @@ const Calendar = () => {
       events = getBlocksToDisplayFromDNP(info.start, info.end, false);
     } else isDataToReload.current = true;
     // if (!events.length) return [];
-    const eventsToDisplay = events.filter(
-      (evt) =>
-        !(
-          evt.extendedProps?.eventTags[0].name === "DONE" &&
-          !tagsToDisplay.some((tag) => tag.name === "DONE")
-        ) && evt.extendedProps?.eventTags?.some((tag) => tag.isToDisplay)
-    );
+    console.log("filterLogic in Calendar :>> ", filterLogic);
+    const eventsToDisplay =
+      filterLogic === "Or"
+        ? events.filter(
+            (evt) =>
+              !(
+                evt.extendedProps?.eventTags[0].name === "DONE" &&
+                !tagsToDisplay.some((tag) => tag.name === "DONE")
+              ) && evt.extendedProps?.eventTags?.some((tag) => tag.isToDisplay)
+          )
+        : events.filter((evt) =>
+            tagsToDisplay.every((tag) =>
+              evt.extendedProps?.eventTags?.some((t) => t.name === tag.name)
+            )
+          );
     console.log("events to display:>> ", eventsToDisplay);
 
     return eventsToDisplay;
@@ -221,6 +230,8 @@ const Calendar = () => {
         tagsToDisplay={tagsToDisplay}
         setTagsToDisplay={setTagsToDisplay}
         isDataToReload={isDataToReload}
+        filterLogic={filterLogic}
+        setFilterLogic={setFilterLogic}
       />
       <FullCalendar
         plugins={[
