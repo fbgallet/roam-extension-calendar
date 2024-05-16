@@ -7,6 +7,7 @@ import {
   Icon,
   MenuItem,
   Popover,
+  Switch,
   Tag,
   Tooltip,
 } from "@blueprintjs/core";
@@ -23,6 +24,8 @@ const MultiSelectFilter = ({
   isDataToReload,
   filterLogic,
   setFilterLogic,
+  isEntireDNP,
+  setIsEntireDNP,
 }) => {
   const [popoverToOpen, setPopoverToOpen] = useState("");
   const [queryStr, setQueryStr] = useState("");
@@ -217,6 +220,14 @@ const MultiSelectFilter = ({
       {/* <button onClick={switchFilters}>
         {Object.values(filters).some((filter) => !filter) ? "All" : "None"}
       </button> */}
+      <Switch
+        checked={isEntireDNP}
+        label="dnp"
+        inline={true}
+        onChange={() => {
+          setIsEntireDNP((prev) => !prev);
+        }}
+      />
       <button onClick={handleSticky}>📌</button>
       {/* <button onClick={() => setPopoverIsOpen((prev) => !prev)}>Open</button>
       <EditEvent popoverIsOpen={popoverIsOpen} /> */}

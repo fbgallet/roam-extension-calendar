@@ -1,5 +1,5 @@
 // import { addObserver, disconnectObserver } from "./observers";
-import { Colors } from "@blueprintjs/core";
+import { Colors, Tag } from "@blueprintjs/core";
 
 import { preventDefault } from "@fullcalendar/core/internal";
 import { renderApp, unmountApp } from "./components/App";
@@ -13,18 +13,28 @@ const storedTagsInfo = JSON.parse(localStorage.getItem("fc-tags-info"));
 console.log("storedTagsInfo :>> ", storedTagsInfo);
 
 export let mapOfTags = [];
-// let importantPages = ["important", "Important"];
-// let doPages = ["do", "do date", "scheduled"];
-// let duePages = ["due date", "deadline"];
+export let calendarTag;
 
 const panelConfig = {
   tabTitle: "Calendar",
   settings: [
     {
+      id: "calendarTag",
+      name: "Calendar tag",
+      description:
+        "Tag used as parent block to gather calendar events at the same place in each DNP. Default is 'calendar'",
+      action: {
+        type: "input",
+        onChange: (evt) => {
+          calendarTag = new EventTag({ name: evt.target.value });
+        },
+      },
+    },
+    {
       id: "importantTag",
       name: "Important",
       description:
-        "Page reference for important event and aliases separated by a comma. E.g.: important,urgent",
+        "Page title for important event and aliases separated by a comma. E.g.: important,urgent",
       action: {
         type: "input",
         onChange: (evt) => {
@@ -36,7 +46,7 @@ const panelConfig = {
       id: "doTag",
       name: "Do date",
       description:
-        "Page reference for event with do date and aliases separated by a comma.",
+        "Page title for event with do date and aliases separated by a comma.",
       action: {
         type: "input",
         onChange: (evt) => {
@@ -48,7 +58,7 @@ const panelConfig = {
       id: "dueTag",
       name: "Due date",
       description:
-        "Page reference for event with due date and aliases separated by a comma.",
+        "Page title for event with due date and aliases separated by a comma.",
       action: {
         type: "input",
         onChange: (evt) => {
@@ -59,8 +69,7 @@ const panelConfig = {
     {
       id: "userTags",
       name: "User defined tags",
-      description:
-        "Page references for user defined tags, separated by a comma.",
+      description: "Page title for user defined tags, separated by a comma.",
       action: {
         type: "input",
         onChange: (evt) => {
@@ -68,33 +77,6 @@ const panelConfig = {
         },
       },
     },
-
-    // SWITCH example
-    // {
-    //   id: "insertLine",
-    //   name: "Insert a line above footnotes header",
-    //   description:
-    //     "Insert a block drawing a line just above the footnotes header, at the bottom of the page:",
-    //   action: {
-    //     type: "switch",
-    //     onChange: (evt) => {
-    //       // insertLineBeforeFootnotes = !insertLineBeforeFootnotes;
-    //     },
-    //   },
-    // },
-    // SELECT example
-    // {
-    //   id: "hotkeys",
-    //   name: "Hotkeys",
-    //   description: "Hotkeys to insert/delete footnote",
-    //   action: {
-    //     type: "select",
-    //     items: ["Ctrl + Alt + F", "Ctrl + Shift + F"],
-    //     onChange: (evt) => {
-    //       // secondHotkey = getHotkeys(evt);
-    //     },
-    //   },
-    // },
   ],
 };
 
@@ -242,7 +224,12 @@ export default {
   onload: async ({ extensionAPI }) => {
     extensionAPI.settings.panel.create(panelConfig);
 
-    // get settings from setting panel
+    if (extensionAPI.settings.get("calendarTag") === null)
+      await extensionAPI.settings.set("calendarTag", "calendar");
+    calendarTag = new EventTag({
+      name: extensionAPI.settings.get("calendarTag"),
+    });
+    console.log("calendarTag :>> ", calendarTag);
     if (extensionAPI.settings.get("importantTag") === null)
       await extensionAPI.settings.set("importantTag", "important");
     // footnotesTag = extensionAPI.settings.get("footnotesHeader");

@@ -1,4 +1,4 @@
-import { mapOfTags } from "..";
+import { calendarTag, mapOfTags } from "..";
 import { dateToISOString, getDistantDate } from "./dates";
 import { dnpUidRegex } from "./regex";
 import {
@@ -72,12 +72,13 @@ const filterTreeToGetEvents = (
         isCalendarTree ||
         (tree[i].refs?.length > 0 && matchingTags.length > 0)
       ) {
-        if (!isCalendarTree && matchingTags[0] === "calendar")
+        if (!isCalendarTree && matchingTags[0].name === calendarTag.name)
           isCalendarParent = true;
         else {
           if (!isCalendarTree && onlyCalendarTag) continue;
-          if (isCalendarTree) matchingTags.push("calendar");
+          if (isCalendarTree) matchingTags.push(calendarTag);
           // dateString = dateString || dateToISOString(currentDate);
+
           events.push({
             id: tree[i].uid,
             title: resolveReferences(tree[i].string),
@@ -85,14 +86,12 @@ const filterTreeToGetEvents = (
             classNames: matchingTags.length
               ? matchingTags.map((tag) => tag.name.replace(" ", "_"))
               : "",
-            eventDisplay:
-              matchingTags.length === 1 && matchingTags[0] === "calendar"
-                ? "list-item"
-                : "block",
+            // eventDisplay:
+            //   matchingTags.length === 1 && matchingTags[0] === calendarTag.name
+            //     ? "list-item"
+            //     : "block",
             extendedProps: { eventTags: matchingTags, isRef: isRef },
-            color: matchingTags.length
-              ? mapOfTags.find((tag) => tag.name === matchingTags[0].name).color
-              : undefined,
+            color: matchingTags.length ? matchingTags[0].color : undefined,
             borderColor: isRef ? "red" : "transparent",
           });
         }
@@ -106,16 +105,17 @@ const filterTreeToGetEvents = (
       ) {
         processTreeRecursively(subTree, isCalendarParent);
       }
+      if (isCalendarParent && onlyCalendarTag) break;
     }
   }
 };
 
 const getMatchingTags = (mapOfTags, refUidArray) => {
   if (!refUidArray) return [];
+  if (refUidArray.includes(calendarTag.uids[0])) return [calendarTag];
   return mapOfTags.filter(({ uids }) =>
     refUidArray.some((uid) => uids.includes(uid))
   );
-  // .map(({ name }) => name);
 };
 
 const isReferencingDNP = (refs, dnpUid) => {

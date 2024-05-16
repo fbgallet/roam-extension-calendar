@@ -39,7 +39,7 @@
 .full-calendar-comp
   /* label.bp3-control.bp3-checkbox */
   input[type="checkbox"]:focus {
-  outline: none !important;
+  outline-width: 0;
 }
 
 .full-calendar-comp .bp3-control.bp3-checkbox .bp3-control-indicator,
@@ -91,7 +91,9 @@
   align-self: flex-end;
 }
 
-/* FILTERS */
+/**********************/
+/*** FILTER SECTION ***/
+
 .fc-filters {
   padding: 2px 0 10px 0;
   display: flex;
@@ -119,4 +121,13 @@
 
 .fc-filters select {
   text-align: center;
+}
+
+/* .fc-filters
+  > label.bp3-control.bp3-switch.bp3-inline:focus
+  > input[type="checkbox"]:focus {
+  outline: none !important;
+} */
+.fc-filters .bp3-switch .bp3-switch-inner-text {
+  line-height: inherit;
 }

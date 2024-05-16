@@ -42,6 +42,7 @@ const Calendar = () => {
   const [tagsToDisplay, setTagsToDisplay] = useState(
     mapOfTags.filter((tag) => tag.isToDisplay)
   );
+  const [isEntireDNP, setIsEntireDNP] = useState(false);
   const isDataToReload = useRef(true);
   // const events = useRef([]);
 
@@ -58,6 +59,10 @@ const Calendar = () => {
       )
     );
   }, [tagsToDisplay]);
+
+  useEffect(() => {
+    isDataToReload.current = true;
+  }, [isEntireDNP]);
 
   const handleSelectDays = (e) => {
     console.log("Day selected");
@@ -118,7 +123,7 @@ const Calendar = () => {
   const getEventsFromDNP = async (info) => {
     console.log("events :>> ", events);
     if (isDataToReload.current) {
-      events = getBlocksToDisplayFromDNP(info.start, info.end, false);
+      events = getBlocksToDisplayFromDNP(info.start, info.end, !isEntireDNP);
     } else isDataToReload.current = true;
     // if (!events.length) return [];
     console.log("filterLogic in Calendar :>> ", filterLogic);
@@ -213,20 +218,6 @@ const Calendar = () => {
         });
         isDataToReload.current = false;
         setAddedEvent(sourceUid);
-
-        // setEvents((prev) => {
-        //   const clone = [...prev];
-        //   clone.push({
-        //     id: sourceUid,
-        //     title: blockContent,
-        //     date: isoDate,
-        //     extendedProps: { eventTags: ["calendar"], isRef: false },
-        //     borderColor: "transparent",
-        //     color: "none",
-        //     classNames: ["calendar"],
-        //   });
-        //   return clone;
-        // });
       }}
     >
       <NewEventDialog
@@ -242,6 +233,8 @@ const Calendar = () => {
         isDataToReload={isDataToReload}
         filterLogic={filterLogic}
         setFilterLogic={setFilterLogic}
+        isEntireDNP={isEntireDNP}
+        setIsEntireDNP={setIsEntireDNP}
       />
       <FullCalendar
         plugins={[
