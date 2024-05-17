@@ -76,7 +76,8 @@ const filterTreeToGetEvents = (
           isCalendarParent = true;
         else {
           if (!isCalendarTree && onlyCalendarTag) continue;
-          if (isCalendarTree) matchingTags.push(calendarTag);
+          if (isCalendarTree && !matchingTags.length)
+            matchingTags.push(calendarTag);
           // dateString = dateString || dateToISOString(currentDate);
 
           events.push({

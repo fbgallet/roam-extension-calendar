@@ -78,6 +78,11 @@ const MultiSelectFilter = ({
     tagsToDisplay.forEach((tag) => tag.hide());
     setTagsToDisplay([]);
   };
+  const handleAddAllTags = (e) => {
+    e.stopPropagation();
+    mapOfTags.forEach((tag) => tag.display());
+    setTagsToDisplay([...mapOfTags]);
+  };
 
   const renderTag = (tag) => {
     const title = tag.pages[0];
@@ -139,6 +144,7 @@ const MultiSelectFilter = ({
     <div className="fc-filters">
       <MultiSelect
         placeholder="Click to Multiselect"
+        fill={true}
         items={mapOfTags}
         menuProps={{
           className: "fc-filter-menu",
@@ -148,7 +154,6 @@ const MultiSelectFilter = ({
         onItemSelect={handleTagSelect}
         tagRenderer={renderTag}
         selectedItems={tagsToDisplay}
-        // onClear={handleClear}
         query={queryStr}
         onQueryChange={(q, e) => {
           setQueryStr(q);
@@ -158,7 +163,7 @@ const MultiSelectFilter = ({
         }}
         tagInputProps={{
           onRemove: handleTagRemove,
-          leftIcon: "tag",
+          leftIcon: "filter",
           rightElement: (
             <>
               <HTMLSelect
@@ -173,7 +178,11 @@ const MultiSelectFilter = ({
                   setFilterLogic(evt.currentTarget.value);
                 }}
               />
-              <Icon icon="small-cross" onClick={handleClear} />
+              {tagsToDisplay.length > 0 ? (
+                <Icon icon="small-cross" onClick={handleClear} />
+              ) : (
+                <Icon icon="asterisk" onClick={handleAddAllTags} />
+              )}
             </>
           ),
           tagProps: ({ props }) => {
@@ -220,14 +229,19 @@ const MultiSelectFilter = ({
       {/* <button onClick={switchFilters}>
         {Object.values(filters).some((filter) => !filter) ? "All" : "None"}
       </button> */}
-      <Switch
-        checked={isEntireDNP}
-        label="dnp"
-        inline={true}
-        onChange={() => {
-          setIsEntireDNP((prev) => !prev);
-        }}
-      />
+      <Tooltip
+        hoverOpenDelay={400}
+        content="Events from entire daily notes or only children of calendar tag"
+      >
+        <Switch
+          checked={isEntireDNP}
+          label="dnp"
+          inline={true}
+          onChange={() => {
+            setIsEntireDNP((prev) => !prev);
+          }}
+        />
+      </Tooltip>
       <button onClick={handleSticky}>📌</button>
       {/* <button onClick={() => setPopoverIsOpen((prev) => !prev)}>Open</button>
       <EditEvent popoverIsOpen={popoverIsOpen} /> */}

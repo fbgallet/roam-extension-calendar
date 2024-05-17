@@ -105,29 +105,38 @@
   width: 50px;
 }
 
+.fc-filters .bp3-tag-input .bp3-icon-filter {
+  align-self: center;
+  padding-bottom: 7px;
+}
+
 .fc-filters .bp3-multi-select {
   min-width: 200px;
 }
 
-.fc-filters .bp3-multi-select > .bp3-icon.bp3-icon-small-cross {
+.fc-filters .bp3-multi-select .bp3-icon.bp3-icon-small-cross,
+.fc-filters .bp3-multi-select .bp3-icon.bp3-icon-asterisk {
   align-self: center;
   cursor: pointer;
   opacity: 0.5;
   padding: 2px;
 }
-.fc-filters .bp3-multi-select > .bp3-icon.bp3-icon-small-cross:hover {
+.fc-filters .bp3-multi-select .bp3-icon.bp3-icon-small-cross:hover,
+.fc-filters .bp3-multi-select .bp3-icon.bp3-icon-asterisk:hover {
   opacity: 1;
+}
+
+.fc-filters .bp3-html-select {
+  align-self: center;
 }
 
 .fc-filters select {
   text-align: center;
 }
 
-/* .fc-filters
-  > label.bp3-control.bp3-switch.bp3-inline:focus
-  > input[type="checkbox"]:focus {
-  outline: none !important;
-} */
+.fc-filters label.bp3-control.bp3-switch {
+  min-width: fit-content;
+}
 .fc-filters .bp3-switch .bp3-switch-inner-text {
   line-height: inherit;
 }
