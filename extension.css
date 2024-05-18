@@ -25,13 +25,6 @@
   background: var(--fc-page-bg-color);
 }
 
-.full-calendar-comp .fc-event-main .bp3-control,
-.fc-filters .bp3-control {
-  margin-bottom: 0;
-  padding-top: 1px;
-  font-weight: normal;
-}
-
 .full-calendar-comp .bp3-tag.bp3-interactive:hover {
   filter: saturate(1.2) contrast(1.2);
 }
@@ -39,6 +32,7 @@
 .full-calendar-comp
   /* label.bp3-control.bp3-checkbox */
   input[type="checkbox"]:focus {
+  outline: none;
   outline-width: 0;
 }
 
@@ -50,6 +44,7 @@
   height: 12px;
   border-radius: 2px;
 }
+
 .full-calendar-comp
   .fc-filters
   .bp3-control.bp3-checkbox
@@ -60,6 +55,10 @@
   scale: 0.8;
 } */
 
+/**********************/
+/******* EVENTS *******/
+/**********************/
+
 .fc-event .fc-event-main {
   padding-left: 3px;
   overflow: hidden;
@@ -67,6 +66,29 @@
 .fc-event:not(.fc-event-main) {
   overflow: hidden;
 }
+
+.fc-event .fc-event-main > span,
+.fc-event .fc-event-main > span > span > div > span,
+.fc-event .fc-event-main > span > span > div > span > span,
+.fc-event .fc-event-main > span > span > div > span > span > span {
+  display: block;
+  width: 100%;
+}
+.fc-event .fc-event-main > span > span,
+.fc-event .fc-event-main > span > span > div {
+  width: 100%;
+}
+
+.full-calendar-comp .fc-event-main .bp3-control {
+  margin-bottom: 0;
+  margin-right: -10px;
+  padding-top: 1px;
+  font-weight: normal;
+}
+/* 
+.fc-event .fc-event-main label.bp3-control.bp3-checkbox input {
+  margin-top: 4px;
+} */
 
 .fc-event-content {
   display: flex;
@@ -79,6 +101,20 @@
   display: flex;
   justify-content: space-between;
 }
+
+.fc-event-tooltip {
+  max-width: 350px;
+}
+/* body:has(.fc-event-main .bp3-control.bp3-checkbox:hover) .fc-event-tooltip {
+  display: none;
+} */
+.fc-event-tooltip .fc-tag-list {
+  display: flex;
+  gap: 5px;
+}
+/* .fc-event-tooltip .fc-tag-list .bp3-tag {
+  margin-right: 5px;
+} */
 
 .fc-event-popover,
 .fc-event-popover > div {

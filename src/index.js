@@ -180,9 +180,9 @@ const initializeMapOfTags = (extensionAPI) => {
       pages: getTrimedArrayFromList(extensionAPI.settings.get("dueTag")),
     })
   );
+  const userTags = extensionAPI.settings.get("userTags");
   if (userTags) updageUserTags(userTags);
   mapOfTags.push(calendarTag);
-  const userTags = extensionAPI.settings.get("userTags");
 };
 
 const updageUserTags = (list) => {

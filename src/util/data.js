@@ -1,4 +1,5 @@
 import { calendarTag, mapOfTags } from "..";
+import { getTagFromName } from "../models/EventTag";
 import { dateToISOString, getDistantDate } from "./dates";
 import { dnpUidRegex } from "./regex";
 import {
@@ -132,17 +133,19 @@ const isReferencingDNP = (refs, dnpUid) => {
 export const replaceItemAndGetUpdatedArray = (
   array,
   itemToReplace,
-  newItem
+  newItem,
+  key
 ) => {
   const indexOfItemToReplace = array.indexOf(itemToReplace);
+  console.log("indexOfItemToReplace :>> ", indexOfItemToReplace);
   if (indexOfItemToReplace === -1) return array;
-  if (itemToReplace === "TODO") {
+  if (key && itemToReplace[key] === "TODO") {
     array.pop();
-    array.unshift("DONE");
+    array.unshift(getTagFromName("DONE"));
     return array;
-  } else if (itemToReplace === "DONE") {
+  } else if (key && itemToReplace[key] === "DONE") {
     array.shift();
-    array.push("TODO");
+    array.push(getTagFromName("TODO"));
     return array;
   } else return array.splice(indexOfItemToReplace, 1, newItem);
 };

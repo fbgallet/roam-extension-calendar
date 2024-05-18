@@ -193,10 +193,10 @@ const MultiSelectFilter = ({
           tagProps: ({ props }) => {
             // console.log("props :>> ", props);
             // console.log("mapOfTags :>> ", mapOfTags);
-            const tag = mapOfTags.find(
-              (tag) => tag.pages[0] === props.children
-            );
-            // console.log("tag :>> ", tag);
+            const tag =
+              props.children === "• no tag"
+                ? calendarTag
+                : mapOfTags.find((tag) => tag.pages[0] === props.children);
             if (!tag) return;
             return {
               style: {
