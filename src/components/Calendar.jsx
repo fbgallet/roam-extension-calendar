@@ -25,7 +25,7 @@ import { roamDateRegex } from "../util/regex";
 import EditEvent from "./EditEvent";
 import NewEventDialog from "./NewEventDialog";
 import { dateToISOString } from "../util/dates";
-import { mapOfTags } from "..";
+import { calendarTag, mapOfTags } from "..";
 
 // let draggable = new Draggable(document.querySelector(".roam-app"), {
 //   itemSelector: ".rm-bullet",
@@ -211,10 +211,11 @@ const Calendar = () => {
           id: sourceUid,
           title: blockContent,
           date: isoDate,
-          extendedProps: { eventTags: ["calendar"], isRef: false },
+          // TODO : add matching tags
+          extendedProps: { eventTags: calendarTag, isRef: false },
           borderColor: "transparent",
           color: "none",
-          classNames: ["calendar"],
+          classNames: [calendarTag.name],
         });
         isDataToReload.current = false;
         setAddedEvent(sourceUid);

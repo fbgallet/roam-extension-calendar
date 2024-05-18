@@ -99,6 +99,7 @@ const Event = ({
             <div
               // style={roundStyle}
               style={{
+                display: timeText ? "inline" : "none",
                 width: "10px",
                 height: "10px",
                 borderRadius: "50%",

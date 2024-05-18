@@ -72,17 +72,20 @@ const filterTreeToGetEvents = (
         isCalendarTree ||
         (tree[i].refs?.length > 0 && matchingTags.length > 0)
       ) {
+        let prefix = "";
         if (!isCalendarTree && matchingTags[0].name === calendarTag.name)
           isCalendarParent = true;
         else {
           if (!isCalendarTree && onlyCalendarTag) continue;
-          if (isCalendarTree && !matchingTags.length)
+          if (isCalendarTree && !matchingTags.length) {
             matchingTags.push(calendarTag);
+            prefix = "• ";
+          }
           // dateString = dateString || dateToISOString(currentDate);
 
           events.push({
             id: tree[i].uid,
-            title: resolveReferences(tree[i].string),
+            title: prefix + resolveReferences(tree[i].string),
             date: dateString,
             classNames: matchingTags.length
               ? matchingTags.map((tag) => tag.name.replace(" ", "_"))
@@ -93,6 +96,8 @@ const filterTreeToGetEvents = (
             //     : "block",
             extendedProps: { eventTags: matchingTags, isRef: isRef },
             color: matchingTags.length ? matchingTags[0].color : undefined,
+            textColor:
+              matchingTags[0].color === "transparent" ? "revert" : null,
             borderColor: isRef ? "red" : "transparent",
           });
         }

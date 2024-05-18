@@ -28,7 +28,7 @@ const panelConfig = {
         onChange: (evt) => {
           calendarTag = new EventTag({
             name: evt.target.value,
-            color: transparent,
+            color: "transparent",
           });
         },
       },
@@ -233,6 +233,7 @@ export default {
       await extensionAPI.settings.set("calendarTag", "calendar");
     calendarTag = new EventTag({
       name: extensionAPI.settings.get("calendarTag"),
+      color: "transparent",
     });
     console.log("calendarTag :>> ", calendarTag);
     if (extensionAPI.settings.get("importantTag") === null)

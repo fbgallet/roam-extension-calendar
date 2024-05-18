@@ -13,7 +13,7 @@ import {
 } from "@blueprintjs/core";
 import { MultiSelect } from "@blueprintjs/select";
 import { useState, useEffect } from "react";
-import { mapOfTags } from "..";
+import { calendarTag, mapOfTags } from "..";
 import { TOOLTIP } from "@blueprintjs/core/lib/esm/common/classes";
 import { EventTag } from "../models/EventTag";
 import ColorPicker from "./ColorPicker";
@@ -60,7 +60,7 @@ const MultiSelectFilter = ({
       <MenuItem
         style={{ minWidth: "300px" }}
         key={tag.pages[0]}
-        text={tag.pages[0]}
+        text={tag.name === calendarTag.name ? "• no tag" : tag.pages[0]}
         onClick={handleClick}
         // onDoubleClick={(e) => console.log(e)}
         active={modifiers.active}
@@ -69,7 +69,11 @@ const MultiSelectFilter = ({
             ? "small-tick"
             : null
         }
-        label={tag.pages.slice(1).join(", ")}
+        label={
+          tag.name === calendarTag.name
+            ? `children of #${calendarTag.name}`
+            : tag.pages.slice(1).join(", ")
+        }
       />
     );
   };
@@ -85,7 +89,7 @@ const MultiSelectFilter = ({
   };
 
   const renderTag = (tag) => {
-    const title = tag.pages[0];
+    const title = tag.name === calendarTag.name ? "• no tag" : tag.pages[0];
     const aliases = tag.pages.slice(1).join(", ");
     return (
       <Popover
@@ -118,8 +122,9 @@ const MultiSelectFilter = ({
   };
 
   const handleTagRemove = ({ props }) => {
-    const tagName = props.children;
-    // console.log(tagName);
+    const tagName =
+      props.children === "• no tag" ? calendarTag.name : props.children;
+    console.log(tagName);
     const tagToRemove = tagsToDisplay.find((tag) => tag.pages[0] === tagName);
     // console.log("tagToRemove :>> ", tagToRemove);
     handleTagSelect(tagToRemove);
@@ -194,7 +199,10 @@ const MultiSelectFilter = ({
             // console.log("tag :>> ", tag);
             if (!tag) return;
             return {
-              style: { backgroundColor: tag.color },
+              style: {
+                backgroundColor: tag.color,
+                color: tag.color === "transparent" ? "revert" : null,
+              },
               interactive: true,
               onClick: handleClickOnTag,
               onDoubleClick: handleDoubleClickOnTag,
