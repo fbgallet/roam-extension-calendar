@@ -84,13 +84,19 @@ const filterTreeToGetEvents = (
           }
           // dateString = dateString || dateToISOString(currentDate);
 
+          let classNames = matchingTags.length
+            ? matchingTags.map((tag) => tag.name.replace(" ", "_"))
+            : [];
+          if (isRef) {
+            if (classNames.length) classNames.push("fc-event-ref");
+            else classNames = ["fc-event-ref"];
+          }
+
           events.push({
             id: tree[i].uid,
             title: prefix + resolveReferences(tree[i].string),
             date: dateString,
-            classNames: matchingTags.length
-              ? matchingTags.map((tag) => tag.name.replace(" ", "_"))
-              : "",
+            classNames: classNames,
             // eventDisplay:
             //   matchingTags.length === 1 && matchingTags[0] === calendarTag.name
             //     ? "list-item"

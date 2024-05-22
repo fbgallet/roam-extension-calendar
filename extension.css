@@ -90,6 +90,11 @@
   margin-top: 4px;
 } */
 
+.fc-event.fc-event-ref {
+  outline: 2px dashed rgba(128, 128, 128, 0.5) !important;
+  border: none !important;
+}
+
 .fc-event-content {
   display: flex;
   flex-direction: row;
@@ -134,7 +139,7 @@
   flex-direction: column;
 }
 .fc-event-popover > div:first-of-type {
-  padding-bottom: 10px;
+  padding-bottom: 15px;
 }
 .fc-event-popover span,
 .fc-event-popover button {

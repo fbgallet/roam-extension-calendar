@@ -21,6 +21,9 @@ const Event = ({
   isChecked,
   backgroundColor,
 }) => {
+  const [eventTagList, setEventTagList] = useState(
+    event.extendedProps.eventTags
+  );
   const [popoverIsOpen, setPopoverIsOpen] = useState(false);
   const popoverRef = useRef(null);
 
@@ -48,12 +51,14 @@ const Event = ({
             onClick={() => setPopoverIsOpen((prev) => !prev)}
           />
           <div ref={popoverRef}></div>
-          <TagList
-            list={event.extendedProps.eventTags.filter(
-              (tag) => tag.name !== calendarTag.name
-            )}
-            isInteractive={true}
-          />
+          {eventTagList[0].name !== calendarTag.name ? (
+            <TagList
+              list={eventTagList}
+              setEventTagList={setEventTagList}
+              isInteractive={true}
+              event={event}
+            />
+          ) : null}
         </div>
       }
       usePortal={true}
@@ -102,7 +107,7 @@ const Event = ({
                   "TODO"
                 );
                 updatedTags = replaceItemAndGetUpdatedArray(
-                  [...event.extendedProps.eventTags],
+                  [...eventTagList],
                   getTagFromName("DONE"),
                   getTagFromName("TODO"),
                   "name"
@@ -120,7 +125,7 @@ const Event = ({
                   "DONE"
                 );
                 updatedTags = replaceItemAndGetUpdatedArray(
-                  [...event.extendedProps.eventTags],
+                  [...eventTagList],
                   getTagFromName("TODO"),
                   getTagFromName("DONE"),
                   "name"
@@ -143,13 +148,8 @@ const Event = ({
           content={
             <>
               <p>{event.title}</p>
-              {event.extendedProps.eventTags[0].name !== calendarTag.name ? (
-                <TagList
-                  list={event.extendedProps.eventTags.filter(
-                    (tag) => tag.name !== calendarTag.name
-                  )}
-                  isInteractive={false}
-                />
+              {eventTagList[0].name !== calendarTag.name ? (
+                <TagList list={eventTagList} isInteractive={false} />
               ) : null}
             </>
           }

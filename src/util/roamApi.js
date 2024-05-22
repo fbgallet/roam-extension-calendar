@@ -144,3 +144,26 @@ export const resolveReferences = (content, refsArray = [], once = false) => {
   }
   return content;
 };
+
+export const removeTagsFromBlock = (blockUid, tagArray = []) => {
+  let blockContent = getBlockContentByUid(blockUid);
+  let isRemoved = false;
+  if (tagArray.length) {
+    tagArray.forEach((tag) => {
+      console.log("tag :>> ", tag);
+      const thisTagRegex = new RegExp(`#${tag}|#?\\[\\[${tag}\\]\\]`);
+      thisTagRegex.lastIndex = 0;
+      console.log("thisTagRegex :>> ", thisTagRegex);
+      let tagMention = blockContent.match(thisTagRegex);
+      console.log("tagMention :>> ", tagMention);
+      if (tagMention) {
+        tagMention = tagMention[0];
+        if (tagMention === "[[DONE]]" || tagMention === "[[TODO]]")
+          tagMention = `{{${tagMention}}}`;
+        blockContent = blockContent.replace(tagMention, "").trim();
+        isRemoved = true;
+      }
+    });
+  }
+  if (isRemoved) updateBlock(blockUid, blockContent);
+};
