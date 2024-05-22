@@ -1,4 +1,11 @@
-import { Checkbox, Tooltip, Popover, Classes, Tag } from "@blueprintjs/core";
+import {
+  Checkbox,
+  Icon,
+  Tooltip,
+  Popover,
+  Classes,
+  Tag,
+} from "@blueprintjs/core";
 import { updateBlock } from "../util/roamApi";
 import { getTagColor, replaceItemAndGetUpdatedArray } from "../util/data";
 import { useState, useRef } from "react";
@@ -17,37 +24,52 @@ const Event = ({
   const [popoverIsOpen, setPopoverIsOpen] = useState(false);
   const popoverRef = useRef(null);
 
-  return (
-    <Popover
-      isOpen={popoverIsOpen}
-      onInteraction={(e) => !e && setPopoverIsOpen(e)}
-      position={"bottom"}
-      popoverClassName={Classes.POPOVER_CONTENT_SIZING}
-      content={
-        <div class={"fc-event-popover popover" + event.id}>
-          <span onClick={() => setPopoverIsOpen((prev) => !prev)}>x</span>
-          <div ref={popoverRef}>
-            {event.title}
-            <button
+  /* {event.title}
+<button
               onClick={() => {
                 window.roamAlphaAPI.ui.components.renderBlock({
                   uid: event.id,
                   el: popoverRef.current,
                 });
               }}
-            >
-              🖋️
-            </button>
-          </div>
-          <TagList list={event.extendedProps.eventTags} isInteractive={true} />
+             */
+
+  return (
+    <Popover
+      isOpen={popoverIsOpen}
+      autoFocus={false}
+      onInteraction={(e) => !e && setPopoverIsOpen(e)}
+      position="bottom"
+      popoverClassName={Classes.POPOVER_CONTENT_SIZING}
+      content={
+        <div class={"fc-event-popover popover" + event.id}>
+          <Icon
+            icon="small-cross"
+            onClick={() => setPopoverIsOpen((prev) => !prev)}
+          />
+          <div ref={popoverRef}></div>
+          <TagList
+            list={event.extendedProps.eventTags.filter(
+              (tag) => tag.name !== calendarTag.name
+            )}
+            isInteractive={true}
+          />
         </div>
       }
       usePortal={true}
+      onOpening={(e) =>
+        window.roamAlphaAPI.ui.components.renderBlock({
+          uid: event.id,
+          el: popoverRef.current,
+        })
+      }
     >
       <div
         className="fc-event-content"
         onClick={(e) => {
           if (e.target.parentElement.className.includes("bp3-checkbox")) return;
+          if (e.nativeEvent.shiftKey) return;
+          // e.stopPropagation();
           setPopoverIsOpen((prev) => !prev);
         }}
       >
@@ -64,7 +86,7 @@ const Event = ({
           <Checkbox
             // label={null}
             checked={isChecked}
-            onClick={(e) => {}}
+            // onClick={(e) => {}}
             onChange={(e) => {
               if (e.nativeEvent.shiftKey) return;
               e.stopPropagation();
@@ -123,7 +145,9 @@ const Event = ({
               <p>{event.title}</p>
               {event.extendedProps.eventTags[0].name !== calendarTag.name ? (
                 <TagList
-                  list={event.extendedProps.eventTags}
+                  list={event.extendedProps.eventTags.filter(
+                    (tag) => tag.name !== calendarTag.name
+                  )}
                   isInteractive={false}
                 />
               ) : null}

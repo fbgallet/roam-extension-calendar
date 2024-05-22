@@ -60,7 +60,7 @@ const MultiSelectFilter = ({
       <MenuItem
         style={{ minWidth: "300px" }}
         key={tag.pages[0]}
-        text={tag.name === calendarTag.name ? "• no tag" : tag.pages[0]}
+        text={tag.name === calendarTag.name ? "• not tagged" : tag.pages[0]}
         onClick={handleClick}
         // onDoubleClick={(e) => console.log(e)}
         active={modifiers.active}
@@ -89,7 +89,7 @@ const MultiSelectFilter = ({
   };
 
   const renderTag = (tag) => {
-    const title = tag.name === calendarTag.name ? "• no tag" : tag.pages[0];
+    const title = tag.name === calendarTag.name ? "• not tagged" : tag.pages[0];
     const aliases = tag.pages.slice(1).join(", ");
     return (
       <Popover
@@ -123,7 +123,7 @@ const MultiSelectFilter = ({
 
   const handleTagRemove = ({ props }) => {
     const tagName =
-      props.children === "• no tag" ? calendarTag.name : props.children;
+      props.children === "• not tagged" ? calendarTag.name : props.children;
     console.log(tagName);
     const tagToRemove = tagsToDisplay.find((tag) => tag.pages[0] === tagName);
     // console.log("tagToRemove :>> ", tagToRemove);
@@ -194,7 +194,7 @@ const MultiSelectFilter = ({
             // console.log("props :>> ", props);
             // console.log("mapOfTags :>> ", mapOfTags);
             const tag =
-              props.children === "• no tag"
+              props.children === "• not tagged"
                 ? calendarTag
                 : mapOfTags.find((tag) => tag.pages[0] === props.children);
             if (!tag) return;
