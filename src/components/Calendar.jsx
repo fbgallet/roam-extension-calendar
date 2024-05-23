@@ -32,7 +32,7 @@ import { calendarTag, mapOfTags } from "..";
 // });
 let events = [];
 
-const Calendar = () => {
+const Calendar = ({ parentElt }) => {
   const [newEventDialogIsOpen, setNewEventDialogIsOpen] = useState(false);
   const [focusedPageUid, setFocusedPageUid] = useState(null);
   // const [events, setEvents] = useState([]);
@@ -44,6 +44,7 @@ const Calendar = () => {
   );
   const [isEntireDNP, setIsEntireDNP] = useState(false);
   const [isIncludingRefs, setIsIncludingRefs] = useState(true);
+  const [isWEtoDisplay, setIsWEtoDisplay] = useState(true);
   const isDataToReload = useRef(true);
   // const events = useRef([]);
 
@@ -244,6 +245,9 @@ const Calendar = () => {
         setIsEntireDNP={setIsEntireDNP}
         isIncludingRefs={isIncludingRefs}
         setIsIncludingRefs={setIsIncludingRefs}
+        isWEtoDisplay={isWEtoDisplay}
+        setIsWEtoDisplay={setIsWEtoDisplay}
+        parentElt={parentElt}
       />
       <FullCalendar
         plugins={[
@@ -260,6 +264,7 @@ const Calendar = () => {
           right: "multiMonthYear,dayGridMonth,timeGridWeek,timeGridDay",
         }}
         firstDay={1}
+        weekends={isWEtoDisplay}
         fixedWeekCount={false}
         nowIndicator={true}
         slotMinTime="06:00"

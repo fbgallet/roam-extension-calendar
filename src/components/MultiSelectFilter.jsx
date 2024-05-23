@@ -17,6 +17,7 @@ import { calendarTag, mapOfTags } from "..";
 import { TOOLTIP } from "@blueprintjs/core/lib/esm/common/classes";
 import { EventTag } from "../models/EventTag";
 import ColorPicker from "./ColorPicker";
+import { unmountApp } from "./App";
 
 const MultiSelectFilter = ({
   tagsToDisplay,
@@ -28,14 +29,14 @@ const MultiSelectFilter = ({
   setIsEntireDNP,
   isIncludingRefs,
   setIsIncludingRefs,
+  isWEtoDisplay,
+  setIsWEtoDisplay,
+  parentElt,
 }) => {
   const [popoverToOpen, setPopoverToOpen] = useState("");
   const [queryStr, setQueryStr] = useState("");
-
-  const handleSticky = () => {
-    const calendarElt = document.querySelector(".full-calendar-comp");
-    calendarElt.classList.add("fc-sticky");
-  };
+  const [isSticky, setIsSticky] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
 
   const handleTagSelect = (tag) => {
     if (
@@ -84,10 +85,44 @@ const MultiSelectFilter = ({
     tagsToDisplay.forEach((tag) => tag.hide());
     setTagsToDisplay([]);
   };
+
   const handleAddAllTags = (e) => {
     e.stopPropagation();
     mapOfTags.forEach((tag) => tag.display());
     setTagsToDisplay([...mapOfTags]);
+  };
+
+  const handleMinimize = () => {
+    const calendarElt = parentElt.querySelector(".fc-filters");
+    if (calendarElt.classList.contains("fc-minimized")) {
+      calendarElt.classList.remove("fc-minimized");
+      setIsMinimized(false);
+    } else {
+      calendarElt.classList.add("fc-minimized");
+      setIsMinimized(true);
+    }
+  };
+
+  const handleSticky = () => {
+    const calendarElt = parentElt.querySelector(".full-calendar-comp");
+    if (calendarElt.classList.contains("fc-sticky")) {
+      calendarElt.classList.remove("fc-sticky");
+      setIsSticky(false);
+    } else {
+      calendarElt.classList.add("fc-sticky");
+      setIsSticky(true);
+    }
+  };
+
+  const handleClose = () => {
+    let appWrapper;
+    if (parentElt.id === "right-sidebar")
+      appWrapper = document.querySelector(".full-calendar-comp.fc-sidebar");
+    else
+      appWrapper = document.querySelector(
+        ".full-calendar-comp:not(.fc-sidebar)"
+      );
+    unmountApp(appWrapper);
   };
 
   const renderTag = (tag) => {
@@ -240,35 +275,54 @@ const MultiSelectFilter = ({
       {/* <button onClick={switchFilters}>
         {Object.values(filters).some((filter) => !filter) ? "All" : "None"}
       </button> */}
-      <Tooltip
-        hoverOpenDelay={400}
-        content="Events from entire daily notes or only children of calendar tag"
-      >
+      <div className="fc-options-section">
+        <Tooltip
+          hoverOpenDelay={400}
+          content="Events from entire daily notes or only children of calendar tag"
+        >
+          <Switch
+            checked={isEntireDNP}
+            label="dnp"
+            inline={true}
+            onChange={() => {
+              setIsEntireDNP((prev) => !prev);
+            }}
+          />
+        </Tooltip>
+        <Tooltip
+          hoverOpenDelay={400}
+          content="Events from linked references of DNPs"
+        >
+          <Switch
+            checked={isIncludingRefs}
+            label="refs"
+            inline={true}
+            onChange={() => {
+              setIsIncludingRefs((prev) => !prev);
+            }}
+          />
+        </Tooltip>
         <Switch
-          checked={isEntireDNP}
-          label="dnp"
+          checked={isWEtoDisplay}
+          label="we"
           inline={true}
           onChange={() => {
-            setIsEntireDNP((prev) => !prev);
+            setIsWEtoDisplay((prev) => !prev);
           }}
         />
-      </Tooltip>
-      <Tooltip
-        hoverOpenDelay={400}
-        content="Events from linked references of DNPs"
-      >
-        <Switch
-          checked={isIncludingRefs}
-          label="refs"
-          inline={true}
-          onChange={() => {
-            setIsIncludingRefs((prev) => !prev);
-          }}
+      </div>
+      <div>
+        <Icon
+          icon={isMinimized ? "maximize" : "minimize"}
+          onClick={handleMinimize}
         />
-      </Tooltip>
-      <button onClick={handleSticky}>📌</button>
-      {/* <button onClick={() => setPopoverIsOpen((prev) => !prev)}>Open</button>
-      <EditEvent popoverIsOpen={popoverIsOpen} /> */}
+        <Icon
+          icon={isSticky ? "unpin" : "pin"}
+          onClick={handleSticky}
+          className={isSticky ? "bp3-intent-primary" : ""}
+        />
+        <Icon icon="cross" onClick={handleClose} />
+      </div>
     </div>
   );
 };

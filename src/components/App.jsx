@@ -8,6 +8,7 @@ export function renderApp(inSidebar) {
   if (inSidebar) {
     parentElt = document.querySelector("#roam-right-sidebar-content");
     parentElt.parentElement.insertBefore(root, parentElt);
+    parentElt = parentElt.parentElement;
     const existing = parentElt.getElementsByClassName("full-calendar-comp");
     if (existing.length !== 0) existing[0].remove();
     root.classList.add("fc-sidebar");
@@ -20,7 +21,7 @@ export function renderApp(inSidebar) {
   }
   root.classList.add("full-calendar-comp");
 
-  ReactDOM.render(<Calendar />, root);
+  ReactDOM.render(<Calendar parentElt={parentElt} />, root);
 }
 
 export function unmountApp(appWrapper) {

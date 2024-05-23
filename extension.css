@@ -1,5 +1,5 @@
 .full-calendar-comp .fc {
-  max-height: calc(100vh - 85px);
+  max-height: calc(100vh - 100px);
 }
 
 .full-calendar-comp .fc .fc-toolbar.fc-header-toolbar {
@@ -54,6 +54,119 @@
 /* .full-calendar-comp .fc-event-main .bp3-checkbox {
   scale: 0.8;
 } */
+
+/**********************/
+/*** FILTER SECTION ***/
+/**********************/
+
+.fc-filters {
+  padding: 2px 0 5px 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+}
+
+.fc-filters .bp3-tag-input .bp3-input-ghost {
+  width: 40px;
+}
+
+.fc-filters .bp3-tag-input .bp3-icon-filter {
+  align-self: center;
+  padding-bottom: 7px;
+}
+
+.fc-tag-notag:hover {
+  background-color: rgb(0, 0, 0, 0.1) !important;
+}
+
+.fc-filters .bp3-multi-select {
+  min-width: 200px;
+}
+
+.fc-filters .bp3-multi-select .bp3-icon.bp3-icon-small-cross,
+.fc-filters .bp3-multi-select .bp3-icon.bp3-icon-asterisk,
+.fc-filters .bp3-icon.bp3-icon-cross,
+.fc-filters .bp3-icon.bp3-icon-pin,
+.fc-filters .bp3-icon.bp3-icon-unpin,
+.fc-filters .bp3-icon.bp3-icon-minimize,
+.fc-filters .bp3-icon.bp3-icon-maximize {
+  justify-content: flex-end;
+  align-self: center;
+  cursor: pointer;
+  opacity: 0.5;
+  padding: 2px;
+}
+.fc-filters .bp3-icon.bp3-icon-unpin,
+.fc-filters .bp3-multi-select .bp3-icon.bp3-icon-small-cross:hover,
+.fc-filters .bp3-multi-select .bp3-icon.bp3-icon-asterisk:hover,
+.fc-filters .bp3-icon.bp3-icon-cross:hover,
+.fc-filters .bp3-icon.bp3-icon-pin:hover,
+.fc-filters .bp3-icon.bp3-icon-minimize:hover,
+.fc-filters .bp3-icon.bp3-icon-maximize:hover {
+  opacity: 1;
+}
+
+.fc-filters .bp3-html-select {
+  align-self: center;
+}
+
+.fc-filters select {
+  text-align: center;
+}
+
+.fc-filters label.bp3-control.bp3-switch {
+  min-width: fit-content;
+  margin-bottom: 0;
+  margin-right: 0;
+}
+.fc-filters .bp3-switch .bp3-switch-inner-text {
+  line-height: inherit;
+}
+
+.fc-filters .fc-options-section {
+  margin-left: 5px;
+  margin-right: 5px;
+  max-height: 55px;
+  transform: scale(0.8);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+}
+
+.fc-filters > div:last-child {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 2px;
+  transform: scale(0.75);
+}
+
+/******* minimized filters *******/
+
+.fc-filters.fc-minimized .bp3-multi-select {
+  display: none;
+}
+.fc-filters.fc-minimized .fc-options-section {
+  display: none;
+}
+.fc-filters.fc-minimized > div:last-child {
+  position: absolute;
+  top: 7px;
+  right: -10px;
+  flex-direction: row;
+  gap: 8px;
+}
+.fc-filters.fc-minimized {
+  padding-bottom: 3px;
+}
+.full-calendar-comp:has(.fc-filters.fc-minimized)
+  .fc-header-toolbar.fc-toolbar {
+  width: calc(100% - 65px);
+  margin-bottom: 5px;
+  font-size: x-small;
+}
 
 /**********************/
 /******* EVENTS *******/
@@ -149,56 +262,43 @@
   align-self: flex-end;
 }
 
-/**********************/
-/*** FILTER SECTION ***/
-
-.fc-filters {
-  padding: 2px 0 10px 0;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
+/* IF IN SIDEBAR */
+.fc-sidebar .fc-filters .bp3-tag-input .bp3-tag {
+  font-size: x-small;
 }
-.fc-filters .bp3-tag-input .bp3-input-ghost {
-  width: 50px;
+.fc-sidebar .fc-filters .bp3-tag-input .bp3-input-ghost {
+  width: 10px;
 }
-
-.fc-filters .bp3-tag-input .bp3-icon-filter {
-  align-self: center;
-  padding-bottom: 7px;
+.fc-sidebar .bp3-html-select.bp3-minimal {
+  margin-right: -5px;
 }
-
-.fc-tag-notag:hover {
-  background-color: rgb(0, 0, 0, 0.1) !important;
+.fc-sidebar .bp3-html-select.bp3-minimal select {
+  font-size: smaller;
+  padding-left: 2px;
 }
-
-.fc-filters .bp3-multi-select {
-  min-width: 200px;
+.full-calendar-comp.fc-sidebar .fc .fc-header-toolbar.fc-toolbar {
+  margin-bottom: 10px;
+  font-size: smaller;
 }
-
-.fc-filters .bp3-multi-select .bp3-icon.bp3-icon-small-cross,
-.fc-filters .bp3-multi-select .bp3-icon.bp3-icon-asterisk {
-  align-self: center;
-  cursor: pointer;
-  opacity: 0.5;
-  padding: 2px;
+.full-calendar-comp.fc-sidebar:has(.fc-filters.fc-minimized)
+  .fc-header-toolbar.fc-toolbar {
+  width: 100%;
+  padding-right: 25px;
+  font-size: x-small;
 }
-.fc-filters .bp3-multi-select .bp3-icon.bp3-icon-small-cross:hover,
-.fc-filters .bp3-multi-select .bp3-icon.bp3-icon-asterisk:hover {
-  opacity: 1;
+.fc-filters.fc-minimized > div:last-child {
+  position: absolute;
+  top: -11px;
+  right: 0;
+  flex-direction: column-reverse;
+  gap: 0;
 }
-
-.fc-filters .bp3-html-select {
-  align-self: center;
+.fc-sidebar .fc-scrollgrid-section-header {
+  font-size: x-small;
 }
-
-.fc-filters select {
-  text-align: center;
+.fc-sidebar .fc-event-content {
+  font-size: x-small;
 }
-
-.fc-filters label.bp3-control.bp3-switch {
-  min-width: fit-content;
-}
-.fc-filters .bp3-switch .bp3-switch-inner-text {
-  line-height: inherit;
+.fc-sidebar .fc a[data-navlink] {
+  font-size: smaller;
 }
