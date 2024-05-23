@@ -14,7 +14,12 @@ import {
 
 // new Map(tagsTitle.map((tag) => [getPageUidByPageName(tag), tag]));
 
-export const getBlocksToDisplayFromDNP = (start, end, onlyCalendarTag) => {
+export const getBlocksToDisplayFromDNP = (
+  start,
+  end,
+  onlyCalendarTag,
+  isIncludingRefs
+) => {
   // console.log("mapOfTags :>> ", mapOfTags);
   let events = [];
   for (
@@ -25,9 +30,11 @@ export const getBlocksToDisplayFromDNP = (start, end, onlyCalendarTag) => {
     const dnpUid = window.roamAlphaAPI.util.dateToPageUid(currentDate);
     let pageAndRefsTrees = [];
     pageAndRefsTrees.push(getTreeByUid(dnpUid));
-    const refTrees = getLinkedReferencesTrees(dnpUid);
-    pageAndRefsTrees = pageAndRefsTrees.concat(refTrees);
-    // console.log("pageAndRefsTrees :>> ", pageAndRefsTrees);
+    if (isIncludingRefs) {
+      const refTrees = getLinkedReferencesTrees(dnpUid);
+      pageAndRefsTrees = pageAndRefsTrees.concat(refTrees);
+      // console.log("pageAndRefsTrees :>> ", pageAndRefsTrees);
+    }
     for (let i = 0; i < pageAndRefsTrees.length; i++) {
       const filteredEvents = filterTreeToGetEvents(
         dnpUid,
@@ -57,7 +64,7 @@ const filterTreeToGetEvents = (
   const events = [];
   const dateString = dateToISOString(currentDate);
 
-  if (tree && tree.length) processTreeRecursively(tree);
+  if (tree && tree.length) processTreeRecursively(tree, isRef ? true : false);
   return events;
 
   function processTreeRecursively(tree, isCalendarTree) {
@@ -105,12 +112,12 @@ const filterTreeToGetEvents = (
             color: matchingTags.length ? matchingTags[0].color : undefined,
             textColor:
               matchingTags[0].color === "transparent" ? "revert" : null,
-            borderColor: isRef ? "red" : "transparent",
           });
         }
       }
       let subTree = tree[i].children;
       if (
+        !isRef &&
         !isCalendarTree &&
         (!matchingTags.length ||
           !(matchingTags.includes("TODO") || matchingTags.includes("DONE"))) &&

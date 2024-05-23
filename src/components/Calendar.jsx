@@ -43,6 +43,7 @@ const Calendar = () => {
     mapOfTags.filter((tag) => tag.isToDisplay)
   );
   const [isEntireDNP, setIsEntireDNP] = useState(false);
+  const [isIncludingRefs, setIsIncludingRefs] = useState(true);
   const isDataToReload = useRef(true);
   // const events = useRef([]);
 
@@ -123,7 +124,12 @@ const Calendar = () => {
   const getEventsFromDNP = async (info) => {
     console.log("events :>> ", events);
     if (isDataToReload.current) {
-      events = getBlocksToDisplayFromDNP(info.start, info.end, !isEntireDNP);
+      events = getBlocksToDisplayFromDNP(
+        info.start,
+        info.end,
+        !isEntireDNP,
+        isIncludingRefs
+      );
     } else isDataToReload.current = true;
     // if (!events.length) return [];
     console.log("filterLogic in Calendar :>> ", filterLogic);
@@ -236,6 +242,8 @@ const Calendar = () => {
         setFilterLogic={setFilterLogic}
         isEntireDNP={isEntireDNP}
         setIsEntireDNP={setIsEntireDNP}
+        isIncludingRefs={isIncludingRefs}
+        setIsIncludingRefs={setIsIncludingRefs}
       />
       <FullCalendar
         plugins={[

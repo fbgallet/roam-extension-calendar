@@ -20,7 +20,7 @@ const TagList = ({ list, setEventTagList, isInteractive, event }) => {
       {list.map((tag) => (
         <Tag
           interactive={isInteractive}
-          onRemove={() => (isInteractive ? handleOnRemove(tag) : null)}
+          onRemove={isInteractive ? () => handleOnRemove(tag) : null}
           style={{
             backgroundColor: tag.color,
             color: tag.color === "transparent" ? "revert" : null,

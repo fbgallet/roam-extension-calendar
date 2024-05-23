@@ -91,8 +91,10 @@
 } */
 
 .fc-event.fc-event-ref {
-  outline: 2px dashed rgba(128, 128, 128, 0.5) !important;
-  border: none !important;
+  border-bottom: 2px dashed rgb(255, 255, 255, 0.9) !important;
+}
+.fc-event.fc-event-ref.calendar {
+  border-bottom: 2px dashed rgb(0, 0, 0, 0.2) !important;
 }
 
 .fc-event-content {
@@ -164,6 +166,10 @@
 .fc-filters .bp3-tag-input .bp3-icon-filter {
   align-self: center;
   padding-bottom: 7px;
+}
+
+.fc-tag-notag:hover {
+  background-color: rgb(0, 0, 0, 0.1) !important;
 }
 
 .fc-filters .bp3-multi-select {

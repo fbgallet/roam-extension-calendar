@@ -26,6 +26,8 @@ const MultiSelectFilter = ({
   setFilterLogic,
   isEntireDNP,
   setIsEntireDNP,
+  isIncludingRefs,
+  setIsIncludingRefs,
 }) => {
   const [popoverToOpen, setPopoverToOpen] = useState("");
   const [queryStr, setQueryStr] = useState("");
@@ -204,6 +206,7 @@ const MultiSelectFilter = ({
                 color: tag.color === "transparent" ? "revert" : null,
               },
               interactive: true,
+              className: tag.color === "transparent" ? "fc-tag-notag" : null,
               onClick: handleClickOnTag,
               onDoubleClick: handleDoubleClickOnTag,
             };
@@ -247,6 +250,19 @@ const MultiSelectFilter = ({
           inline={true}
           onChange={() => {
             setIsEntireDNP((prev) => !prev);
+          }}
+        />
+      </Tooltip>
+      <Tooltip
+        hoverOpenDelay={400}
+        content="Events from linked references of DNPs"
+      >
+        <Switch
+          checked={isIncludingRefs}
+          label="refs"
+          inline={true}
+          onChange={() => {
+            setIsIncludingRefs((prev) => !prev);
           }}
         />
       </Tooltip>
