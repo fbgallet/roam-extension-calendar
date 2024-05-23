@@ -27,16 +27,6 @@ const Event = ({
   const [popoverIsOpen, setPopoverIsOpen] = useState(false);
   const popoverRef = useRef(null);
 
-  /* {event.title}
-<button
-              onClick={() => {
-                window.roamAlphaAPI.ui.components.renderBlock({
-                  uid: event.id,
-                  el: popoverRef.current,
-                });
-              }}
-             */
-
   return (
     <Popover
       isOpen={popoverIsOpen}
@@ -66,6 +56,8 @@ const Event = ({
         window.roamAlphaAPI.ui.components.renderBlock({
           uid: event.id,
           el: popoverRef.current,
+          "zoom-path?": event.extendedProps.isRef,
+          "open?": false,
         })
       }
     >
