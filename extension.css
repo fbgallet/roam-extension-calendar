@@ -1,5 +1,5 @@
-.full-calendar-comp .fc {
-  max-height: calc(100vh - 100px);
+.fc.full-calendar-comp {
+  max-height: calc(100vh - 90px);
 }
 
 .full-calendar-comp .fc .fc-toolbar.fc-header-toolbar {
@@ -144,6 +144,9 @@
 }
 
 /******* minimized filters *******/
+.fc.full-calendar-comp:has(.fc-filters.fc-minimized) {
+  max-height: calc(100vh - 30px);
+}
 
 .fc-filters.fc-minimized .bp3-multi-select {
   display: none;
@@ -286,7 +289,7 @@
   padding-right: 25px;
   font-size: x-small;
 }
-.fc-filters.fc-minimized > div:last-child {
+.fc-sidebar .fc-filters.fc-minimized > div:last-child {
   position: absolute;
   top: -11px;
   right: 0;

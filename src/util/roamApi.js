@@ -9,6 +9,34 @@ export function getTreeByUid(uid) {
   else return null;
 }
 
+export function getParentBlock(uid) {
+  // This query doesn't seem to be reliable
+  // let result = window.roamAlphaAPI.pull(
+  //   "[:block/uid {:block/parents [:block/uid]}]",
+  //   [":block/uid", uid]
+  // );
+  // if (result) {
+  //   return result[":block/parents"].at(1)[":block/uid"];
+  // } else return "";
+  let result = window.roamAlphaAPI.pull(
+    "[:block/uid {:block/parents [:block/uid {:block/children [:block/uid]}]}]",
+    [":block/uid", uid]
+  );
+  if (result) {
+    const directParent = result[":block/parents"].find((parent) =>
+      parent[":block/children"]?.some((child) => child[":block/uid"] === uid)
+    );
+    return directParent[":block/uid"];
+  } else return "";
+}
+
+export function hasChildrenBlocks(uid) {
+  const tree = getTreeByUid(uid);
+  if (!tree && !tree.length) return null;
+  if (!tree[0].children) return false;
+  return true;
+}
+
 export function getFirstChildrenOfReferenceByNameOnPageByUid(refName, pageUid) {
   const result = window.roamAlphaAPI.q(`[:find
     (pull ?children [:block/string :block/uid :block/refs])
@@ -32,7 +60,6 @@ export function getFirstBlockUidByReferenceOnPage(refName, pageUid) {
     [?node :block/page ?page]
     [?node :block/refs ?reference]
     ]`);
-  console.log("result :>> ", result);
   if (result.length !== 0) return result[0][0]["uid"];
   else return null;
 }

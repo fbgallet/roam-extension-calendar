@@ -18,6 +18,8 @@ import {
   getBlockContentByUid,
   getFirstBlockUidByReferenceOnPage,
   getPageNameByPageUid,
+  getParentBlock,
+  hasChildrenBlocks,
   isExistingNode,
   resolveReferences,
 } from "../util/roamApi";
@@ -172,16 +174,20 @@ const Calendar = ({ parentElt }) => {
       });
       info.event.setProp("title", resolveReferences(blockContent));
     } else {
+      const currentCalendarUid = getParentBlock(info.event.id);
       let calendarBlockUid = await getCalendarUidFromPage(
         window.roamAlphaAPI.util.dateToPageTitle(info.event.start)
       );
-      window.roamAlphaAPI.moveBlock({
+      await window.roamAlphaAPI.moveBlock({
         location: {
           "parent-uid": calendarBlockUid,
           order: "last",
         },
         block: { uid: info.event.id },
       });
+      const hasChildren = hasChildrenBlocks(currentCalendarUid);
+      if (!hasChildren)
+        window.roamAlphaAPI.deleteBlock({ block: { uid: currentCalendarUid } });
     }
   };
 
