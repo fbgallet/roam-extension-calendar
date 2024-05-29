@@ -53,6 +53,12 @@ const Calendar = ({ parentElt }) => {
   const [isIncludingRefs, setIsIncludingRefs] = useState(true);
   const [isWEtoDisplay, setIsWEtoDisplay] = useState(true);
   const isDataToReload = useRef(true);
+  const calendarRef = useRef(null);
+
+  function updateSize() {
+    const calendarApi = calendarRef.current.getApi();
+    calendarApi.updateSize();
+  }
   // const events = useRef([]);
 
   useEffect(() => {
@@ -252,6 +258,7 @@ const Calendar = ({ parentElt }) => {
         isWEtoDisplay={isWEtoDisplay}
         setIsWEtoDisplay={setIsWEtoDisplay}
         parentElt={parentElt}
+        updateSize={updateSize}
       />
       <FullCalendar
         plugins={[
@@ -260,10 +267,21 @@ const Calendar = ({ parentElt }) => {
           multiMonthPlugin,
           interactionPlugin,
         ]}
+        ref={calendarRef}
+        // aspectRatio={1.35}
+        // contentHeight={"auto"}
+        customButtons={{
+          refreshButton: {
+            text: "↻", // 🔄
+            click: updateSize,
+          },
+        }}
+        height={"95%"}
+        expandRows={true}
         initialDate={"2024-04-20"}
         initialView="dayGridMonth"
         headerToolbar={{
-          left: "prev,next today",
+          left: "prev,next today refreshButton",
           center: "title",
           right: "multiMonthYear,dayGridMonth,timeGridWeek,timeGridDay",
         }}

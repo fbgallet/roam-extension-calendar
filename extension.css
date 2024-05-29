@@ -1,5 +1,11 @@
-.fc.full-calendar-comp {
-  max-height: calc(100vh - 90px);
+.full-calendar-comp {
+  height: calc(100vh - 50px);
+}
+.full-calendar-comp:has(.fc-minimized) {
+  height: calc(100vh + 20px);
+}
+.full-calendar-comp > div {
+  height: 96%;
 }
 
 .full-calendar-comp .fc .fc-toolbar.fc-header-toolbar {
@@ -16,13 +22,17 @@
 }
 
 .full-calendar-comp.fc-sticky {
-  max-height: 50%;
+  height: 50%;
+  max-height: 70%;
   resize: vertical;
   overflow-y: auto;
   position: sticky;
   top: 0;
   z-index: 10;
   background: var(--fc-page-bg-color);
+}
+.full-calendar-comp.fc-sticky > div {
+  height: 100%;
 }
 
 .full-calendar-comp .bp3-tag.bp3-interactive:hover {
@@ -60,7 +70,7 @@
 /**********************/
 
 .fc-filters {
-  padding: 2px 0 5px 0;
+  padding-bottom: 4px;
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -126,9 +136,7 @@
 }
 
 .fc-filters .fc-options-section {
-  margin-left: 5px;
-  margin-right: 5px;
-  max-height: 55px;
+  margin: -10px 5px;
   transform: scale(0.8);
   display: flex;
   flex-direction: column;
@@ -140,7 +148,7 @@
   display: flex;
   flex-direction: column-reverse;
   gap: 2px;
-  transform: scale(0.75);
+  transform: scale(0.8);
 }
 
 /******* minimized filters *******/
@@ -317,6 +325,15 @@
 }
 
 /* IF IN SIDEBAR */
+.full-calendar-comp.fc-sidebar {
+  height: calc(150vh);
+}
+.full-calendar-comp.fc-sidebar:has(.fc-minimized) {
+  height: calc(65vh);
+}
+.full-calendar-comp.fc-sidebar.fc-sticky {
+  background: transparent;
+}
 .fc-sidebar .fc-filters .bp3-tag-input .bp3-tag {
   font-size: x-small;
 }
@@ -346,6 +363,7 @@
   right: 0;
   flex-direction: column-reverse;
   gap: 0;
+  transform: scale(0.7);
 }
 .fc-sidebar .fc-scrollgrid-section-header {
   font-size: x-small;

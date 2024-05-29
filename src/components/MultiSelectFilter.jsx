@@ -32,6 +32,7 @@ const MultiSelectFilter = ({
   isWEtoDisplay,
   setIsWEtoDisplay,
   parentElt,
+  updateSize,
 }) => {
   const [popoverToOpen, setPopoverToOpen] = useState("");
   const [queryStr, setQueryStr] = useState("");
@@ -101,6 +102,7 @@ const MultiSelectFilter = ({
       calendarElt.classList.add("fc-minimized");
       setIsMinimized(true);
     }
+    updateSize();
   };
 
   const handleSticky = () => {

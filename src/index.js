@@ -70,6 +70,18 @@ const panelConfig = {
       },
     },
     {
+      id: "doingTag",
+      name: "Doing",
+      description:
+        "Page title for ongoing, unfinished tasks and aliases separated by a comma.",
+      action: {
+        type: "input",
+        onChange: (evt) => {
+          updateTagPagesWithUserList("doing", evt.target.value);
+        },
+      },
+    },
+    {
       id: "userTags",
       name: "User defined tags",
       description: "Page title for user defined tags, separated by a comma.",
@@ -167,7 +179,7 @@ const initializeMapOfTags = (extensionAPI) => {
   mapOfTags.push(
     new EventTag({
       name: "do",
-      color: Colors.ORANGE3,
+      color: Colors.ORANGE1,
       ...getStoredTagInfos("do"),
       pages: getTrimedArrayFromList(extensionAPI.settings.get("doTag")),
     })
@@ -178,6 +190,14 @@ const initializeMapOfTags = (extensionAPI) => {
       color: Colors.VIOLET3,
       ...getStoredTagInfos("due"),
       pages: getTrimedArrayFromList(extensionAPI.settings.get("dueTag")),
+    })
+  );
+  mapOfTags.push(
+    new EventTag({
+      name: "doing",
+      color: Colors.ORANGE3,
+      ...getStoredTagInfos("doing"),
+      pages: getTrimedArrayFromList(extensionAPI.settings.get("doingTag")),
     })
   );
   const userTags = extensionAPI.settings.get("userTags");
@@ -238,7 +258,8 @@ export default {
     console.log("calendarTag :>> ", calendarTag);
     if (extensionAPI.settings.get("importantTag") === null)
       await extensionAPI.settings.set("importantTag", "important");
-    // footnotesTag = extensionAPI.settings.get("footnotesHeader");
+    if (extensionAPI.settings.get("doingTag") === null)
+      await extensionAPI.settings.set("doingTag", "doing");
     if (extensionAPI.settings.get("doTag") === null)
       await extensionAPI.settings.set("doTag", "do");
     if (extensionAPI.settings.get("dueTag") === null)
@@ -247,11 +268,15 @@ export default {
       await extensionAPI.settings.set("userTags", "");
 
     extensionAPI.ui.commandPalette.addCommand({
-      label: "Insert calendar",
+      label: "Full Calendar: Display/Hide in main window",
       callback: () => {
-        // let startUid = window.roamAlphaAPI.ui.getFocusedBlock()?.["block-uid"];
-        // if (startUid) insertFootNote(startUid);
         renderApp();
+      },
+    });
+    extensionAPI.ui.commandPalette.addCommand({
+      label: "Full Calendar: Display/Hide in Sidebar",
+      callback: () => {
+        renderApp(true);
       },
     });
 
@@ -296,9 +321,6 @@ export default {
   onunload: () => {
     // disconnectObserver();
 
-    // roamAlphaAPI.ui.blockContextMenu.removeCommand({
-    //   label: "Color Highlighter: Remove color tags",
-    // });
     removeListeners();
 
     console.log("Extension unloaded");
