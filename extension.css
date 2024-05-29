@@ -265,6 +265,29 @@
   align-self: flex-end;
 }
 
+/******* new event popover *******/
+.bp3-transition-container:has(.fc-newevent-popover) {
+  visibility: hidden;
+  transition-duration: visibility 0.5s;
+}
+.fc-newevent-popover > div {
+  width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 15px;
+}
+
+.fc-newevent-popover > div > div:last-child {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.fc-newevent-popover > div > div:last-child > button {
+  padding-top: 5px;
+  min-width: 80px;
+}
+
 /* IF IN SIDEBAR */
 .fc-sidebar .fc-filters .bp3-tag-input .bp3-tag {
   font-size: x-small;

@@ -37,8 +37,10 @@ let events = [];
 const Calendar = ({ parentElt }) => {
   const [newEventDialogIsOpen, setNewEventDialogIsOpen] = useState(false);
   const [focusedPageUid, setFocusedPageUid] = useState(null);
+  const [selectedDay, setSelectedDay] = useState(null);
   // const [events, setEvents] = useState([]);
   const [addedEvent, setAddedEvent] = useState(null);
+  const [position, setPosition] = useState({ x: null, y: null });
 
   const [filterLogic, setFilterLogic] = useState("Or");
   const [tagsToDisplay, setTagsToDisplay] = useState(
@@ -75,21 +77,25 @@ const Calendar = ({ parentElt }) => {
   const handleSquareDayClick = async (info) => {
     console.log("Day clicked", info.jsEvent);
     const targetDnpUid = window.roamAlphaAPI.util.dateToPageUid(info.date);
-    if (info.jsEvent.shiftKey) {
-      if (!isExistingNode(targetDnpUid)) {
-        await window.roamAlphaAPI.data.page.create({
-          page: {
-            title: window.roamAlphaAPI.util.dateToPageTitle(info.date),
-            uid: targetDnpUid,
-          },
+    setSelectedDay((prev) => (prev === targetDnpUid ? null : targetDnpUid));
+    if (selectedDay === targetDnpUid) {
+      if (info.jsEvent.shiftKey) {
+        if (!isExistingNode(targetDnpUid)) {
+          await window.roamAlphaAPI.data.page.create({
+            page: {
+              title: window.roamAlphaAPI.util.dateToPageTitle(info.date),
+              uid: targetDnpUid,
+            },
+          });
+        }
+        window.roamAlphaAPI.ui.rightSidebar.addWindow({
+          window: { type: "outline", "block-uid": targetDnpUid },
         });
+      } else {
+        setPosition({ x: info.jsEvent.offsetX, y: info.jsEvent.offsetY });
+        setFocusedPageUid(targetDnpUid);
+        setNewEventDialogIsOpen(true);
       }
-      window.roamAlphaAPI.ui.rightSidebar.addWindow({
-        window: { type: "outline", "block-uid": targetDnpUid },
-      });
-    } else {
-      setFocusedPageUid(targetDnpUid);
-      setNewEventDialogIsOpen(true);
     }
   };
 
@@ -238,6 +244,7 @@ const Calendar = ({ parentElt }) => {
         newEventDialogIsOpen={newEventDialogIsOpen}
         setNewEventDialogIsOpen={setNewEventDialogIsOpen}
         pageUid={focusedPageUid}
+        position={position}
         // setEvents={setEvents}
       />
       {/* <Filters filters={filters} setFilters={setFilters} /> */}
