@@ -1,15 +1,23 @@
 import {
+  Button,
   Checkbox,
+  Dialog,
   Icon,
   Tooltip,
   Popover,
   Classes,
   Tag,
 } from "@blueprintjs/core";
-import { updateBlock } from "../util/roamApi";
-import { getTagColor, replaceItemAndGetUpdatedArray } from "../util/data";
+import {
+  deleteBlock,
+  deleteBlockIfNoChild,
+  getPageNameByPageUid,
+  getParentBlock,
+  updateBlock,
+} from "../util/roamApi";
+import { replaceItemAndGetUpdatedArray } from "../util/data";
 import { useState, useRef } from "react";
-import { getTagColorFromName, getTagFromName } from "../models/EventTag";
+import { getTagFromName } from "../models/EventTag";
 import { calendarTag } from "..";
 import TagList from "./TagList";
 
@@ -25,9 +33,20 @@ const Event = ({
     event.extendedProps.eventTags
   );
   const [popoverIsOpen, setPopoverIsOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isExisting, setIsExisting] = useState(true);
   const popoverRef = useRef(null);
 
-  return (
+  const handleDeleteEvent = async () => {
+    const currentCalendarUid = getParentBlock(event.id);
+    await deleteBlock(event.id);
+    deleteBlockIfNoChild(currentCalendarUid);
+    setIsDeleteDialogOpen(false);
+    setPopoverIsOpen(false);
+    setIsExisting(false);
+  };
+
+  return isExisting ? (
     <Popover
       isOpen={popoverIsOpen}
       autoFocus={false}
@@ -41,14 +60,42 @@ const Event = ({
             onClick={() => setPopoverIsOpen((prev) => !prev)}
           />
           <div ref={popoverRef}></div>
-          {eventTagList[0].name !== calendarTag.name ? (
-            <TagList
-              list={eventTagList}
-              setEventTagList={setEventTagList}
-              isInteractive={true}
-              event={event}
+          <div>
+            {eventTagList[0].name !== calendarTag.name ? (
+              <TagList
+                list={eventTagList}
+                setEventTagList={setEventTagList}
+                isInteractive={true}
+                event={event}
+              />
+            ) : null}
+            <Icon
+              icon="trash"
+              size="12"
+              onClick={() => setIsDeleteDialogOpen(true)}
             />
-          ) : null}
+            <Dialog
+              className="fc-delete-dialog"
+              title="Delete event"
+              icon="trash"
+              isOpen={isDeleteDialogOpen}
+              canOutsideClickClose={true}
+              onClose={() => setIsDeleteDialogOpen(false)}
+            >
+              <p>Are you sure you want to delete this event ?</p>
+              <div>
+                <Button
+                  text="Cancel"
+                  onClick={() => setIsDeleteDialogOpen(false)}
+                />
+                <Button
+                  intent="danger"
+                  text="Delete"
+                  onClick={handleDeleteEvent}
+                />
+              </div>
+            </Dialog>
+          </div>
         </div>
       }
       usePortal={true}
@@ -154,8 +201,8 @@ const Event = ({
         </Tooltip>
       </div>
     </Popover>
-    // </Tooltip>
-  );
+  ) : null;
+  // </Tooltip>
 };
 
 // {window.roamAlphaAPI.ui.components.renderBlock({

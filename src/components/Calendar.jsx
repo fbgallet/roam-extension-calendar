@@ -71,7 +71,7 @@ const Calendar = ({ parentElt }) => {
 
   useEffect(() => {
     isDataToReload.current = true;
-  }, [isEntireDNP]);
+  }, [isEntireDNP, isWEtoDisplay]);
 
   const handleSelectDays = (e) => {
     console.log("Day selected");
