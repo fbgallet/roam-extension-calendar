@@ -80,39 +80,22 @@ const filterTreeToGetEvents = (
         isCalendarTree ||
         (tree[i].refs?.length > 0 && matchingTags.length > 0)
       ) {
-        let prefix = "";
         if (!isCalendarTree && matchingTags[0].name === calendarTag.name)
           isCalendarParent = true;
         else {
           if (!isCalendarTree && onlyCalendarTag) continue;
-          if (isCalendarTree && !matchingTags.length) {
-            matchingTags.push(calendarTag);
-            prefix = "• ";
-          }
-          // dateString = dateString || dateToISOString(currentDate);
-
-          let classNames = matchingTags.length
-            ? matchingTags.map((tag) => tag.name.replace(" ", "_"))
-            : [];
-          if (isRef) {
-            if (classNames.length) classNames.push("fc-event-ref");
-            else classNames = ["fc-event-ref"];
-          }
-
-          events.push({
-            id: tree[i].uid,
-            title: prefix + resolveReferences(tree[i].string),
-            date: dateString,
-            classNames: classNames,
-            // eventDisplay:
-            //   matchingTags.length === 1 && matchingTags[0] === calendarTag.name
-            //     ? "list-item"
-            //     : "block",
-            extendedProps: { eventTags: matchingTags, isRef: isRef },
-            color: matchingTags.length ? matchingTags[0].color : undefined,
-            textColor:
-              matchingTags[0].color === "transparent" ? "revert" : null,
-          });
+          events.push(
+            parseEventObject(
+              {
+                id: tree[i].uid,
+                title: resolveReferences(tree[i].string),
+                date: dateString,
+                matchingTags: matchingTags,
+                isRef: isRef,
+              },
+              isCalendarTree
+            )
+          );
         }
       }
       let subTree = tree[i].children;
@@ -130,12 +113,43 @@ const filterTreeToGetEvents = (
   }
 };
 
-const getMatchingTags = (mapOfTags, refUidArray) => {
+export const getMatchingTags = (mapOfTags, refUidArray) => {
   if (!refUidArray) return [];
   if (refUidArray.includes(calendarTag.uids[0])) return [calendarTag];
   return mapOfTags.filter(({ uids }) =>
     refUidArray.some((uid) => uids.includes(uid))
   );
+};
+
+export const parseEventObject = (
+  { id, title, date, matchingTags, isRef = false },
+  isCalendarTree = true
+) => {
+  let prefix = "";
+  if (isCalendarTree && !matchingTags.length) {
+    matchingTags.push(calendarTag);
+    prefix = "• ";
+  }
+  let classNames = matchingTags.length
+    ? matchingTags.map((tag) => tag.name.replace(" ", "_"))
+    : [];
+  if (isRef) {
+    if (classNames.length) classNames.push("fc-event-ref");
+    else classNames = ["fc-event-ref"];
+  }
+
+  return {
+    id,
+    title: prefix + title,
+    date,
+    classNames: classNames,
+    extendedProps: { eventTags: matchingTags, isRef: isRef },
+    color: matchingTags.length ? matchingTags[0].color : undefined,
+    textColor:
+      matchingTags.length && matchingTags[0].color === "transparent"
+        ? "revert"
+        : null,
+  };
 };
 
 const isReferencingDNP = (refs, dnpUid) => {

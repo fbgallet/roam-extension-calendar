@@ -64,6 +64,15 @@ export function getFirstBlockUidByReferenceOnPage(refName, pageUid) {
   else return null;
 }
 
+export function getBlocksUidReferencedInThisBlock(uid) {
+  let q = `[:find ?u 
+            :where 
+              [?r :block/uid "${uid}"] 
+              [?r :block/refs ?x] 
+              [?x :block/uid ?u] ]`;
+  return window.roamAlphaAPI.q(q).map((ref) => ref[0]);
+}
+
 export function createChildBlock(
   parentUid,
   content = "",
@@ -136,8 +145,12 @@ export function updateBlock(uid, content) {
   window.roamAlphaAPI.updateBlock({ block: { uid: uid, string: content } });
 }
 
-export function deleteBlock(targetUid) {
-  window.roamAlphaAPI.deleteBlock({ block: { uid: targetUid } });
+export async function deleteBlock(targetUid) {
+  await window.roamAlphaAPI.deleteBlock({ block: { uid: targetUid } });
+}
+export async function deleteBlockIfNoChild(targetUid) {
+  const hasChildren = hasChildrenBlocks(targetUid);
+  if (!hasChildren) await deleteBlock(targetUid);
 }
 
 export function processNotesInTree(tree, callback, callbackArgs) {

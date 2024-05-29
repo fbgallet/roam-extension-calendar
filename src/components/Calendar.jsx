@@ -6,7 +6,8 @@ import multiMonthPlugin from "@fullcalendar/multimonth";
 import {
   getBlocksToDisplayFromDNP,
   getCalendarUidFromPage,
-  insertEventOnPage,
+  getMatchingTags,
+  parseEventObject,
   removeSquareBrackets,
 } from "../util/data";
 import { useState, useEffect, useRef } from "react";
@@ -15,7 +16,9 @@ import Filters from "./Filters";
 import MultiSelectFilter from "./MultiSelectFilter";
 import {
   createChildBlock,
+  deleteBlockIfNoChild,
   getBlockContentByUid,
+  getBlocksUidReferencedInThisBlock,
   getFirstBlockUidByReferenceOnPage,
   getPageNameByPageUid,
   getParentBlock,
@@ -75,23 +78,22 @@ const Calendar = ({ parentElt }) => {
   };
 
   const handleSquareDayClick = async (info) => {
-    console.log("Day clicked", info.jsEvent);
     const targetDnpUid = window.roamAlphaAPI.util.dateToPageUid(info.date);
     setSelectedDay((prev) => (prev === targetDnpUid ? null : targetDnpUid));
-    if (selectedDay === targetDnpUid) {
-      if (info.jsEvent.shiftKey) {
-        if (!isExistingNode(targetDnpUid)) {
-          await window.roamAlphaAPI.data.page.create({
-            page: {
-              title: window.roamAlphaAPI.util.dateToPageTitle(info.date),
-              uid: targetDnpUid,
-            },
-          });
-        }
-        window.roamAlphaAPI.ui.rightSidebar.addWindow({
-          window: { type: "outline", "block-uid": targetDnpUid },
+    if (info.jsEvent.shiftKey) {
+      if (!isExistingNode(targetDnpUid)) {
+        await window.roamAlphaAPI.data.page.create({
+          page: {
+            title: window.roamAlphaAPI.util.dateToPageTitle(info.date),
+            uid: targetDnpUid,
+          },
         });
-      } else {
+      }
+      window.roamAlphaAPI.ui.rightSidebar.addWindow({
+        window: { type: "outline", "block-uid": targetDnpUid },
+      });
+    } else {
+      if (selectedDay === targetDnpUid) {
         setPosition({ x: info.jsEvent.offsetX, y: info.jsEvent.offsetY });
         setFocusedPageUid(targetDnpUid);
         setNewEventDialogIsOpen(true);
@@ -131,7 +133,6 @@ const Calendar = ({ parentElt }) => {
   };
 
   const getEventsFromDNP = async (info) => {
-    console.log("events :>> ", events);
     if (isDataToReload.current) {
       events = getBlocksToDisplayFromDNP(
         info.start,
@@ -191,21 +192,34 @@ const Calendar = ({ parentElt }) => {
         },
         block: { uid: info.event.id },
       });
-      const hasChildren = hasChildrenBlocks(currentCalendarUid);
-      if (!hasChildren)
-        window.roamAlphaAPI.deleteBlock({ block: { uid: currentCalendarUid } });
+      deleteBlockIfNoChild(currentCalendarUid);
     }
   };
 
-  // const handleExernalDrop = (info) => {
-  //   // console.log("info :>> ", info);
-  //   console.log("info.draggedEl :>> ", info.draggedEl);
-  //   console.log(
-  //     "uid :>> ",
-  //     info.draggedEl.parentElement?.nextElementSibling?.id?.slice(-9)
-  //   );
-  //   // console.log("info.jsEvent :>> ", info.jsEvent);
-  // };
+  const handleExternalDrop = async (e) => {
+    e.preventDefault();
+    const sourceUid = e.dataTransfer.getData("text");
+    const blockContent = getBlockContentByUid(sourceUid);
+    const blockRefs = getBlocksUidReferencedInThisBlock(sourceUid);
+    const targetDateString = e.target.parentNode.dataset["date"];
+    const targetDate = new Date(targetDateString);
+    const date = dateToISOString(targetDate);
+    const matchingTags = getMatchingTags(tagsToDisplay, blockRefs);
+    let calendarBlockUid = await getCalendarUidFromPage(
+      window.roamAlphaAPI.util.dateToPageTitle(targetDate)
+    );
+    await createChildBlock(calendarBlockUid, `((${sourceUid}))`);
+    events.push(
+      parseEventObject({
+        id: sourceUid,
+        title: blockContent,
+        date: date,
+        matchingTags: matchingTags,
+      })
+    );
+    isDataToReload.current = false;
+    setAddedEvent(sourceUid);
+  };
 
   return (
     <div
@@ -215,30 +229,7 @@ const Calendar = ({ parentElt }) => {
       onDragEnter={(e) => {
         e.preventDefault();
       }}
-      onDrop={async (e) => {
-        e.preventDefault();
-        const sourceUid = e.dataTransfer.getData("text");
-        const blockContent = getBlockContentByUid(sourceUid);
-        const targetDateString = e.target.parentNode.dataset["date"];
-        const targetDate = new Date(targetDateString);
-        const isoDate = dateToISOString(targetDate);
-        let calendarBlockUid = await getCalendarUidFromPage(
-          window.roamAlphaAPI.util.dateToPageTitle(targetDate)
-        );
-        createChildBlock(calendarBlockUid, `((${sourceUid}))`);
-        events.push({
-          id: sourceUid,
-          title: blockContent,
-          date: isoDate,
-          // TODO : add matching tags
-          extendedProps: { eventTags: calendarTag, isRef: false },
-          borderColor: "transparent",
-          color: "none",
-          classNames: [calendarTag.name],
-        });
-        isDataToReload.current = false;
-        setAddedEvent(sourceUid);
-      }}
+      onDrop={handleExternalDrop}
     >
       <NewEventDialog
         newEventDialogIsOpen={newEventDialogIsOpen}

@@ -1,16 +1,10 @@
-import {
-  Button,
-  Dialog,
-  DialogBody,
-  DialogFooter,
-  Popover,
-  Modifiers,
-} from "@blueprintjs/core";
+import { Button, Dialog, Popover } from "@blueprintjs/core";
 import {
   createChildBlock,
   deleteBlock,
+  deleteBlockIfNoChild,
   getPageNameByPageUid,
-  getPageUidByPageName,
+  getParentBlock,
 } from "../util/roamApi";
 import { useRef, useState } from "react";
 import { getCalendarUidFromPage } from "../util/data";
@@ -50,8 +44,12 @@ const NewEventDialog = ({
     }, 100);
   };
 
-  const handleCancel = () => {
-    if (isBlockRendering) deleteBlock(eventUid);
+  const handleCancel = async () => {
+    if (isBlockRendering) {
+      const currentCalendarUid = getParentBlock(eventUid);
+      await deleteBlock(eventUid);
+      deleteBlockIfNoChild(currentCalendarUid);
+    }
     setIsBlockRendering(false);
     setNewEventDialogIsOpen(false);
   };
@@ -73,8 +71,6 @@ const NewEventDialog = ({
     setIsBlockRendering(false);
     setNewEventDialogIsOpen(false);
   };
-
-  const pageTitle = getPageNameByPageUid(pageUid);
 
   return (
     <div style={{ display: "none" }}>

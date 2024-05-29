@@ -21,7 +21,7 @@
   overflow-y: auto;
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 10;
   background: var(--fc-page-bg-color);
 }
 
@@ -241,6 +241,11 @@
 }
 
 /******* events popover edit *******/
+
+.bp3-portal:has(.fc-event-popover),
+.bp3-portal:has(.fc-newevent-popover) {
+  z-index: 11;
+}
 
 .bp3-popover.bp3-popover-content-sizing
   .bp3-popover-content:has(.fc-event-popover) {
