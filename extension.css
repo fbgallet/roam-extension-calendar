@@ -2,10 +2,10 @@
   height: calc(100vh - 50px);
 }
 .full-calendar-comp:has(.fc-minimized) {
-  height: calc(100vh + 20px);
+  height: calc(100vh + 30px);
 }
 .full-calendar-comp > div {
-  height: 96%;
+  height: 100%;
 }
 
 .full-calendar-comp .fc .fc-toolbar.fc-header-toolbar {
@@ -19,13 +19,14 @@
 }
 .full-calendar-comp.fc-sidebar {
   padding: 0 5px;
+  overflow-y: hidden;
 }
 
 .full-calendar-comp.fc-sticky {
   height: 50%;
-  max-height: 70%;
+  max-height: 80%;
   resize: vertical;
-  overflow-y: auto;
+  overflow-y: hidden;
   position: sticky;
   top: 0;
   z-index: 10;
@@ -154,6 +155,9 @@
 /******* minimized filters *******/
 .fc.full-calendar-comp:has(.fc-filters.fc-minimized) {
   max-height: calc(100vh - 30px);
+}
+.full-calendar-comp:has(.fc-minimized) > div > .fc-media-screen {
+  height: 98% !important;
 }
 
 .fc-filters.fc-minimized .bp3-multi-select {
@@ -326,10 +330,16 @@
 
 /* IF IN SIDEBAR */
 .full-calendar-comp.fc-sidebar {
-  height: calc(150vh);
+  height: calc(65vh);
 }
 .full-calendar-comp.fc-sidebar:has(.fc-minimized) {
-  height: calc(65vh);
+  height: calc(50vh);
+}
+.full-calendar-comp.fc-sidebar > div > .fc-media-screen {
+  height: 87% !important;
+}
+.full-calendar-comp.fc-sidebar:has(.fc-minimized) > div > .fc-media-screen {
+  height: 98% !important;
 }
 .full-calendar-comp.fc-sidebar.fc-sticky {
   background: transparent;

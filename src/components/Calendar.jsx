@@ -52,6 +52,7 @@ const Calendar = ({ parentElt }) => {
   const [isEntireDNP, setIsEntireDNP] = useState(false);
   const [isIncludingRefs, setIsIncludingRefs] = useState(true);
   const [isWEtoDisplay, setIsWEtoDisplay] = useState(true);
+  const [isMinimized, setIsMinimized] = useState(false);
   const isDataToReload = useRef(true);
   const calendarRef = useRef(null);
 
@@ -257,6 +258,8 @@ const Calendar = ({ parentElt }) => {
         setIsIncludingRefs={setIsIncludingRefs}
         isWEtoDisplay={isWEtoDisplay}
         setIsWEtoDisplay={setIsWEtoDisplay}
+        isMinimized={isMinimized}
+        setIsMinimized={setIsMinimized}
         parentElt={parentElt}
         updateSize={updateSize}
       />
@@ -276,7 +279,7 @@ const Calendar = ({ parentElt }) => {
             click: updateSize,
           },
         }}
-        height={"95%"}
+        height={"90%"}
         expandRows={true}
         initialDate={"2024-04-20"}
         initialView="dayGridMonth"

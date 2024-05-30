@@ -31,13 +31,14 @@ const MultiSelectFilter = ({
   setIsIncludingRefs,
   isWEtoDisplay,
   setIsWEtoDisplay,
+  isMinimized,
+  setIsMinimized,
   parentElt,
   updateSize,
 }) => {
   const [popoverToOpen, setPopoverToOpen] = useState("");
   const [queryStr, setQueryStr] = useState("");
   const [isSticky, setIsSticky] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
 
   const handleTagSelect = (tag) => {
     if (
