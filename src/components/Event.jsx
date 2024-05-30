@@ -45,6 +45,11 @@ const Event = ({
     setIsExisting(false);
   };
 
+  const handleClose = () => {
+    const tooltip = document.querySelector(".rm-bullet__tooltip");
+    if (tooltip) tooltip.remove();
+  };
+
   return isExisting ? (
     <Popover
       isOpen={popoverIsOpen}
@@ -97,6 +102,7 @@ const Event = ({
           </div>
         </div>
       }
+      onClose={handleClose}
       usePortal={true}
       onOpening={(e) =>
         window.roamAlphaAPI.ui.components.renderBlock({

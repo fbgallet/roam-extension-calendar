@@ -3,7 +3,7 @@ import { uidRegex } from "./regex";
 export function getTreeByUid(uid) {
   if (uid)
     return window.roamAlphaAPI.q(`[:find (pull ?page
-                       [:block/uid :block/string :block/children {:block/refs [:block/uid]} :block/order
+                       [:block/uid :block/string :block/children {:block/refs [:block/uid]} :block/order :block/page
                           {:block/children ...} ])
                         :where [?page :block/uid "${uid}"]  ]`)[0];
   else return null;
@@ -99,17 +99,19 @@ export function isExistingNode(uid) {
   return true;
 }
 
-export function getLinkedReferencesTrees(pageUid) {
+export function getLinkedReferencesTrees(pageUid, sourcePageUidToExclude) {
   if (!pageUid) return null;
   let result = window.roamAlphaAPI.q(
     `[:find
-      (pull ?node [:block/uid :block/string :edit/time {:block/refs [:block/uid]} :block/children
+      (pull ?node [:block/uid :block/string :edit/time {:block/refs [:block/uid]} :block/children {:block/page [:block/uid]}
       {:block/children ...}])
   :where
     [?test-Ref :block/uid "${pageUid}"]
     [?node :block/refs ?test-Ref]
   ]`
   );
+  if (sourcePageUidToExclude)
+    result = result.filter((ref) => ref[0].page.uid !== sourcePageUidToExclude);
   // sorted by edit time from most recent to older
   const reverseTimeSorted = result.sort((a, b) => b[0].time - a[0].time);
   return reverseTimeSorted;

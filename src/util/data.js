@@ -31,7 +31,10 @@ export const getBlocksToDisplayFromDNP = async (
     let pageAndRefsTrees = [];
     pageAndRefsTrees.push(getTreeByUid(dnpUid));
     if (isIncludingRefs) {
-      const refTrees = getLinkedReferencesTrees(dnpUid);
+      const refTrees = getLinkedReferencesTrees(
+        dnpUid,
+        getPageUidByPageName("roam/memo")
+      );
       pageAndRefsTrees = pageAndRefsTrees.concat(refTrees);
       // console.log("pageAndRefsTrees :>> ", pageAndRefsTrees);
     }

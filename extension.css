@@ -1,8 +1,10 @@
-.full-calendar-comp {
+.full-calendar-comp:not(.fc-sticky) {
+  min-height: calc(100vh - 50px);
   height: calc(100vh - 50px);
 }
-.full-calendar-comp:has(.fc-minimized) {
-  height: calc(100vh + 30px);
+.full-calendar-comp:not(.fc-sticky):has(.fc-minimized) {
+  min-height: calc(100vh - 20px);
+  height: calc(100vh - 20px);
 }
 .full-calendar-comp > div {
   height: 100%;
@@ -172,7 +174,7 @@
   max-height: calc(100vh - 30px);
 }
 .full-calendar-comp:has(.fc-minimized) > div > .fc-media-screen {
-  height: 98% !important;
+  height: 96% !important;
 }
 
 .fc-filters.fc-minimized .bp3-multi-select {
@@ -284,9 +286,12 @@
 }
 
 .fc-event-popover {
-  min-width: 200px;
+  min-width: 250px;
   display: flex;
   flex-direction: column;
+}
+.fc-event-popover .rm-api-render--block .roam-block-container {
+  min-width: 220px;
 }
 .fc-event-popover > div:first-of-type {
   padding-bottom: 15px;
@@ -355,20 +360,21 @@
   margin-bottom: 0;
 }
 
-/* IF IN SIDEBAR */
+/************************/
+/**** IF IN SIDEBAR *****/
 /************************/
 
-.full-calendar-comp.fc-sidebar {
+.full-calendar-comp.fc-sidebar.fc-sticky {
   height: calc(65vh);
 }
-.full-calendar-comp.fc-sidebar:has(.fc-minimized) {
+.full-calendar-comp.fc-sticky.fc-sidebar:has(.fc-minimized) {
   height: calc(50vh);
 }
-.full-calendar-comp.fc-sidebar > div > .fc-media-screen {
+.full-calendar-comp.fc-sidebar.fc-sticky > div > .fc-media-screen {
   height: 87% !important;
 }
 .full-calendar-comp.fc-sidebar:has(.fc-minimized) > div > .fc-media-screen {
-  height: 98% !important;
+  height: 96% !important;
 }
 .full-calendar-comp.fc-sidebar.fc-sticky {
   background: transparent;

@@ -44,6 +44,11 @@ const NewEventDialog = ({
     }, 100);
   };
 
+  const handleClose = () => {
+    const tooltip = document.querySelector(".rm-bullet__tooltip");
+    if (tooltip) tooltip.remove();
+  };
+
   const handleCancel = async () => {
     if (isBlockRendering) {
       const currentCalendarUid = getParentBlock(eventUid);
@@ -80,7 +85,7 @@ const NewEventDialog = ({
         popoverClassName="fc-newevent-popover"
         ref={popoverRef}
         autoFocus={false}
-        // onClose={handleClose}
+        onClose={handleClose}
         minimal={true}
         onOpened={() => {
           if (popoverRef.current) {

@@ -179,7 +179,7 @@ const initializeMapOfTags = (extensionAPI) => {
   mapOfTags.push(
     new EventTag({
       name: "do",
-      color: Colors.ORANGE1,
+      color: Colors.GREEN1,
       ...getStoredTagInfos("do"),
       pages: getTrimedArrayFromList(extensionAPI.settings.get("doTag")),
     })
