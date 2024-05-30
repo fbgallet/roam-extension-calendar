@@ -66,6 +66,21 @@
   scale: 0.8;
 } */
 
+.fc-day-sat,
+.fc-day-sun {
+  background: rgb(0, 0, 0, 0.02);
+}
+
+.full-calendar-comp
+  > div
+  > div.fc
+  > div
+  > .fc-multimonth-multicol
+  .fc-multimonth-month {
+  padding-left: 0.6em;
+  padding-right: 0.6em;
+}
+
 /**********************/
 /*** FILTER SECTION ***/
 /**********************/
@@ -328,7 +343,21 @@
   min-width: 80px;
 }
 
+/******* in DAY grid *******/
+
+.fc-dayGridDay-view div.fc-daygrid-event-harness,
+.fc-dayGridWeek-view div.fc-daygrid-event-harness {
+  margin-bottom: 3px;
+}
+.fc-dayGridDay-view div.fc-daygrid-event-harness:has(+ .fc-daygrid-day-bottom),
+.fc-dayGridWeek-view
+  div.fc-daygrid-event-harness:has(+ .fc-daygrid-day-bottom) {
+  margin-bottom: 0;
+}
+
 /* IF IN SIDEBAR */
+/************************/
+
 .full-calendar-comp.fc-sidebar {
   height: calc(65vh);
 }

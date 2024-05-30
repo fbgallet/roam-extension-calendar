@@ -6,16 +6,14 @@ import {
   Tooltip,
   Popover,
   Classes,
-  Tag,
 } from "@blueprintjs/core";
 import {
   deleteBlock,
   deleteBlockIfNoChild,
-  getPageNameByPageUid,
   getParentBlock,
   updateBlock,
 } from "../util/roamApi";
-import { replaceItemAndGetUpdatedArray } from "../util/data";
+import { colorToDisplay, replaceItemAndGetUpdatedArray } from "../util/data";
 import { useState, useRef } from "react";
 import { getTagFromName } from "../models/EventTag";
 import { calendarTag } from "..";
@@ -27,6 +25,7 @@ const Event = ({
   timeText,
   hasCheckbox,
   isChecked,
+  tagsToDisplay,
   backgroundColor,
 }) => {
   const [eventTagList, setEventTagList] = useState(
@@ -116,16 +115,17 @@ const Event = ({
           // e.stopPropagation();
           setPopoverIsOpen((prev) => !prev);
         }}
+        // style={{
+        //   display: timeText ? "inline" : "none",
+        //   width: "10px",
+        //   height: "10px",
+        //   borderRadius: "50%",
+        //   backgroundColor: colorToDisplay(eventTagList),
+        // }}
       >
-        <div
-          style={{
-            display: timeText ? "inline" : "none",
-            width: "10px",
-            height: "10px",
-            borderRadius: "50%",
-            backgroundColor: backgroundColor,
-          }}
-        ></div>
+        {/* <div
+          
+        > */}
         {hasCheckbox && (
           <Checkbox
             // label={null}
@@ -152,7 +152,6 @@ const Event = ({
                   "name"
                 );
                 console.log("updatedTags :>> ", updatedTags);
-                event.setProp("color", updatedTags[0].color);
               } else {
                 updatedTitle = event.title.replace(
                   "{{[[TODO]]}}",
@@ -170,12 +169,11 @@ const Event = ({
                   "name"
                 );
                 console.log("updatedTags :>> ", updatedTags);
-                event.setProp("color", updatedTags[0].color);
               }
+              event.setProp("color", colorToDisplay(updatedTags));
               event.setProp("title", updatedTitle);
               event.setProp("classNames", updatedClassNames);
               event.setExtendedProp("eventTags", updatedTags);
-              console.log("event :>> ", event);
               updateBlock(event.id, updatedTitle);
             }}
           />

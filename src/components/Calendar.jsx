@@ -1,7 +1,7 @@
 import FullCalendar from "@fullcalendar/react";
 import interactionPlugin, { Draggable } from "@fullcalendar/interaction";
 import dayGridPlugin from "@fullcalendar/daygrid";
-import timeGridPlugin from "@fullcalendar/timegrid";
+// import timeGridPlugin from "@fullcalendar/timegrid";
 import multiMonthPlugin from "@fullcalendar/multimonth";
 import {
   getBlocksToDisplayFromDNP,
@@ -9,25 +9,21 @@ import {
   getMatchingTags,
   parseEventObject,
   removeSquareBrackets,
+  updateEventColor,
 } from "../util/data";
 import { useState, useEffect, useRef } from "react";
 import Event from "./Event";
-import Filters from "./Filters";
 import MultiSelectFilter from "./MultiSelectFilter";
 import {
   createChildBlock,
   deleteBlockIfNoChild,
   getBlockContentByUid,
   getBlocksUidReferencedInThisBlock,
-  getFirstBlockUidByReferenceOnPage,
-  getPageNameByPageUid,
   getParentBlock,
-  hasChildrenBlocks,
   isExistingNode,
   resolveReferences,
 } from "../util/roamApi";
 import { roamDateRegex } from "../util/regex";
-import EditEvent from "./EditEvent";
 import NewEventDialog from "./NewEventDialog";
 import { dateToISOString } from "../util/dates";
 import { calendarTag, mapOfTags } from "..";
@@ -52,9 +48,9 @@ const Calendar = ({ parentElt }) => {
   const [isEntireDNP, setIsEntireDNP] = useState(false);
   const [isIncludingRefs, setIsIncludingRefs] = useState(true);
   const [isWEtoDisplay, setIsWEtoDisplay] = useState(true);
-  const [isMinimized, setIsMinimized] = useState(false);
   const isDataToReload = useRef(true);
   const calendarRef = useRef(null);
+  const startDate = useRef(null);
 
   function updateSize() {
     const calendarApi = calendarRef.current.getApi();
@@ -129,6 +125,7 @@ const Calendar = ({ parentElt }) => {
         timeText={info.timeText}
         hasCheckbox={hasCheckbox}
         isChecked={isChecked}
+        tagsToDisplay={tagsToDisplay}
         backgroundColor={info.backgroundColor}
       ></Event>
     );
@@ -140,8 +137,14 @@ const Calendar = ({ parentElt }) => {
   };
 
   const getEventsFromDNP = async (info) => {
+    console.log("stard/end :>> ", info.start, info.end);
+    console.log("isDataToReload.current :>> ", isDataToReload.current);
+    if (startDate.current !== info.start) {
+      isDataToReload.current = true;
+      startDate.current = info.start;
+    }
     if (isDataToReload.current) {
-      events = getBlocksToDisplayFromDNP(
+      events = await getBlocksToDisplayFromDNP(
         info.start,
         info.end,
         !isEntireDNP,
@@ -149,7 +152,6 @@ const Calendar = ({ parentElt }) => {
       );
     } else isDataToReload.current = true;
     // if (!events.length) return [];
-    console.log("filterLogic in Calendar :>> ", filterLogic);
     const eventsToDisplay =
       filterLogic === "Or"
         ? events.filter(
@@ -166,7 +168,13 @@ const Calendar = ({ parentElt }) => {
           );
     console.log("events to display:>> ", eventsToDisplay);
 
-    return eventsToDisplay;
+    return eventsToDisplay.map((evt) => {
+      // if (evt.extendedProps.eventTags.length > 1)
+      evt.color =
+        updateEventColor(evt.extendedProps.eventTags, tagsToDisplay) ||
+        evt.color;
+      return evt;
+    });
   };
 
   const handleEventDrop = async (info) => {
@@ -258,15 +266,13 @@ const Calendar = ({ parentElt }) => {
         setIsIncludingRefs={setIsIncludingRefs}
         isWEtoDisplay={isWEtoDisplay}
         setIsWEtoDisplay={setIsWEtoDisplay}
-        isMinimized={isMinimized}
-        setIsMinimized={setIsMinimized}
         parentElt={parentElt}
         updateSize={updateSize}
       />
       <FullCalendar
         plugins={[
           dayGridPlugin,
-          timeGridPlugin,
+          // timeGridPlugin,
           multiMonthPlugin,
           interactionPlugin,
         ]}
@@ -281,19 +287,21 @@ const Calendar = ({ parentElt }) => {
         }}
         height={"90%"}
         expandRows={true}
-        initialDate={"2024-04-20"}
+        multiMonthMinWidth={440}
+        // multiMonthMaxColumns={2}
+        // initialDate={"2024-04-20"}
         initialView="dayGridMonth"
         headerToolbar={{
           left: "prev,next today refreshButton",
           center: "title",
-          right: "multiMonthYear,dayGridMonth,timeGridWeek,timeGridDay",
+          right: "multiMonthYear,dayGridMonth,dayGridWeek,dayGridDay",
         }}
         firstDay={1}
         weekends={isWEtoDisplay}
         fixedWeekCount={false}
-        nowIndicator={true}
-        slotMinTime="06:00"
-        slotMaxTime="22:00"
+        // nowIndicator={true}
+        // slotMinTime="06:00"
+        // slotMaxTime="22:00"
         navLinks={true}
         editable={true}
         selectable={true}

@@ -14,7 +14,7 @@ import {
 
 // new Map(tagsTitle.map((tag) => [getPageUidByPageName(tag), tag]));
 
-export const getBlocksToDisplayFromDNP = (
+export const getBlocksToDisplayFromDNP = async (
   start,
   end,
   onlyCalendarTag,
@@ -137,6 +137,7 @@ export const parseEventObject = (
     if (classNames.length) classNames.push("fc-event-ref");
     else classNames = ["fc-event-ref"];
   }
+  const backgroundColorDisplayed = colorToDisplay(matchingTags);
 
   return {
     id,
@@ -144,12 +145,27 @@ export const parseEventObject = (
     date,
     classNames: classNames,
     extendedProps: { eventTags: matchingTags, isRef: isRef },
-    color: matchingTags.length ? matchingTags[0].color : undefined,
+    color: backgroundColorDisplayed,
     textColor:
-      matchingTags.length && matchingTags[0].color === "transparent"
-        ? "revert"
-        : null,
+      // matchingTags.length && matchingTags[0].color === "transparent"
+      backgroundColorDisplayed === "transparent" ? "revert" : null,
   };
+};
+
+export const colorToDisplay = (tags) => {
+  if (tags[0].name === "TODO" && tags.length > 1) return tags[1].color;
+  else return tags[0].color;
+};
+
+export const updateEventColor = (eventTags, tagsToDisplay) => {
+  let foundColor = null;
+  for (let i = 0; i < eventTags.length; i++) {
+    if (tagsToDisplay.find((tag) => tag.name === eventTags[i].name)) {
+      if (i !== 0 || eventTags[i].name !== "TODO") return eventTags[i].color;
+      foundColor = eventTags[i].color;
+    }
+  }
+  return foundColor;
 };
 
 const isReferencingDNP = (refs, dnpUid) => {

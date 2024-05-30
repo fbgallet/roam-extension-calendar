@@ -1,20 +1,15 @@
 import {
-  Button,
-  Checkbox,
   Classes,
-  Colors,
   HTMLSelect,
   Icon,
   MenuItem,
   Popover,
   Switch,
-  Tag,
   Tooltip,
 } from "@blueprintjs/core";
 import { MultiSelect } from "@blueprintjs/select";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { calendarTag, mapOfTags } from "..";
-import { TOOLTIP } from "@blueprintjs/core/lib/esm/common/classes";
 import { EventTag } from "../models/EventTag";
 import ColorPicker from "./ColorPicker";
 import { unmountApp } from "./App";
@@ -31,14 +26,14 @@ const MultiSelectFilter = ({
   setIsIncludingRefs,
   isWEtoDisplay,
   setIsWEtoDisplay,
-  isMinimized,
-  setIsMinimized,
+
   parentElt,
   updateSize,
 }) => {
   const [popoverToOpen, setPopoverToOpen] = useState("");
   const [queryStr, setQueryStr] = useState("");
   const [isSticky, setIsSticky] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
 
   const handleTagSelect = (tag) => {
     if (
