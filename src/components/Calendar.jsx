@@ -32,11 +32,11 @@ import { calendarTag, mapOfTags } from "..";
 //   itemSelector: ".rm-bullet",
 // });
 let events = [];
+let filteredEvents = [];
 
 const Calendar = ({ parentElt }) => {
   const [newEventDialogIsOpen, setNewEventDialogIsOpen] = useState(false);
   const [focusedPageUid, setFocusedPageUid] = useState(null);
-  const [selectedDay, setSelectedDay] = useState(null);
   // const [events, setEvents] = useState([]);
   const [addedEvent, setAddedEvent] = useState(null);
   const [position, setPosition] = useState({ x: null, y: null });
@@ -49,8 +49,10 @@ const Calendar = ({ parentElt }) => {
   const [isIncludingRefs, setIsIncludingRefs] = useState(true);
   const [isWEtoDisplay, setIsWEtoDisplay] = useState(true);
   const isDataToReload = useRef(true);
+  const isDataToFilterAgain = useRef(true);
   const calendarRef = useRef(null);
   const startDate = useRef(null);
+  const selectedDay = useRef(null);
 
   function updateSize() {
     const calendarApi = calendarRef.current.getApi();
@@ -59,6 +61,7 @@ const Calendar = ({ parentElt }) => {
   // const events = useRef([]);
 
   useEffect(() => {
+    isDataToFilterAgain.current = true;
     if (events.length !== 0) isDataToReload.current = false;
     localStorage.setItem(
       "fc-tags-info",
@@ -74,6 +77,7 @@ const Calendar = ({ parentElt }) => {
 
   useEffect(() => {
     isDataToReload.current = true;
+    isDataToFilterAgain.current = true;
   }, [isEntireDNP, isWEtoDisplay]);
 
   const handleSelectDays = (e) => {
@@ -82,7 +86,9 @@ const Calendar = ({ parentElt }) => {
 
   const handleSquareDayClick = async (info) => {
     const targetDnpUid = window.roamAlphaAPI.util.dateToPageUid(info.date);
-    setSelectedDay((prev) => (prev === targetDnpUid ? null : targetDnpUid));
+    const previousSelectedDay = selectedDay.current;
+    selectedDay.current =
+      selectedDay.current === targetDnpUid ? null : targetDnpUid;
     if (info.jsEvent.shiftKey) {
       if (!isExistingNode(targetDnpUid)) {
         await window.roamAlphaAPI.data.page.create({
@@ -96,7 +102,9 @@ const Calendar = ({ parentElt }) => {
         window: { type: "outline", "block-uid": targetDnpUid },
       });
     } else {
-      if (selectedDay === targetDnpUid) {
+      if (previousSelectedDay === targetDnpUid) {
+        isDataToReload.current = false;
+        isDataToFilterAgain.current = false;
         setPosition({ x: info.jsEvent.offsetX, y: info.jsEvent.offsetY });
         setFocusedPageUid(targetDnpUid);
         setNewEventDialogIsOpen(true);
@@ -127,8 +135,32 @@ const Calendar = ({ parentElt }) => {
         isChecked={isChecked}
         tagsToDisplay={tagsToDisplay}
         backgroundColor={info.backgroundColor}
+        deleteEvent={deleteEvent}
       ></Event>
     );
+  };
+
+  const addEvent = async (eventUid, pageUid) => {
+    const eventContent = getBlockContentByUid(eventUid);
+    const date = dateToISOString(new Date(pageUid));
+    events.push(
+      parseEventObject({
+        id: eventUid,
+        title: eventContent,
+        date,
+        matchingTags: getMatchingTags(
+          mapOfTags,
+          getBlocksUidReferencedInThisBlock(eventUid)
+        ),
+      })
+    );
+    isDataToFilterAgain.current = true;
+  };
+
+  const deleteEvent = (event) => {
+    const index = events.findIndex((evt) => evt.id === event.id);
+    events.splice(index, 1);
+    isDataToFilterAgain.current = true;
   };
 
   const renderDayContent = (info, elt) => {
@@ -137,12 +169,14 @@ const Calendar = ({ parentElt }) => {
   };
 
   const getEventsFromDNP = async (info) => {
-    console.log("stard/end :>> ", info.start, info.end);
-    console.log("isDataToReload.current :>> ", isDataToReload.current);
-    if (startDate.current !== info.start) {
+    if (
+      startDate.current &&
+      startDate.current.getDate() !== info.start.getDate()
+    ) {
       isDataToReload.current = true;
-      startDate.current = info.start;
-    }
+      isDataToFilterAgain.current = true;
+    } else console.log("meme jour !");
+    startDate.current = info.start;
     if (isDataToReload.current) {
       events = await getBlocksToDisplayFromDNP(
         info.start,
@@ -150,37 +184,49 @@ const Calendar = ({ parentElt }) => {
         !isEntireDNP,
         isIncludingRefs
       );
-    } else isDataToReload.current = true;
+      isDataToFilterAgain.current = true;
+    } //else isDataToReload.current = true;
     // if (!events.length) return [];
-    const eventsToDisplay =
-      filterLogic === "Or"
-        ? events.filter(
-            (evt) =>
-              !(
-                evt.extendedProps?.eventTags[0].name === "DONE" &&
-                !tagsToDisplay.some((tag) => tag.name === "DONE")
-              ) && evt.extendedProps?.eventTags?.some((tag) => tag.isToDisplay)
-          )
-        : events.filter((evt) =>
-            tagsToDisplay.every((tag) =>
-              evt.extendedProps?.eventTags?.some((t) => t.name === tag.name)
+    console.log("isDataToReload.current :>> ", isDataToReload.current);
+    console.log("isDataToFilterAgain :>> ", isDataToFilterAgain.current);
+    if (isDataToFilterAgain.current) {
+      const eventsToDisplay =
+        filterLogic === "Or"
+          ? events.filter(
+              (evt) =>
+                !(
+                  evt.extendedProps?.eventTags[0].name === "DONE" &&
+                  !tagsToDisplay.some((tag) => tag.name === "DONE")
+                ) &&
+                evt.extendedProps?.eventTags?.some((tag) => tag.isToDisplay)
             )
-          );
-    console.log("events to display:>> ", eventsToDisplay);
+          : events.filter((evt) =>
+              tagsToDisplay.every((tag) =>
+                evt.extendedProps?.eventTags?.some((t) => t.name === tag.name)
+              )
+            );
 
-    return eventsToDisplay.map((evt) => {
-      // if (evt.extendedProps.eventTags.length > 1)
-      evt.color =
-        updateEventColor(evt.extendedProps.eventTags, tagsToDisplay) ||
-        evt.color;
-      return evt;
-    });
+      filteredEvents = eventsToDisplay.map((evt) => {
+        // if (evt.extendedProps.eventTags.length > 1)
+        evt.color =
+          updateEventColor(evt.extendedProps.eventTags, tagsToDisplay) ||
+          evt.color;
+        return evt;
+      });
+      console.log("Filtered events to display:>> ", filteredEvents);
+    }
+    // isDataToReload.current = false;
+    // isDataToFilterAgain.current = false;
+    return filteredEvents;
   };
 
   const handleEventDrop = async (info) => {
     const targetPageUid = window.roamAlphaAPI.util.dateToPageUid(
       info.event.start
     );
+    let evtIndex = events.findIndex((evt) => evt.id === info.event.id);
+    events[evtIndex].date = dateToISOString(info.event.start);
+    isDataToFilterAgain.current = true;
     if (info.event.extendedProps.isRef) {
       let blockContent = getBlockContentByUid(info.event.id);
       let matchingDates = blockContent.match(roamDateRegex);
@@ -251,6 +297,7 @@ const Calendar = ({ parentElt }) => {
         setNewEventDialogIsOpen={setNewEventDialogIsOpen}
         pageUid={focusedPageUid}
         position={position}
+        addEvent={addEvent}
         // setEvents={setEvents}
       />
       {/* <Filters filters={filters} setFilters={setFilters} /> */}
@@ -268,6 +315,7 @@ const Calendar = ({ parentElt }) => {
         setIsWEtoDisplay={setIsWEtoDisplay}
         parentElt={parentElt}
         updateSize={updateSize}
+        isDataToFilterAgain={isDataToFilterAgain}
       />
       <FullCalendar
         plugins={[

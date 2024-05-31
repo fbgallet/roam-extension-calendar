@@ -15,6 +15,7 @@ const NewEventDialog = ({
   pageUid,
   setEvents,
   position,
+  addEvent,
 }) => {
   const [isBlockRendering, setIsBlockRendering] = useState(false);
   const [eventUid, setEventUid] = useState(null);
@@ -59,22 +60,10 @@ const NewEventDialog = ({
     setNewEventDialogIsOpen(false);
   };
 
-  const handleConfirm = () => {
-    // setEvents(prev => {
-    //   const clone = [...prev];
-    //       clone.push({
-    //         id: targetUid,
-    //         title: blockContent,
-    //         date: isoDate,
-    //         extendedProps: { eventTags: ["calendar"], isRef: false },
-    //         borderColor: "transparent",
-    //         color: "none",
-    //         classNames: ["calendar"],
-    //       });
-    //       return clone;}
-    //   )
+  const handleConfirm = async () => {
     setIsBlockRendering(false);
     setNewEventDialogIsOpen(false);
+    await addEvent(eventUid, pageUid);
   };
 
   return (

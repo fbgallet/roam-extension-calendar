@@ -27,6 +27,7 @@ const Event = ({
   isChecked,
   tagsToDisplay,
   backgroundColor,
+  deleteEvent,
 }) => {
   const [eventTagList, setEventTagList] = useState(
     event.extendedProps.eventTags
@@ -40,6 +41,7 @@ const Event = ({
     const currentCalendarUid = getParentBlock(event.id);
     await deleteBlock(event.id);
     deleteBlockIfNoChild(currentCalendarUid);
+    deleteEvent(event);
     setIsDeleteDialogOpen(false);
     setPopoverIsOpen(false);
     setIsExisting(false);

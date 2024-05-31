@@ -26,9 +26,9 @@ const MultiSelectFilter = ({
   setIsIncludingRefs,
   isWEtoDisplay,
   setIsWEtoDisplay,
-
   parentElt,
   updateSize,
+  isDataToFilterAgain,
 }) => {
   const [popoverToOpen, setPopoverToOpen] = useState("");
   const [queryStr, setQueryStr] = useState("");
@@ -45,12 +45,13 @@ const MultiSelectFilter = ({
       setTagsToDisplay([...tagsToDisplay, tag]);
     } else {
       tag.hide();
-      setTagsToDisplay(
-        tagsToDisplay.filter(
+      setTagsToDisplay([
+        ...tagsToDisplay.filter(
           (tagToDisplay) => tagToDisplay.pages[0] !== tag.pages[0]
-        )
-      );
+        ),
+      ]);
     }
+    isDataToFilterAgain.current = true;
     setQueryStr("");
   };
 
@@ -159,7 +160,6 @@ const MultiSelectFilter = ({
   const handleTagRemove = ({ props }) => {
     const tagName =
       props.children === "• not tagged" ? calendarTag.name : props.children;
-    console.log(tagName);
     const tagToRemove = tagsToDisplay.find((tag) => tag.pages[0] === tagName);
     // console.log("tagToRemove :>> ", tagToRemove);
     handleTagSelect(tagToRemove);
