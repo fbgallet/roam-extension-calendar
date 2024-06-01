@@ -15,6 +15,16 @@
   font-size: small;
 }
 
+.full-calendar-comp .fc .fc-daygrid-day-number {
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.full-calendar-comp .fc .fc-daygrid-week-number {
+  opacity: 0.6;
+  font-size: small;
+}
+
 .full-calendar-comp {
   padding: 0 10px;
   overflow-y: auto;
@@ -378,6 +388,14 @@
 }
 .full-calendar-comp.fc-sidebar.fc-sticky {
   background: transparent;
+}
+.full-calendar-comp.fc-sidebar .fc .fc-daygrid-day-number {
+  padding-top: 2px;
+  padding-bottom: 1px;
+}
+.full-calendar-comp.fc-sidebar .fc .fc-daygrid-week-number {
+  opacity: 0.6;
+  font-size: x-small;
 }
 .fc-sidebar .fc-filters .bp3-tag-input .bp3-tag {
   font-size: x-small;

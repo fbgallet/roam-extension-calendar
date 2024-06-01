@@ -24,10 +24,8 @@ const NewEventDialog = ({
 
   const handleNew = async () => {
     setIsBlockRendering(true);
-    const calendarBlockUid = await getCalendarUidFromPage(
-      getPageNameByPageUid(pageUid)
-    );
-    const targetUid = createChildBlock(calendarBlockUid);
+    const calendarBlockUid = await getCalendarUidFromPage(pageUid);
+    const targetUid = await createChildBlock(calendarBlockUid);
     setEventUid(targetUid);
     setTimeout(async () => {
       await window.roamAlphaAPI.ui.components.renderBlock({
@@ -42,7 +40,7 @@ const NewEventDialog = ({
         placeholder.style.color = "rgb(206, 217, 224)";
         blockElt.appendChild(placeholder);
       }
-    }, 100);
+    }, 200);
   };
 
   const handleClose = () => {
@@ -89,6 +87,7 @@ const NewEventDialog = ({
               if (position.x < 0) position.x = 0;
               if (position.y + 150 > window.innerHeight)
                 position.y = position.y - 150;
+              if (position.y < 0) position.y = 0;
               popoverElement.style.position = "absolute";
               popoverElement.style.left = `${position.x}px`;
               popoverElement.style.top = `${position.y}px`;

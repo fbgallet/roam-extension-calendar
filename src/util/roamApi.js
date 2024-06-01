@@ -73,14 +73,14 @@ export function getBlocksUidReferencedInThisBlock(uid) {
   return window.roamAlphaAPI.q(q).map((ref) => ref[0]);
 }
 
-export function createChildBlock(
+export async function createChildBlock(
   parentUid,
   content = "",
   order = "last",
   open = true
 ) {
   const uid = window.roamAlphaAPI.util.generateUID();
-  window.roamAlphaAPI.createBlock({
+  await window.roamAlphaAPI.createBlock({
     location: { "parent-uid": parentUid, order: order },
     block: { string: content, uid: uid, open: open },
   });
@@ -134,7 +134,7 @@ function getOrderedDirectChildren(uid) {
 export function getPageNameByPageUid(uid) {
   let r = window.roamAlphaAPI.data.pull("[:node/title]", [":block/uid", uid]);
   if (r != null) return r[":node/title"];
-  else return "undefined";
+  else return undefined;
 }
 
 export function getPageUidByPageName(title) {
@@ -208,4 +208,14 @@ export const removeTagsFromBlock = (blockUid, tagArray = []) => {
     });
   }
   if (isRemoved) updateBlock(blockUid, blockContent);
+};
+
+export const dnpUidToPageTitle = (dnpUid) => {
+  const dateArray = dnpUid.split("-");
+  const year = parseInt(dateArray[2]);
+  const month = parseInt(dateArray[0]) - 1; // Les mois sont indexés de 0 à 11 en JavaScript
+  const day = parseInt(dateArray[1]);
+  const date = new Date(year, month, day);
+
+  return window.roamAlphaAPI.util.dateToPageUid(date);
 };

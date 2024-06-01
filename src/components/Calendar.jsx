@@ -57,6 +57,10 @@ const Calendar = ({ parentElt }) => {
   function updateSize() {
     const calendarApi = calendarRef.current.getApi();
     calendarApi.updateSize();
+    let tooltip = document.querySelector(".rm-bullet__tooltip");
+    if (tooltip) tooltip.remove();
+    tooltip = document.querySelector(".bp3-tooltip");
+    if (tooltip) tooltip.remove();
   }
   // const events = useRef([]);
 
@@ -86,6 +90,7 @@ const Calendar = ({ parentElt }) => {
 
   const handleSquareDayClick = async (info) => {
     const targetDnpUid = window.roamAlphaAPI.util.dateToPageUid(info.date);
+    console.log("targetDnpUid :>> ", targetDnpUid);
     const previousSelectedDay = selectedDay.current;
     selectedDay.current =
       selectedDay.current === targetDnpUid ? null : targetDnpUid;
@@ -105,7 +110,8 @@ const Calendar = ({ parentElt }) => {
       if (previousSelectedDay === targetDnpUid) {
         isDataToReload.current = false;
         isDataToFilterAgain.current = false;
-        setPosition({ x: info.jsEvent.offsetX, y: info.jsEvent.offsetY });
+        console.log("info.jsEvent :>> ", info.jsEvent);
+        setPosition({ x: info.jsEvent.clientX, y: info.jsEvent.clientY - 75 });
         setFocusedPageUid(targetDnpUid);
         setNewEventDialogIsOpen(true);
       }
@@ -185,7 +191,7 @@ const Calendar = ({ parentElt }) => {
     ) {
       isDataToReload.current = true;
       isDataToFilterAgain.current = true;
-    } else console.log("meme jour !");
+    }
     startDate.current = info.start;
     if (isDataToReload.current) {
       events = await getBlocksToDisplayFromDNP(
@@ -197,8 +203,6 @@ const Calendar = ({ parentElt }) => {
       isDataToFilterAgain.current = true;
     } //else isDataToReload.current = true;
     // if (!events.length) return [];
-    console.log("isDataToReload.current :>> ", isDataToReload.current);
-    console.log("isDataToFilterAgain :>> ", isDataToFilterAgain.current);
     if (isDataToFilterAgain.current) {
       const eventsToDisplay =
         filterLogic === "Or"
@@ -223,7 +227,7 @@ const Calendar = ({ parentElt }) => {
           evt.color;
         return evt;
       });
-      console.log("Filtered events to display:>> ", filteredEvents);
+      // console.log("Filtered events to display:>> ", filteredEvents);
     }
     // isDataToReload.current = false;
     // isDataToFilterAgain.current = false;
@@ -231,9 +235,6 @@ const Calendar = ({ parentElt }) => {
   };
 
   const handleEventDrop = async (info) => {
-    const targetPageUid = window.roamAlphaAPI.util.dateToPageUid(
-      info.event.start
-    );
     let evtIndex = events.findIndex((evt) => evt.id === info.event.id);
     events[evtIndex].date = dateToISOString(info.event.start);
     isDataToFilterAgain.current = true;
@@ -254,7 +255,7 @@ const Calendar = ({ parentElt }) => {
     } else {
       const currentCalendarUid = getParentBlock(info.event.id);
       let calendarBlockUid = await getCalendarUidFromPage(
-        window.roamAlphaAPI.util.dateToPageTitle(info.event.start)
+        window.roamAlphaAPI.util.dateToPageUid(info.event.start)
       );
       await window.roamAlphaAPI.moveBlock({
         location: {
@@ -277,7 +278,7 @@ const Calendar = ({ parentElt }) => {
     const date = dateToISOString(targetDate);
     const matchingTags = getMatchingTags(tagsToDisplay, blockRefs);
     let calendarBlockUid = await getCalendarUidFromPage(
-      window.roamAlphaAPI.util.dateToPageTitle(targetDate)
+      window.roamAlphaAPI.util.dateToPageUid(targetDate)
     );
     await createChildBlock(calendarBlockUid, `((${sourceUid}))`);
     events.push(
@@ -308,9 +309,7 @@ const Calendar = ({ parentElt }) => {
         pageUid={focusedPageUid}
         position={position}
         addEvent={addEvent}
-        // setEvents={setEvents}
       />
-      {/* <Filters filters={filters} setFilters={setFilters} /> */}
       <MultiSelectFilter
         tagsToDisplay={tagsToDisplay}
         setTagsToDisplay={setTagsToDisplay}
@@ -357,6 +356,7 @@ const Calendar = ({ parentElt }) => {
         firstDay={1}
         weekends={isWEtoDisplay}
         fixedWeekCount={false}
+        weekNumbers={true}
         // nowIndicator={true}
         // slotMinTime="06:00"
         // slotMaxTime="22:00"
@@ -368,7 +368,6 @@ const Calendar = ({ parentElt }) => {
         dayMaxEvents={true}
         // initialEvents={getEventsFromDNP}
         events={getEventsFromDNP}
-        // events={events}
         // events={[
         //   { title: "My First Event", date: "2024-04-06", editable: true },
         //   {
@@ -390,8 +389,6 @@ const Calendar = ({ parentElt }) => {
         // }}
         eventContent={(info, jsEvent) => renderEventContent(info, jsEvent)}
         eventClick={(info) => {
-          // console.log("Event: ", info.event);
-          // console.log("JS: ", info.jsEvent);
           if (info.jsEvent.shiftKey) {
             window.roamAlphaAPI.ui.rightSidebar.addWindow({
               window: { type: "block", "block-uid": info.event.id },

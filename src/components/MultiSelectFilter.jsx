@@ -8,7 +8,7 @@ import {
   Tooltip,
 } from "@blueprintjs/core";
 import { MultiSelect } from "@blueprintjs/select";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { calendarTag, mapOfTags } from "..";
 import { EventTag } from "../models/EventTag";
 import ColorPicker from "./ColorPicker";
@@ -34,6 +34,9 @@ const MultiSelectFilter = ({
   const [queryStr, setQueryStr] = useState("");
   const [isSticky, setIsSticky] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const doubleClick = useRef(false);
+
+  console.log("tagsToDisplay :>> ", tagsToDisplay);
 
   const handleTagSelect = (tag) => {
     if (
@@ -127,6 +130,7 @@ const MultiSelectFilter = ({
   const renderTag = (tag) => {
     const title = tag.name === calendarTag.name ? "• not tagged" : tag.pages[0];
     const aliases = tag.pages.slice(1).join(", ");
+    console.log("alias :>> ", aliases);
     return (
       <Popover
         // autoFocus={false}
@@ -138,7 +142,7 @@ const MultiSelectFilter = ({
         popoverClassName={Classes.POPOVER_CONTENT_SIZING}
         content={
           <>
-            {aliases.length ? <p>Aliases: {aliases}</p> : null}
+            {aliases && aliases.length ? <p>Aliases: {aliases}</p> : null}
             <ColorPicker
               tag={tag}
               setTagsToDisplay={setTagsToDisplay}
@@ -167,10 +171,13 @@ const MultiSelectFilter = ({
 
   const handleClickOnTag = (e) => {
     e.stopPropagation();
-    if (e.metaKey || e.ctrlKey) {
+    setTimeout(() => {
+      if (doubleClick.current) {
+        return;
+      }
       const tagName = e.target.innerText;
       setPopoverToOpen(tagName);
-    }
+    }, 300);
   };
 
   const handleDoubleClickOnTag = (e) => {
@@ -178,6 +185,10 @@ const MultiSelectFilter = ({
     e.stopPropagation();
     tagsToDisplay.forEach((tag) => tag.pages[0] !== tagName && tag.hide());
     setTagsToDisplay([tagsToDisplay.find((tag) => tag.pages[0] === tagName)]);
+    doubleClick.current = true;
+    setTimeout(() => {
+      doubleClick.current = false;
+    }, 600);
   };
 
   return (
@@ -246,7 +257,7 @@ const MultiSelectFilter = ({
           },
         }}
         // usePortal={false}
-        popoverProps={{ minimal: true, disabled: popoverToOpen.length > 0 }}
+        popoverProps={{ minimal: true, disabled: popoverToOpen }}
         itemPredicate={(query, item) => {
           if (!query.trim()) return true;
           return item.pages.some((page) =>

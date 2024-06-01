@@ -38,8 +38,6 @@ const Event = ({
   const [isExisting, setIsExisting] = useState(true);
   const popoverRef = useRef(null);
 
-  console.log("event :>> ", event);
-
   const handleDeleteEvent = async () => {
     const currentCalendarUid = getParentBlock(event.id);
     await deleteBlock(event.id);
@@ -51,8 +49,10 @@ const Event = ({
   };
 
   const handleClose = () => {
-    const tooltip = document.querySelector(".rm-bullet__tooltip");
-    if (tooltip) tooltip.remove();
+    setTimeout(() => {
+      const tooltip = document.querySelector(".rm-bullet__tooltip");
+      if (tooltip) tooltip.remove();
+    }, 200);
   };
 
   return isExisting ? (
@@ -126,22 +126,12 @@ const Event = ({
           // e.stopPropagation();
           setPopoverIsOpen((prev) => !prev);
         }}
-        // style={{
-        //   display: timeText ? "inline" : "none",
-        //   width: "10px",
-        //   height: "10px",
-        //   borderRadius: "50%",
-        //   backgroundColor: colorToDisplay(eventTagList),
-        // }}
       >
         {hasCheckbox && (
           <Checkbox
-            // label={null}
             checked={isChecked}
             // onClick={(e) => {}}
             onChange={(e) => {
-              console.log("isChecked before:>> ", event.title, isChecked);
-              console.log("event.classNames :>> ", event.classNames);
               if (e.nativeEvent.shiftKey) return;
               e.stopPropagation();
               let updatedTitle, updatedClassNames, updatedTags;
@@ -178,8 +168,6 @@ const Event = ({
                   "name"
                 );
               }
-              console.log("updatedTags :>> ", updatedTags);
-              console.log("updatedClassNames :>> ", updatedClassNames);
               const updatedColor = colorToDisplay(updatedTags);
               updateEvent(event, {
                 title: updatedTitle,
@@ -220,12 +208,6 @@ const Event = ({
       </div>
     </Popover>
   ) : null;
-  // </Tooltip>
 };
-
-// {window.roamAlphaAPI.ui.components.renderBlock({
-//   uid: event.id,
-//   el: popoverRef.current,
-// })}
 
 export default Event;

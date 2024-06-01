@@ -4,8 +4,10 @@ import { dateToISOString, getDistantDate } from "./dates";
 import { dnpUidRegex } from "./regex";
 import {
   createChildBlock,
+  dnpUidToPageTitle,
   getFirstBlockUidByReferenceOnPage,
   getLinkedReferencesTrees,
+  getPageNameByPageUid,
   getPageUidByPageName,
   getTreeByUid,
   isExistingNode,
@@ -51,7 +53,7 @@ export const getBlocksToDisplayFromDNP = async (
       if (filteredEvents.length > 0) events = events.concat(filteredEvents);
     }
   }
-  console.log("events from data.js :>> ", events);
+  // console.log("events from data.js :>> ", events);
   return events;
 };
 
@@ -185,7 +187,7 @@ export const replaceItemAndGetUpdatedArray = (
   const indexOfItemToReplace = key
     ? array.findIndex((item) => item.name === itemToReplace.name)
     : array.indexOf(itemToReplace);
-  console.log("indexOfItemToReplace :>> ", indexOfItemToReplace);
+  // console.log("indexOfItemToReplace :>> ", indexOfItemToReplace);
   if (indexOfItemToReplace === -1) return array;
   array.splice(indexOfItemToReplace, 1, newItem);
   return array;
@@ -199,21 +201,21 @@ export const removeSquareBrackets = (str) => {
   return str.replace("[[", "").replace("]]", "");
 };
 
-export const getCalendarUidFromPage = async (targetPageTitle) => {
-  const targetPageUid = getPageUidByPageName(targetPageTitle);
-  if (!isExistingNode(targetPageUid))
+export const getCalendarUidFromPage = async (targetPageUid) => {
+  if (!isExistingNode(targetPageUid)) {
     await window.roamAlphaAPI.data.page.create({
       page: {
-        title: targetPageTitle,
+        title: dnpUidToPageTitle(targetPageUid),
         uid: targetPageUid,
       },
     });
+  }
   let targetBlockUid = getFirstBlockUidByReferenceOnPage(
     "calendar",
     targetPageUid
   );
   if (!targetBlockUid)
-    targetBlockUid = createChildBlock(targetPageUid, "#calendar");
+    targetBlockUid = await createChildBlock(targetPageUid, "#calendar");
   return targetBlockUid;
 };
 

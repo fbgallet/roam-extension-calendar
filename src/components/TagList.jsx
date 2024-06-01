@@ -26,7 +26,7 @@ const TagList = ({ list, setEventTagList, isInteractive, event }) => {
             color: tag.color === "transparent" ? "revert" : null,
           }}
         >
-          {tag.name}
+          {tag.pages[0]}
         </Tag>
       ))}
     </div>
