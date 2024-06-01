@@ -182,18 +182,13 @@ export const replaceItemAndGetUpdatedArray = (
   newItem,
   key
 ) => {
-  const indexOfItemToReplace = array.indexOf(itemToReplace);
+  const indexOfItemToReplace = key
+    ? array.findIndex((item) => item.name === itemToReplace.name)
+    : array.indexOf(itemToReplace);
   console.log("indexOfItemToReplace :>> ", indexOfItemToReplace);
   if (indexOfItemToReplace === -1) return array;
-  if (key && itemToReplace[key] === "TODO") {
-    array.pop();
-    array.unshift(getTagFromName("DONE"));
-    return array;
-  } else if (key && itemToReplace[key] === "DONE") {
-    array.shift();
-    array.push(getTagFromName("TODO"));
-    return array;
-  } else return array.splice(indexOfItemToReplace, 1, newItem);
+  array.splice(indexOfItemToReplace, 1, newItem);
+  return array;
 };
 
 // const hasCommonElement = (arr1, arr2) => {

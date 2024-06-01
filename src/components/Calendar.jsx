@@ -135,6 +135,7 @@ const Calendar = ({ parentElt }) => {
         isChecked={isChecked}
         tagsToDisplay={tagsToDisplay}
         backgroundColor={info.backgroundColor}
+        updateEvent={updateEvent}
         deleteEvent={deleteEvent}
       ></Event>
     );
@@ -154,6 +155,15 @@ const Calendar = ({ parentElt }) => {
         ),
       })
     );
+    isDataToFilterAgain.current = true;
+  };
+
+  const updateEvent = (event, updatedProperties) => {
+    const index = events.findIndex((evt) => evt.id === event.id);
+    const temp = { ...events[index] };
+    for (const key in updatedProperties) {
+      events[index][key] = updatedProperties[key];
+    }
     isDataToFilterAgain.current = true;
   };
 

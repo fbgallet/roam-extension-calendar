@@ -28,6 +28,7 @@ const Event = ({
   tagsToDisplay,
   backgroundColor,
   deleteEvent,
+  updateEvent,
 }) => {
   const [eventTagList, setEventTagList] = useState(
     event.extendedProps.eventTags
@@ -36,6 +37,8 @@ const Event = ({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isExisting, setIsExisting] = useState(true);
   const popoverRef = useRef(null);
+
+  console.log("event :>> ", event);
 
   const handleDeleteEvent = async () => {
     const currentCalendarUid = getParentBlock(event.id);
@@ -131,15 +134,14 @@ const Event = ({
         //   backgroundColor: colorToDisplay(eventTagList),
         // }}
       >
-        {/* <div
-          
-        > */}
         {hasCheckbox && (
           <Checkbox
             // label={null}
             checked={isChecked}
             // onClick={(e) => {}}
             onChange={(e) => {
+              console.log("isChecked before:>> ", event.title, isChecked);
+              console.log("event.classNames :>> ", event.classNames);
               if (e.nativeEvent.shiftKey) return;
               e.stopPropagation();
               let updatedTitle, updatedClassNames, updatedTags;
@@ -159,7 +161,6 @@ const Event = ({
                   getTagFromName("TODO"),
                   "name"
                 );
-                console.log("updatedTags :>> ", updatedTags);
               } else {
                 updatedTitle = event.title.replace(
                   "{{[[TODO]]}}",
@@ -176,9 +177,20 @@ const Event = ({
                   getTagFromName("DONE"),
                   "name"
                 );
-                console.log("updatedTags :>> ", updatedTags);
               }
-              event.setProp("color", colorToDisplay(updatedTags));
+              console.log("updatedTags :>> ", updatedTags);
+              console.log("updatedClassNames :>> ", updatedClassNames);
+              const updatedColor = colorToDisplay(updatedTags);
+              updateEvent(event, {
+                title: updatedTitle,
+                classNames: updatedClassNames,
+                color: updatedColor,
+                extendedProps: {
+                  eventTags: updatedTags,
+                  isRef: event.extendedProps.isRef,
+                },
+              });
+              event.setProp("color", updatedColor);
               event.setProp("title", updatedTitle);
               event.setProp("classNames", updatedClassNames);
               event.setExtendedProp("eventTags", updatedTags);
