@@ -110,6 +110,7 @@ const handleClickOnCalendarBtn = (e) => {
     appWrapper = document.querySelector(".full-calendar-comp.fc-sidebar");
   } else {
     appWrapper = document.querySelector(".full-calendar-comp:not(.fc-sidebar)");
+    console.log("appWrapper :>> ", appWrapper);
   }
   if (!appWrapper) {
     setTimeout(
