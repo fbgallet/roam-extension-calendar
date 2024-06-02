@@ -2,14 +2,14 @@
 import { Colors } from "@blueprintjs/core";
 
 import { renderApp, unmountApp } from "./components/App";
-import { EventTag, getTagFromName } from "./models/EventTag";
+import { EventTag, deleteTagByName, getTagFromName } from "./models/EventTag";
 import { getTrimedArrayFromList } from "./util/data";
 
 const calendarBtnElt = document.querySelector(
   "button:has(span[icon='calendar'])"
 );
 const storedTagsInfo = JSON.parse(localStorage.getItem("fc-tags-info"));
-console.log("storedTagsInfo :>> ", storedTagsInfo);
+// console.log("storedTagsInfo :>> ", storedTagsInfo);
 
 export let mapOfTags = [];
 export let calendarTag;
@@ -95,8 +95,20 @@ const panelConfig = {
 };
 
 const updateTagPagesWithUserList = (tagName, pageList) => {
+  if (!pageList.replace(",", "").trim()) {
+    mapOfTags = deleteTagByName(tagName);
+    return;
+  }
   const tag = getTagFromName(tagName);
-  tag.updatePages(getTrimedArrayFromList(pageList));
+  if (!tag) {
+    mapOfTags.push(
+      new EventTag({
+        name: tagName,
+        ...getStoredTagInfos(tagName),
+        pages: getTrimedArrayFromList(pageList),
+      })
+    );
+  } else tag.updatePages(getTrimedArrayFromList(pageList));
 };
 
 const handleClickOnCalendarBtn = (e) => {
@@ -109,7 +121,6 @@ const handleClickOnCalendarBtn = (e) => {
     appWrapper = document.querySelector(".full-calendar-comp.fc-sidebar");
   } else {
     appWrapper = document.querySelector(".full-calendar-comp:not(.fc-sidebar)");
-    console.log("appWrapper :>> ", appWrapper);
   }
   if (!appWrapper) {
     setTimeout(
@@ -168,38 +179,46 @@ const initializeMapOfTags = (extensionAPI) => {
       ...getStoredTagInfos("DONE"),
     })
   );
-  mapOfTags.push(
-    new EventTag({
-      name: "important",
-      color: Colors.RED3,
-      ...getStoredTagInfos("important"),
-      pages: getTrimedArrayFromList(extensionAPI.settings.get("importantTag")),
-    })
-  );
-  mapOfTags.push(
-    new EventTag({
-      name: "do",
-      color: Colors.GREEN1,
-      ...getStoredTagInfos("do"),
-      pages: getTrimedArrayFromList(extensionAPI.settings.get("doTag")),
-    })
-  );
-  mapOfTags.push(
-    new EventTag({
-      name: "due",
-      color: Colors.VIOLET3,
-      ...getStoredTagInfos("due"),
-      pages: getTrimedArrayFromList(extensionAPI.settings.get("dueTag")),
-    })
-  );
-  mapOfTags.push(
-    new EventTag({
-      name: "doing",
-      color: Colors.ORANGE3,
-      ...getStoredTagInfos("doing"),
-      pages: getTrimedArrayFromList(extensionAPI.settings.get("doingTag")),
-    })
-  );
+  let tagPagesList = extensionAPI.settings.get("importantTag");
+  if (tagPagesList.trim())
+    mapOfTags.push(
+      new EventTag({
+        name: "important",
+        color: Colors.RED3,
+        ...getStoredTagInfos("important"),
+        pages: getTrimedArrayFromList(tagPagesList),
+      })
+    );
+  tagPagesList = extensionAPI.settings.get("doTag");
+  if (tagPagesList.trim())
+    mapOfTags.push(
+      new EventTag({
+        name: "do",
+        color: Colors.GREEN1,
+        ...getStoredTagInfos("do"),
+        pages: getTrimedArrayFromList(tagPagesList),
+      })
+    );
+  tagPagesList = extensionAPI.settings.get("dueTag");
+  if (tagPagesList.trim())
+    mapOfTags.push(
+      new EventTag({
+        name: "due",
+        color: Colors.VIOLET3,
+        ...getStoredTagInfos("due"),
+        pages: getTrimedArrayFromList(tagPagesList),
+      })
+    );
+  tagPagesList = extensionAPI.settings.get("doingTag");
+  if (tagPagesList.trim())
+    mapOfTags.push(
+      new EventTag({
+        name: "doing",
+        color: Colors.ORANGE3,
+        ...getStoredTagInfos("doing"),
+        pages: getTrimedArrayFromList(tagPagesList),
+      })
+    );
   const userTags = extensionAPI.settings.get("userTags");
   if (userTags) updageUserTags(userTags);
   mapOfTags.push(calendarTag);
@@ -208,7 +227,7 @@ const initializeMapOfTags = (extensionAPI) => {
 const updageUserTags = (list) => {
   if (!list.trim()) return;
   const defaultTags = mapOfTags.filter((tag) => !tag.isUserDefined);
-  console.log("defaultTags :>> ", defaultTags);
+  // console.log("defaultTags :>> ", defaultTags);
   const userTagsNameArr = getTrimedArrayFromList(list);
   const userTags = userTagsNameArr.map(
     (tagName) =>
@@ -220,15 +239,14 @@ const updageUserTags = (list) => {
         isUserDefined: true,
       })
   );
-  console.log("userTags :>> ", userTags);
+  // console.log("userTags :>> ", userTags);
   const indexToInsert =
     defaultTags.at(-1).name === "TODO"
       ? defaultTags.length - 1
       : defaultTags.length;
-  console.log("indexToInsert :>> ", indexToInsert);
   mapOfTags = defaultTags;
   mapOfTags.splice(indexToInsert, 0, ...userTags);
-  console.log("mapOfTags with user tags :>> ", mapOfTags);
+  // console.log("mapOfTags with user tags :>> ", mapOfTags);
 };
 
 // const getStoredTagColor = (tagName) => {
@@ -255,7 +273,7 @@ export default {
       name: extensionAPI.settings.get("calendarTag"),
       color: "transparent",
     });
-    console.log("calendarTag :>> ", calendarTag);
+    // console.log("calendarTag :>> ", calendarTag);
     if (extensionAPI.settings.get("importantTag") === null)
       await extensionAPI.settings.set("importantTag", "important");
     if (extensionAPI.settings.get("doingTag") === null)

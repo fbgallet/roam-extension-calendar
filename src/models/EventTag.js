@@ -42,3 +42,11 @@ export function getTagColorFromName(name) {
   const tag = getTagFromName(name);
   return tag.color;
 }
+
+export function deleteTagByName(name) {
+  const tagIndex = mapOfTags.findIndex((tag) => tag.name === name);
+  if (tagIndex === -1) return mapOfTags;
+  const clone = [...mapOfTags];
+  clone.splice(tagIndex, 1);
+  return clone;
+}

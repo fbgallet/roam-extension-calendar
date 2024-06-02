@@ -167,6 +167,7 @@ const MultiSelectFilter = ({
 
   const handleClickOnTag = (e) => {
     e.stopPropagation();
+    if (popoverToOpen) return;
     setTimeout(() => {
       if (doubleClick.current) {
         return;
@@ -177,6 +178,7 @@ const MultiSelectFilter = ({
   };
 
   const handleDoubleClickOnTag = (e) => {
+    if (popoverToOpen) return;
     const tagName = e.target.innerText;
     e.stopPropagation();
     tagsToDisplay.forEach((tag) => tag.pages[0] !== tagName && tag.hide());

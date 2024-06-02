@@ -213,6 +213,7 @@ export const getCalendarUidFromPage = async (targetPageUid) => {
 };
 
 export const getTrimedArrayFromList = (list) => {
+  if (!list.trim()) return [];
   const arr = list.split(",");
   return arr.map((elt) => elt.trim());
 };
