@@ -1,5 +1,4 @@
 import { calendarTag, mapOfTags } from "..";
-import { getTagFromName } from "../models/EventTag";
 import { dateToISOString, getDistantDate } from "./dates";
 import { dnpUidRegex } from "./regex";
 import {
@@ -13,8 +12,6 @@ import {
   isExistingNode,
   resolveReferences,
 } from "./roamApi";
-
-// new Map(tagsTitle.map((tag) => [getPageUidByPageName(tag), tag]));
 
 export const getBlocksToDisplayFromDNP = async (
   start,
@@ -192,10 +189,6 @@ export const replaceItemAndGetUpdatedArray = (
   array.splice(indexOfItemToReplace, 1, newItem);
   return array;
 };
-
-// const hasCommonElement = (arr1, arr2) => {
-//   return arr1.some((item) => arr2.includes(item));
-// };
 
 export const removeSquareBrackets = (str) => {
   return str.replace("[[", "").replace("]]", "");

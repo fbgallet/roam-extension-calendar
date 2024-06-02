@@ -10,7 +10,6 @@ import {
 import { MultiSelect } from "@blueprintjs/select";
 import { useState, useRef } from "react";
 import { calendarTag, mapOfTags } from "..";
-import { EventTag } from "../models/EventTag";
 import ColorPicker from "./ColorPicker";
 import { unmountApp } from "./App";
 
@@ -264,26 +263,7 @@ const MultiSelectFilter = ({
             page.toLowerCase().includes(query.toLowerCase())
           );
         }}
-        // createNewItemFromQuery={(query) => {
-        //   const newTag = new EventTag(query);
-        //   // mapOfTags.push(newTag);
-        //   return newTag;
-        // }}
-        // // createNewItemPosition={"last"}
-        // createNewItemRenderer={(query, active, handleClick) => (
-        //   <MenuItem
-        //     icon="add"
-        //     text={`Create ${query}`}
-        //     roleStructure="listoption"
-        //     active={active}
-        //     onClick={handleClick}
-        //     shouldDismissPopover={false}
-        //   />
-        // )}
       />
-      {/* <button onClick={switchFilters}>
-        {Object.values(filters).some((filter) => !filter) ? "All" : "None"}
-      </button> */}
       <div className="fc-options-section">
         <Tooltip
           hoverOpenDelay={400}
@@ -316,6 +296,7 @@ const MultiSelectFilter = ({
           label="we"
           inline={true}
           onChange={() => {
+            isDataToFilterAgain.current = true;
             setIsWEtoDisplay((prev) => !prev);
           }}
         />

@@ -26,7 +26,6 @@ const Event = ({
   hasCheckbox,
   isChecked,
   tagsToDisplay,
-  backgroundColor,
   deleteEvent,
   updateEvent,
 }) => {

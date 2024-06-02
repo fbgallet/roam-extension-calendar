@@ -1,4 +1,3 @@
-import { formatDate } from "@fullcalendar/core";
 import { DateTime } from "luxon";
 
 export const getDistantDate = (date = null, shift = 1) => {

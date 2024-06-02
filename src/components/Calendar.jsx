@@ -28,9 +28,6 @@ import NewEventDialog from "./NewEventDialog";
 import { dateToISOString } from "../util/dates";
 import { calendarTag, mapOfTags } from "..";
 
-// let draggable = new Draggable(document.querySelector(".roam-app"), {
-//   itemSelector: ".rm-bullet",
-// });
 let events = [];
 let filteredEvents = [];
 
@@ -62,7 +59,6 @@ const Calendar = ({ parentElt }) => {
     tooltip = document.querySelector(".bp3-tooltip");
     if (tooltip) tooltip.remove();
   }
-  // const events = useRef([]);
 
   useEffect(() => {
     isDataToFilterAgain.current = true;
@@ -90,7 +86,6 @@ const Calendar = ({ parentElt }) => {
 
   const handleSquareDayClick = async (info) => {
     const targetDnpUid = window.roamAlphaAPI.util.dateToPageUid(info.date);
-    console.log("targetDnpUid :>> ", targetDnpUid);
     const previousSelectedDay = selectedDay.current;
     selectedDay.current =
       selectedDay.current === targetDnpUid ? null : targetDnpUid;
@@ -110,7 +105,7 @@ const Calendar = ({ parentElt }) => {
       if (previousSelectedDay === targetDnpUid) {
         isDataToReload.current = false;
         isDataToFilterAgain.current = false;
-        console.log("info.jsEvent :>> ", info.jsEvent);
+        // console.log("info.jsEvent :>> ", info.jsEvent);
         setPosition({ x: info.jsEvent.clientX, y: info.jsEvent.clientY - 75 });
         setFocusedPageUid(targetDnpUid);
         setNewEventDialogIsOpen(true);
@@ -166,7 +161,6 @@ const Calendar = ({ parentElt }) => {
 
   const updateEvent = (event, updatedProperties) => {
     const index = events.findIndex((evt) => evt.id === event.id);
-    const temp = { ...events[index] };
     for (const key in updatedProperties) {
       events[index][key] = updatedProperties[key];
     }
@@ -180,8 +174,7 @@ const Calendar = ({ parentElt }) => {
   };
 
   const renderDayContent = (info, elt) => {
-    console.log("day:", info);
-    // return <EditEvent />;
+    // console.log("day:", info);
   };
 
   const getEventsFromDNP = async (info) => {
@@ -369,13 +362,10 @@ const Calendar = ({ parentElt }) => {
         // initialEvents={getEventsFromDNP}
         events={getEventsFromDNP}
         // events={[
-        //   { title: "My First Event", date: "2024-04-06", editable: true },
         //   {
-        //     title: "My second event",
+        //     title: "My timed event",
         //     start: "2024-04-08T09:30:00",
         //     end: "2024-04-08T11:00:00",
-        //     // start: "2024-04-08 11:00",
-        //     // end: "11:00",
         //     display: "list-item",
         //     color: "red",
         //     // allDay: false,

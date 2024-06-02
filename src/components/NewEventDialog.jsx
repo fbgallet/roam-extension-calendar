@@ -1,4 +1,4 @@
-import { Button, Dialog, Popover } from "@blueprintjs/core";
+import { Button, Popover } from "@blueprintjs/core";
 import {
   createChildBlock,
   deleteBlock,

@@ -1,7 +1,6 @@
 // import { addObserver, disconnectObserver } from "./observers";
-import { Colors, Tag } from "@blueprintjs/core";
+import { Colors } from "@blueprintjs/core";
 
-import { preventDefault } from "@fullcalendar/core/internal";
 import { renderApp, unmountApp } from "./components/App";
 import { EventTag, getTagFromName } from "./models/EventTag";
 import { getTrimedArrayFromList } from "./util/data";
@@ -281,42 +280,13 @@ export default {
       },
     });
 
-    // Add command to block context menu
-    // roamAlphaAPI.ui.blockContextMenu.addCommand({
-    //   label: "Color Highlighter: Remove color tags",
-    //   "display-conditional": (e) => e["block-string"].includes("#c:"),
-    //   callback: (e) => removeHighlightsFromBlock(e["block-uid"], removeOption),
-    // });
-
-    // Add SmartBlock command
-    // const insertCmd = {
-    //   text: "INSERTFOOTNOTE",
-    //   help: "Insert automatically numbered footnote (requires the Footnotes extension)",
-    //   handler: (context) => () => {
-    //     noteInline = null;
-    //     currentPos = new position();
-    //     currentPos.s = context.currentContent.length;
-    //     currentPos.e = currentPos.s;
-    //     insertOrRemoveFootnote(context.targetUid);
-    //     return "";
-    //   },
-    // };
-    // if (window.roamjs?.extension?.smartblocks) {
-    //   window.roamjs.extension.smartblocks.registerCommand(insertCmd);
-    // } else {
-    //   document.body.addEventListener(`roamjs:smartblocks:loaded`, () => {
-    //     window.roamjs?.extension.smartblocks &&
-    //       window.roamjs.extension.smartblocks.registerCommand(insertCmd);
-    //   });
-    // }
-
     // addObserver();
 
     addListeners();
     initializeMapOfTags(extensionAPI);
-    console.log("mapOfTags :>> ", mapOfTags);
+    // console.log("mapOfTags :>> ", mapOfTags);
 
-    console.log("Extension loaded.");
+    console.log("Full Calendar extension loaded.");
     //return;
   },
   onunload: () => {
@@ -324,6 +294,6 @@ export default {
 
     removeListeners();
 
-    console.log("Extension unloaded");
+    console.log("Full Calendar extension unloaded");
   },
 };
