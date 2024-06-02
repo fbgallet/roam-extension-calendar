@@ -35,8 +35,6 @@ const MultiSelectFilter = ({
   const [isMinimized, setIsMinimized] = useState(false);
   const doubleClick = useRef(false);
 
-  console.log("tagsToDisplay :>> ", tagsToDisplay);
-
   const handleTagSelect = (tag) => {
     if (
       !tagsToDisplay.some(
@@ -129,7 +127,6 @@ const MultiSelectFilter = ({
   const renderTag = (tag) => {
     const title = tag.name === calendarTag.name ? "• not tagged" : tag.pages[0];
     const aliases = tag.pages.slice(1).join(", ");
-    console.log("alias :>> ", aliases);
     return (
       <Popover
         // autoFocus={false}
