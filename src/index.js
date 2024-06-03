@@ -4,6 +4,7 @@ import { Colors } from "@blueprintjs/core";
 import { renderApp, unmountApp } from "./components/App";
 import { EventTag, deleteTagByName, getTagFromName } from "./models/EventTag";
 import { getTrimedArrayFromList } from "./util/data";
+import { getFocusedDateInDatepicker } from "./util/roamDom";
 
 const calendarBtnElt = document.querySelector(
   "button:has(span[icon='calendar'])"
@@ -115,6 +116,7 @@ const handleClickOnCalendarBtn = (e) => {
   e.preventDefault();
   let appWrapper;
   let inSidebar = false;
+  const periodFromDatepicker = getFocusedDateInDatepicker(e);
   if (e.shiftKey) {
     window.roamAlphaAPI.ui.rightSidebar.open();
     inSidebar = true;
@@ -123,10 +125,11 @@ const handleClickOnCalendarBtn = (e) => {
     const parentElt = document.querySelector(".rm-article-wrapper");
     if (parentElt) appWrapper = parentElt.querySelector(".full-calendar-comp");
   }
-  if (!appWrapper) {
+  if (!appWrapper || periodFromDatepicker) {
     setTimeout(
       () => {
-        renderApp(inSidebar);
+        if (appWrapper && periodFromDatepicker) unmountApp(appWrapper);
+        renderApp(inSidebar, periodFromDatepicker);
       },
       inSidebar && !document.querySelector("#roam-right-sidebar-content")
         ? 250
@@ -142,6 +145,15 @@ const handleClickOnCalendarBtn = (e) => {
         : 100
     );
   }
+};
+
+const handleDblClickOnCalendarBtn = (e) => {
+  e.preventDefault();
+  let appWrapper;
+  const parentElt = document.querySelector(".rm-article-wrapper");
+  if (parentElt) appWrapper = parentElt.querySelector(".full-calendar-comp");
+  if (!appWrapper) renderApp(false, getFocusedDateInDatepicker(e));
+  else unmountApp(appWrapper);
 };
 
 const onDragStart = (event) => {
@@ -164,13 +176,28 @@ const addListeners = () => {
       handleClickOnCalendarBtn(e);
     }
   );
+  calendarBtnElt.parentElement.parentElement.addEventListener(
+    "dblclick",
+    (e) => {
+      handleDblClickOnCalendarBtn(e);
+    }
+  );
 };
 
 const removeListeners = () => {
   document.removeEventListener("dragstart", onDragStart);
-  calendarBtnElt.removeEventListener("contextmenu", (e) => {
-    handleClickOnCalendarBtn(e);
-  });
+  calendarBtnElt.parentElement.parentElement.removeEventListener(
+    "contextmenu",
+    (e) => {
+      handleClickOnCalendarBtn(e);
+    }
+  );
+  calendarBtnElt.parentElement.parentElement.removeEventListener(
+    "dblclick",
+    (e) => {
+      handleDblClickOnCalendarBtn(e);
+    }
+  );
 };
 
 const initializeMapOfTags = (extensionAPI) => {

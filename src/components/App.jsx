@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom";
 import Calendar from "./Calendar";
 
-export function renderApp(inSidebar) {
+export function renderApp(inSidebar, periodFromDatepicker) {
   let root, parentElt;
   root = document.createElement("div");
   if (inSidebar) {
@@ -27,7 +27,10 @@ export function renderApp(inSidebar) {
   const calendarElt = parentElt.querySelector(".full-calendar-comp");
   if (!inSidebar) calendarElt.scrollIntoView();
 
-  ReactDOM.render(<Calendar parentElt={parentElt} />, root);
+  ReactDOM.render(
+    <Calendar parentElt={parentElt} {...periodFromDatepicker} />,
+    root
+  );
 }
 
 export function unmountApp(appWrapper) {

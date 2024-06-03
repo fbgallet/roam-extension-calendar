@@ -31,7 +31,7 @@ import { calendarTag, mapOfTags } from "..";
 let events = [];
 let filteredEvents = [];
 
-const Calendar = ({ parentElt }) => {
+const Calendar = ({ parentElt, periodType = "month", initialDate }) => {
   const [newEventDialogIsOpen, setNewEventDialogIsOpen] = useState(false);
   const [focusedPageUid, setFocusedPageUid] = useState(null);
   // const [events, setEvents] = useState([]);
@@ -340,8 +340,14 @@ const Calendar = ({ parentElt }) => {
         expandRows={true}
         multiMonthMinWidth={440}
         // multiMonthMaxColumns={2}
-        // initialDate={"2024-04-20"}
-        initialView="dayGridMonth"
+        initialDate={initialDate || null}
+        initialView={
+          periodType === "day"
+            ? "dayGridDay"
+            : periodType === "week"
+            ? "dayGridWeek"
+            : "dayGridMonth"
+        }
         headerToolbar={{
           left: "prev,next today refreshButton",
           center: "title",
