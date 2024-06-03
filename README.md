@@ -4,8 +4,17 @@
 
 ### Open the calendar view
 
-- Simply `right click` on the native calendar icon in the top bar to open Full Calendar in the main view.
+- `Right click` on the native calendar icon in the top bar to open Full Calendar in the main view. `Double tap` on mobile.
 - `Shift + Right click` to open it in the sidebar.
+
+The same action close the corresponding Full Calendar component. You can also use corresponding commands in Roam Command palette.
+
+You can also select the initial date and the type of period to display (month, week, day): open the native date picker by clicking on the calendar icon, then browse to the choose date in the date picker and
+
+- right click on a given day to open this day in Full calendar,
+- right click on the week number to open the corresponding week,
+- right click anywhere else to open the corresponding month.
+  If you press Shift at the same time, it will be opened in the sidebar.
 
 ### Data displayed in the calendar
 
@@ -34,6 +43,8 @@
 - Events with start and end time.
 - Events spanning multiple days.
 - Import from Google calendar.
+- Filter content with any page title
+- ...
 
 ---
 

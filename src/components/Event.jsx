@@ -36,6 +36,7 @@ const Event = ({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isExisting, setIsExisting] = useState(true);
   const popoverRef = useRef(null);
+  // const initialTitle = useRef(event.title);
 
   const handleDeleteEvent = async () => {
     const currentCalendarUid = getParentBlock(event.id);
@@ -46,6 +47,10 @@ const Event = ({
     setPopoverIsOpen(false);
     setIsExisting(false);
   };
+
+  // const updateFCEvent = () => {
+
+  // }
 
   const handleClose = () => {
     setTimeout(() => {

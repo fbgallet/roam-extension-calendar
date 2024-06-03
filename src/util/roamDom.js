@@ -1,5 +1,6 @@
 export const getFocusedDateInDatepicker = (clickEvt) => {
   let periodType, firstDay;
+  if (!clickEvt.target) return null;
   const datePickerElt = document.querySelector(".bp3-datepicker");
   if (!datePickerElt) return null;
   if (clickEvt.target.className === "bp3-datepicker-day-wrapper") {

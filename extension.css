@@ -397,8 +397,8 @@
 /**** IF IN SIDEBAR *****/
 /************************/
 .full-calendar-comp.fc-sidebar:not(.fc-sticky) {
-  min-height: calc(100vh - 15px);
-  height: calc(100vh - 15px);
+  min-height: calc(100vh - 25px);
+  height: calc(100vh - 25px);
 }
 .full-calendar-comp.fc-sidebar:not(.fc-sticky):has(.fc-minimized) {
   min-height: calc(100vh - 10px);

@@ -112,12 +112,12 @@ const updateTagPagesWithUserList = (tagName, pageList) => {
   } else tag.updatePages(getTrimedArrayFromList(pageList));
 };
 
-const handleClickOnCalendarBtn = (e) => {
-  e.preventDefault();
+const handleClickOnCalendarBtn = (e, isCommand) => {
+  !isCommand && e.preventDefault();
   let appWrapper;
   let inSidebar = false;
-  const periodFromDatepicker = getFocusedDateInDatepicker(e);
-  if (e.shiftKey) {
+  const periodFromDatepicker = isCommand ? null : getFocusedDateInDatepicker(e);
+  if (e && e.shiftKey) {
     window.roamAlphaAPI.ui.rightSidebar.open();
     inSidebar = true;
     appWrapper = document.querySelector(".full-calendar-comp.fc-sidebar");
@@ -325,16 +325,13 @@ export default {
     extensionAPI.ui.commandPalette.addCommand({
       label: "Full Calendar: Display/Hide in main window",
       callback: () => {
-        renderApp();
+        handleClickOnCalendarBtn(null, true);
       },
     });
     extensionAPI.ui.commandPalette.addCommand({
       label: "Full Calendar: Display/Hide in Sidebar",
       callback: () => {
-        window.roamAlphaAPI.ui.rightSidebar.open();
-        setTimeout(() => {
-          renderApp(true);
-        }, 250);
+        handleClickOnCalendarBtn({ shiftKey: true }, true);
       },
     });
 
