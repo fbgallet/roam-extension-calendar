@@ -168,6 +168,7 @@ const Calendar = ({ parentElt }) => {
   };
 
   const deleteEvent = (event) => {
+    event.remove();
     const index = events.findIndex((evt) => evt.id === event.id);
     events.splice(index, 1);
     isDataToFilterAgain.current = true;

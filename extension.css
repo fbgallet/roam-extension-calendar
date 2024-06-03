@@ -10,8 +10,17 @@
   height: 100%;
 }
 
+.fc-event-content {
+  font-size: 12px;
+}
+
 .full-calendar-comp .fc .fc-toolbar.fc-header-toolbar {
   margin-bottom: 1em;
+  font-size: small;
+}
+.full-calendar-comp .fc .fc-header-toolbar.fc-toolbar > div,
+.full-calendar-comp .fc .fc-header-toolbar.fc-toolbar > div:first-child > div,
+.full-calendar-comp .fc .fc-header-toolbar.fc-toolbar > div:last-child > div {
   font-size: small;
 }
 
@@ -29,10 +38,6 @@
   padding: 0 10px;
   overflow-y: auto;
 }
-.full-calendar-comp.fc-sidebar {
-  padding: 0 5px;
-  overflow-y: hidden;
-}
 
 .full-calendar-comp.fc-sticky {
   height: 50%;
@@ -48,8 +53,19 @@
   height: 100%;
 }
 
+.full-calendar-comp .bp3-tag.bp3-interactive {
+  border: none;
+}
 .full-calendar-comp .bp3-tag.bp3-interactive:hover {
   filter: saturate(1.2) contrast(1.2);
+}
+.full-calendar-comp
+  .bp3-tag.bp3-interactive:not(.fc-tag-notag)
+  > span
+  > span
+  > span
+  > span {
+  color: white;
 }
 
 .full-calendar-comp
@@ -93,10 +109,9 @@
   padding-right: 0.6em;
 }
 
-.full-calendar-comp .fc .fc-header-toolbar.fc-toolbar {
-  font-size: smaller;
+/* .full-calendar-comp .fc .fc-header-toolbar.fc-toolbar {
   margin-bottom: 10px;
-}
+} */
 
 /**********************/
 /*** FILTER SECTION ***/
@@ -112,7 +127,7 @@
 }
 
 .fc-filters .bp3-tag-input .bp3-input-ghost {
-  width: 40px;
+  width: 30px;
 }
 
 .fc-filters .bp3-tag-input .bp3-icon-filter {
@@ -263,6 +278,9 @@
   align-items: center;
   gap: 2px;
 }
+.fc-event:not(.calendar) .fc-event-content > span > span > span {
+  color: white;
+}
 
 .fc-day-header {
   display: flex;
@@ -386,7 +404,10 @@
   min-height: calc(100vh - 10px);
   height: calc(100vh - 10px);
 }
-
+.full-calendar-comp.fc-sidebar {
+  padding: 0 5px;
+  overflow-y: auto;
+}
 .full-calendar-comp.fc-sidebar.fc-sticky {
   height: calc(65vh);
 }
@@ -414,7 +435,17 @@
   height: 20px;
   font-size: x-small;
 }
-.fc-filters .bp3-tag-input .bp3-tag > .bp3-fill {
+.fc-sidebar .fc-filters .bp3-tag-input .bp3-tag-input-values {
+  margin-top: 3px;
+  margin-right: 3px;
+}
+.fc-sidebar .fc-filters .bp3-tag-input .bp3-tag-input-values > * {
+  margin-bottom: 3px;
+}
+.fc-sidebar .fc-filters .bp3-tag-input .bp3-tag-input-values > * {
+  margin-right: 3px;
+}
+.fc-sidebar .fc-filters .bp3-tag-input .bp3-tag > .bp3-fill {
   margin-right: 0px;
 }
 .fc-sidebar .fc-filters .bp3-tag-input .bp3-input-ghost {
@@ -427,9 +458,24 @@
   font-size: smaller;
   padding-left: 2px;
 }
+.full-calendar-comp.fc-sidebar .fc .fc-button {
+  padding: 0.35em 0.4em;
+}
 .full-calendar-comp.fc-sidebar .fc .fc-header-toolbar.fc-toolbar {
   margin-bottom: 8px;
-  font-size: xx-small;
+}
+.full-calendar-comp.fc-sidebar .fc .fc-header-toolbar.fc-toolbar > div,
+.full-calendar-comp.fc-sidebar
+  .fc
+  .fc-header-toolbar.fc-toolbar
+  > div:first-child
+  > div,
+.full-calendar-comp.fc-sidebar
+  .fc
+  .fc-header-toolbar.fc-toolbar
+  > div:last-child
+  > div {
+  font-size: x-small;
 }
 .full-calendar-comp.fc-sidebar:has(.fc-filters.fc-minimized)
   .fc-header-toolbar.fc-toolbar {
@@ -485,6 +531,16 @@
     font-size: x-small;
     height: 20px;
   }
+  .fc-filters .bp3-tag-input .bp3-tag-input-values {
+    margin-top: 3px;
+    margin-right: 3px;
+  }
+  .fc-filters .bp3-tag-input .bp3-tag-input-values > * {
+    margin-bottom: 3px;
+  }
+  .fc-filters .bp3-tag-input .bp3-tag-input-values > * {
+    margin-right: 3px;
+  }
   .fc-filters .bp3-tag-input .bp3-tag > .bp3-fill {
     margin-right: 0px;
   }
@@ -500,7 +556,14 @@
   }
   .full-calendar-comp .fc .fc-header-toolbar.fc-toolbar {
     margin-bottom: 8px;
+  }
+  .full-calendar-comp .fc .fc-header-toolbar.fc-toolbar > div,
+  .full-calendar-comp .fc .fc-header-toolbar.fc-toolbar > div:first-child > div,
+  .full-calendar-comp .fc .fc-header-toolbar.fc-toolbar > div:last-child > div {
     font-size: x-small;
+  }
+  .full-calendar-comp.fc-sidebar .fc .fc-button {
+    padding: 0.35em 0.4em;
   }
   .full-calendar-comp:has(.fc-filters.fc-minimized)
     .fc-header-toolbar.fc-toolbar {
@@ -548,9 +611,31 @@
   .full-calendar-comp .fc-filters .bp3-tag-input .bp3-tag {
     font-size: xx-small;
   }
-  .full-calendar-comp:has(.fc-filters) .fc-header-toolbar.fc-toolbar,
+  .full-calendar-comp:has(.fc-filters) .fc .fc-header-toolbar.fc-toolbar > div,
+  .full-calendar-comp:has(.fc-filters)
+    .fc
+    .fc-header-toolbar.fc-toolbar
+    > div:first-child
+    > div,
+  .full-calendar-comp:has(.fc-filters)
+    .fc
+    .fc-header-toolbar.fc-toolbar
+    > div:last-child
+    > div,
   .full-calendar-comp:has(.fc-filters.fc-minimized)
-    .fc-header-toolbar.fc-toolbar {
+    .fc
+    .fc-header-toolbar.fc-toolbar
+    > div,
+  .full-calendar-comp:has(.fc-filters.fc-minimized)
+    .fc
+    .fc-header-toolbar.fc-toolbar
+    > div:first-child
+    > div,
+  .full-calendar-comp:has(.fc-filters.fc-minimized)
+    .fc
+    .fc-header-toolbar.fc-toolbar
+    > div:last-child
+    > div {
     font-size: xx-small;
   }
   .full-calendar-comp .fc-scrollgrid-section-header {

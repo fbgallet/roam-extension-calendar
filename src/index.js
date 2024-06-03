@@ -120,7 +120,8 @@ const handleClickOnCalendarBtn = (e) => {
     inSidebar = true;
     appWrapper = document.querySelector(".full-calendar-comp.fc-sidebar");
   } else {
-    appWrapper = document.querySelector(".full-calendar-comp:not(.fc-sidebar)");
+    const parentElt = document.querySelector(".rm-article-wrapper");
+    if (parentElt) appWrapper = parentElt.querySelector(".full-calendar-comp");
   }
   if (!appWrapper) {
     setTimeout(
@@ -131,7 +132,16 @@ const handleClickOnCalendarBtn = (e) => {
         ? 250
         : 0
     );
-  } else unmountApp(appWrapper);
+  } else {
+    setTimeout(
+      () => {
+        unmountApp(appWrapper);
+      },
+      inSidebar && !document.querySelector("#roam-right-sidebar-content")
+        ? 250
+        : 100
+    );
+  }
 };
 
 const onDragStart = (event) => {
@@ -294,7 +304,10 @@ export default {
     extensionAPI.ui.commandPalette.addCommand({
       label: "Full Calendar: Display/Hide in Sidebar",
       callback: () => {
-        renderApp(true);
+        window.roamAlphaAPI.ui.rightSidebar.open();
+        setTimeout(() => {
+          renderApp(true);
+        }, 250);
       },
     });
 

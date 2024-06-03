@@ -16,7 +16,7 @@ export function renderApp(inSidebar) {
     root.classList.add("fc-sidebar");
   } else {
     // parentElt = document.querySelector("#rm-log-container");
-    if (!parentElt) parentElt = document.querySelector(".rm-article-wrapper");
+    parentElt = document.querySelector(".rm-article-wrapper");
     const existing = parentElt.querySelector(".full-calendar-comp");
     if (existing) {
       existing.remove();
