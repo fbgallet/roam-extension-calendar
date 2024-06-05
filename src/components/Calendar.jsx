@@ -35,7 +35,7 @@ const Calendar = ({ parentElt, periodType = "month", initialDate }) => {
   const [newEventDialogIsOpen, setNewEventDialogIsOpen] = useState(false);
   const [focusedPageUid, setFocusedPageUid] = useState(null);
   // const [events, setEvents] = useState([]);
-  const [addedEvent, setAddedEvent] = useState(null);
+  const [forceToReload, setForceToReload] = useState(false);
   const [position, setPosition] = useState({ x: null, y: null });
 
   const [filterLogic, setFilterLogic] = useState("Or");
@@ -78,7 +78,11 @@ const Calendar = ({ parentElt, periodType = "month", initialDate }) => {
   useEffect(() => {
     isDataToReload.current = true;
     isDataToFilterAgain.current = true;
-  }, [isEntireDNP, isWEtoDisplay]);
+  }, [isIncludingRefs, isEntireDNP, isWEtoDisplay]);
+
+  useEffect(() => {
+    isDataToFilterAgain.current = true;
+  }, [forceToReload]);
 
   const handleSelectDays = (e) => {
     console.log("Day selected");
@@ -162,7 +166,14 @@ const Calendar = ({ parentElt, periodType = "month", initialDate }) => {
   const updateEvent = (event, updatedProperties) => {
     const index = events.findIndex((evt) => evt.id === event.id);
     for (const key in updatedProperties) {
-      events[index][key] = updatedProperties[key];
+      if (updatedProperties[key] !== undefined) {
+        events[index][key] = updatedProperties[key];
+        if (key !== "extendedProps") event.setProp(key, updatedProperties[key]);
+        else {
+          event.setExtendedProp("eventTags", updatedProperties[key].eventTags);
+          event.setExtendedProp("isRef", updatedProperties[key].isRef);
+        }
+      }
     }
     isDataToFilterAgain.current = true;
   };
@@ -172,6 +183,7 @@ const Calendar = ({ parentElt, periodType = "month", initialDate }) => {
     const index = events.findIndex((evt) => evt.id === event.id);
     events.splice(index, 1);
     isDataToFilterAgain.current = true;
+    setForceToReload((prev) => !prev);
   };
 
   const renderDayContent = (info, elt) => {
@@ -284,7 +296,7 @@ const Calendar = ({ parentElt, periodType = "month", initialDate }) => {
       })
     );
     isDataToReload.current = false;
-    setAddedEvent(sourceUid);
+    setForceToReload((prev) => !prev);
   };
 
   return (

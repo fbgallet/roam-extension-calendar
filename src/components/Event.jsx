@@ -10,13 +10,20 @@ import {
 import {
   deleteBlock,
   deleteBlockIfNoChild,
+  getBlockContentByUid,
+  getBlocksUidReferencedInThisBlock,
   getParentBlock,
   updateBlock,
 } from "../util/roamApi";
-import { colorToDisplay, replaceItemAndGetUpdatedArray } from "../util/data";
+import {
+  colorToDisplay,
+  getMatchingTags,
+  parseEventObject,
+  replaceItemAndGetUpdatedArray,
+} from "../util/data";
 import { useState, useRef } from "react";
 import { getTagFromName } from "../models/EventTag";
-import { calendarTag } from "..";
+import { calendarTag, mapOfTags } from "..";
 import TagList from "./TagList";
 
 const Event = ({
@@ -36,7 +43,7 @@ const Event = ({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isExisting, setIsExisting] = useState(true);
   const popoverRef = useRef(null);
-  // const initialTitle = useRef(event.title);
+  const initialContent = useRef(null);
 
   const handleDeleteEvent = async () => {
     const currentCalendarUid = getParentBlock(event.id);
@@ -53,6 +60,19 @@ const Event = ({
   // }
 
   const handleClose = () => {
+    const updatedContent = getBlockContentByUid(event.id);
+    if (initialContent.current && initialContent.current !== updatedContent) {
+      const updatedEvent = parseEventObject({
+        title: updatedContent,
+        matchingTags: getMatchingTags(
+          tagsToDisplay,
+          getBlocksUidReferencedInThisBlock(event.id)
+        ),
+        isRef: event.extendedProps.isRef,
+      });
+      updateEvent(event, updatedEvent);
+      initialContent.current = null;
+    }
     setTimeout(() => {
       const tooltip = document.querySelector(".rm-bullet__tooltip");
       if (tooltip) tooltip.remove();
@@ -113,14 +133,15 @@ const Event = ({
       }
       onClose={handleClose}
       usePortal={true}
-      onOpening={(e) =>
+      onOpening={(e) => {
         window.roamAlphaAPI.ui.components.renderBlock({
           uid: event.id,
           el: popoverRef.current,
           "zoom-path?": event.extendedProps.isRef,
           "open?": false,
-        })
-      }
+        });
+        initialContent.current = getBlockContentByUid(event.id);
+      }}
     >
       <div
         className="fc-event-content"
@@ -182,10 +203,6 @@ const Event = ({
                   isRef: event.extendedProps.isRef,
                 },
               });
-              event.setProp("color", updatedColor);
-              event.setProp("title", updatedTitle);
-              event.setProp("classNames", updatedClassNames);
-              event.setExtendedProp("eventTags", updatedTags);
               updateBlock(event.id, updatedTitle);
             }}
           />
