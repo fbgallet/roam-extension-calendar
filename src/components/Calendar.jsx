@@ -54,6 +54,9 @@ const Calendar = ({ parentElt, periodType = "month", initialDate }) => {
   function updateSize() {
     const calendarApi = calendarRef.current.getApi();
     calendarApi.updateSize();
+    isDataToReload.current = true;
+    isDataToFilterAgain.current = true;
+    setForceToReload((prev) => !prev);
     let tooltip = document.querySelector(".rm-bullet__tooltip");
     if (tooltip) tooltip.remove();
     tooltip = document.querySelector(".bp3-tooltip");
@@ -276,6 +279,7 @@ const Calendar = ({ parentElt, periodType = "month", initialDate }) => {
 
   const handleExternalDrop = async (e) => {
     e.preventDefault();
+    let targetUid;
     const sourceUid = e.dataTransfer.getData("text");
     const blockContent = getBlockContentByUid(sourceUid);
     const blockRefs = getBlocksUidReferencedInThisBlock(sourceUid);
@@ -286,10 +290,23 @@ const Calendar = ({ parentElt, periodType = "month", initialDate }) => {
     let calendarBlockUid = await getCalendarUidFromPage(
       window.roamAlphaAPI.util.dateToPageUid(targetDate)
     );
-    await createChildBlock(calendarBlockUid, `((${sourceUid}))`);
+    if (e.shiftKey) {
+      targetUid = sourceUid;
+      await window.roamAlphaAPI.moveBlock({
+        location: {
+          "parent-uid": calendarBlockUid,
+          order: "last",
+        },
+        block: { uid: sourceUid },
+      });
+    } else if (e.ctrlKey || e.metaKey) {
+      targetUid = await createChildBlock(calendarBlockUid, `((${sourceUid}))`);
+    } else {
+      targetUid = await createChildBlock(calendarBlockUid, blockContent);
+    }
     events.push(
       parseEventObject({
-        id: sourceUid,
+        id: targetUid,
         title: blockContent,
         date: date,
         matchingTags: matchingTags,
@@ -344,7 +361,7 @@ const Calendar = ({ parentElt, periodType = "month", initialDate }) => {
         // contentHeight={"auto"}
         customButtons={{
           refreshButton: {
-            text: "↻", // 🔄
+            text: "↻",
             click: updateSize,
           },
         }}

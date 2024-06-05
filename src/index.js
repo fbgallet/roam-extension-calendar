@@ -4,12 +4,7 @@ import { Colors } from "@blueprintjs/core";
 import { renderApp, unmountApp } from "./components/App";
 import { EventTag, deleteTagByName, getTagFromName } from "./models/EventTag";
 import { getTrimedArrayFromList } from "./util/data";
-import {
-  detectLongTouch,
-  getFocusedDateInDatepicker,
-  handleLongTouch,
-  removeLongTouchListener,
-} from "./util/roamDom";
+import { getFocusedDateInDatepicker, handleLongTouch } from "./util/roamDom";
 
 const calendarBtnElt = document.querySelector(
   "button:has(span[icon='calendar'])"
