@@ -4,11 +4,16 @@ import { Colors } from "@blueprintjs/core";
 import { renderApp, unmountApp } from "./components/App";
 import { EventTag, deleteTagByName, getTagFromName } from "./models/EventTag";
 import { getTrimedArrayFromList } from "./util/data";
-import { getFocusedDateInDatepicker } from "./util/roamDom";
+import {
+  detectLongTouch,
+  getFocusedDateInDatepicker,
+  handleLongTouch,
+  removeLongTouchListener,
+} from "./util/roamDom";
 
 const calendarBtnElt = document.querySelector(
   "button:has(span[icon='calendar'])"
-);
+)?.parentElement?.parentElement;
 const storedTagsInfo = JSON.parse(localStorage.getItem("fc-tags-info"));
 // console.log("storedTagsInfo :>> ", storedTagsInfo);
 
@@ -147,12 +152,11 @@ const handleClickOnCalendarBtn = (e, isCommand) => {
   }
 };
 
-const handleDblClickOnCalendarBtn = (e) => {
-  e.preventDefault();
+const handleLongTouchOnCalendarBtn = (e) => {
   let appWrapper;
   const parentElt = document.querySelector(".rm-article-wrapper");
   if (parentElt) appWrapper = parentElt.querySelector(".full-calendar-comp");
-  if (!appWrapper) renderApp(false, getFocusedDateInDatepicker(e));
+  if (!appWrapper) renderApp(false);
   else unmountApp(appWrapper);
 };
 
@@ -170,34 +174,18 @@ const onDragStart = (event) => {
 const addListeners = () => {
   removeListeners();
   document.addEventListener("dragstart", onDragStart);
-  calendarBtnElt.parentElement.parentElement.addEventListener(
-    "contextmenu",
-    (e) => {
-      handleClickOnCalendarBtn(e);
-    }
-  );
-  calendarBtnElt.parentElement.parentElement.addEventListener(
-    "dblclick",
-    (e) => {
-      handleDblClickOnCalendarBtn(e);
-    }
-  );
+  calendarBtnElt.addEventListener("contextmenu", (e) => {
+    handleClickOnCalendarBtn(e);
+  });
+  handleLongTouch(calendarBtnElt, handleLongTouchOnCalendarBtn);
 };
 
 const removeListeners = () => {
   document.removeEventListener("dragstart", onDragStart);
-  calendarBtnElt.parentElement.parentElement.removeEventListener(
-    "contextmenu",
-    (e) => {
-      handleClickOnCalendarBtn(e);
-    }
-  );
-  calendarBtnElt.parentElement.parentElement.removeEventListener(
-    "dblclick",
-    (e) => {
-      handleDblClickOnCalendarBtn(e);
-    }
-  );
+  calendarBtnElt.removeEventListener("contextmenu", (e) => {
+    handleClickOnCalendarBtn(e);
+  });
+  handleLongTouch(calendarBtnElt, null); // remove corresponding listeners
 };
 
 const initializeMapOfTags = (extensionAPI) => {
