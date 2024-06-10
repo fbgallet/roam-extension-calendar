@@ -22,26 +22,26 @@ export const handleLongTouch = (element, callback) => {
   let touchTimer = null;
 
   function onTouchStart(e) {
-    touchTimer = setTimeout(() => {
-      callback(element);
-      setTimeout(() => {
-        const datePicker = document.querySelector(".bp3-datepicker");
-        if (datePicker) datePicker.parentElement.parentElement.remove();
-      }, 50);
-    }, 700);
+    console.log("START");
+    touchTimer = Date.now();
+    setTimeout(() => {
+      const datePicker = document.querySelector(".bp3-datepicker");
+      if (datePicker) datePicker.parentElement.parentElement.remove();
+    }, 50);
   }
   function onTouchEnd(e) {
-    if (touchTimer)
-      if (touchTimer !== null) {
-        clearTimeout(touchTimer);
-        touchTimer = null;
-      }
+    if (touchTimer && Date.now() - touchTimer > 700) {
+      console.log("END", Date.now() - touchTimer);
+      callback();
+    }
+    touchTimer = 0;
   }
   function onTouchCancel(e) {
-    if (touchTimer !== null) {
-      clearTimeout(touchTimer);
-      touchTimer = null;
+    if (Date.now() - touchTimer > 700) {
+      console.log("CANCEL");
+      callback();
     }
+    touchTimer = 0;
   }
   if (callback) {
     element.addEventListener("touchstart", onTouchStart);

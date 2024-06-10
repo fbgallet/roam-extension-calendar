@@ -152,7 +152,6 @@ const handleLongTouchOnCalendarBtn = (e) => {
   const parentElt = document.querySelector(".rm-article-wrapper");
   if (parentElt) appWrapper = parentElt.querySelector(".full-calendar-comp");
   if (!appWrapper) renderApp(false);
-  else unmountApp(appWrapper);
 };
 
 const onDragStart = (event) => {
