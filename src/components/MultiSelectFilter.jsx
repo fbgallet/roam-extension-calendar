@@ -8,10 +8,11 @@ import {
   Tooltip,
 } from "@blueprintjs/core";
 import { MultiSelect } from "@blueprintjs/select";
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { calendarTag, mapOfTags } from "..";
 import ColorPicker from "./ColorPicker";
 import { unmountApp } from "./App";
+import { saveViewSetting } from "../util/data";
 
 const MultiSelectFilter = ({
   tagsToDisplay,
@@ -28,12 +29,20 @@ const MultiSelectFilter = ({
   parentElt,
   updateSize,
   isDataToFilterAgain,
+  isInSidebar,
+  initialSticky,
+  initialMinimized,
 }) => {
   const [popoverToOpen, setPopoverToOpen] = useState("");
   const [queryStr, setQueryStr] = useState("");
   const [isSticky, setIsSticky] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const doubleClick = useRef(false);
+
+  useEffect(() => {
+    if (initialSticky) handleSticky();
+    if (initialMinimized) handleMinimize();
+  }, []);
 
   const handleTagSelect = (tag) => {
     if (
@@ -99,6 +108,7 @@ const MultiSelectFilter = ({
       calendarElt.classList.add("fc-minimized");
       setIsMinimized(true);
     }
+    saveViewSetting("fc-minimized", !isMinimized, isInSidebar);
     updateSize();
   };
 
@@ -111,6 +121,7 @@ const MultiSelectFilter = ({
       calendarElt.classList.add("fc-sticky");
       setIsSticky(true);
     }
+    saveViewSetting("fc-sticky", !isSticky, isInSidebar);
   };
 
   const handleClose = () => {
@@ -273,6 +284,7 @@ const MultiSelectFilter = ({
             label="dnp"
             inline={true}
             onChange={() => {
+              saveViewSetting("fc-isEntireDNP", !isEntireDNP, isInSidebar);
               setIsEntireDNP((prev) => !prev);
             }}
           />
@@ -286,6 +298,11 @@ const MultiSelectFilter = ({
             label="refs"
             inline={true}
             onChange={() => {
+              saveViewSetting(
+                "fc-inIncludingRefs",
+                !isIncludingRefs,
+                isInSidebar
+              );
               setIsIncludingRefs((prev) => !prev);
             }}
           />
@@ -296,6 +313,7 @@ const MultiSelectFilter = ({
           inline={true}
           onChange={() => {
             isDataToFilterAgain.current = true;
+            saveViewSetting("fc-isWEtoDisplay", !isWEtoDisplay, isInSidebar);
             setIsWEtoDisplay((prev) => !prev);
           }}
         />

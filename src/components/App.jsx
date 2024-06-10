@@ -26,9 +26,39 @@ export function renderApp(inSidebar, periodFromDatepicker) {
   root.classList.add("full-calendar-comp");
   const calendarElt = parentElt.querySelector(".full-calendar-comp");
   if (!inSidebar) calendarElt.scrollIntoView();
+  const sidebarSuffix = inSidebar ? "-sb" : "";
+  const initialSettings = {
+    dnp:
+      localStorage.getItem("fc-isEntireDNP" + sidebarSuffix) === "true"
+        ? true
+        : false,
+    refs:
+      localStorage.getItem("fc-inIncludingRefs" + sidebarSuffix) === "false"
+        ? false
+        : true,
+    we:
+      localStorage.getItem("fc-isWEtoDisplay" + sidebarSuffix) == "false"
+        ? false
+        : true,
+    view:
+      localStorage.getItem("fc-periodView" + sidebarSuffix) || "dayGridMonth",
+    minimized:
+      localStorage.getItem("fc-minimized" + sidebarSuffix) === "true"
+        ? true
+        : false,
+    sticky:
+      localStorage.getItem("fc-sticky" + sidebarSuffix) === "true"
+        ? true
+        : false,
+  };
 
   ReactDOM.render(
-    <Calendar parentElt={parentElt} {...periodFromDatepicker} />,
+    <Calendar
+      parentElt={parentElt}
+      isInSidebar={inSidebar}
+      initialSettings={initialSettings}
+      {...periodFromDatepicker}
+    />,
     root
   );
 }

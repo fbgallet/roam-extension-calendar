@@ -4,13 +4,13 @@ export const getFocusedDateInDatepicker = (clickEvt) => {
   const datePickerElt = document.querySelector(".bp3-datepicker");
   if (!datePickerElt) return null;
   if (clickEvt.target.className === "bp3-datepicker-day-wrapper") {
-    periodType = "day";
+    periodType = "dayGridDay";
     firstDay = clickEvt.target.parentElement.ariaLabel;
   } else if (clickEvt.target.className === "DayPicker-WeekNumber") {
-    periodType = "week";
+    periodType = "dayGridWeek";
     firstDay = clickEvt.target.nextElementSibling.ariaLabel;
   } else {
-    periodType = "month";
+    periodType = "dayGridMonth";
     firstDay = datePickerElt.querySelector(".bp3-datepicker-day-wrapper")
       .parentElement.ariaLabel;
   }

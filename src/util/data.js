@@ -217,3 +217,8 @@ export const getTrimedArrayFromList = (list) => {
   const arr = list.split(",");
   return arr.map((elt) => elt.trim());
 };
+
+export const saveViewSetting = (setting, value, isInSidebar) => {
+  const sidebarSuffix = isInSidebar ? "-sb" : "";
+  localStorage.setItem(setting + sidebarSuffix, value);
+};

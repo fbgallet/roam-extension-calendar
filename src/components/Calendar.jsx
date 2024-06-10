@@ -31,7 +31,13 @@ import { calendarTag, mapOfTags } from "..";
 let events = [];
 let filteredEvents = [];
 
-const Calendar = ({ parentElt, periodType = "month", initialDate }) => {
+const Calendar = ({
+  parentElt,
+  isInSidebar,
+  periodType,
+  initialDate,
+  initialSettings,
+}) => {
   const [newEventDialogIsOpen, setNewEventDialogIsOpen] = useState(false);
   const [focusedPageUid, setFocusedPageUid] = useState(null);
   // const [events, setEvents] = useState([]);
@@ -42,14 +48,15 @@ const Calendar = ({ parentElt, periodType = "month", initialDate }) => {
   const [tagsToDisplay, setTagsToDisplay] = useState(
     mapOfTags.filter((tag) => tag.isToDisplay)
   );
-  const [isEntireDNP, setIsEntireDNP] = useState(false);
-  const [isIncludingRefs, setIsIncludingRefs] = useState(true);
-  const [isWEtoDisplay, setIsWEtoDisplay] = useState(true);
+  const [isEntireDNP, setIsEntireDNP] = useState(initialSettings.dnp);
+  const [isIncludingRefs, setIsIncludingRefs] = useState(initialSettings.refs);
+  const [isWEtoDisplay, setIsWEtoDisplay] = useState(initialSettings.we);
   const isDataToReload = useRef(true);
   const isDataToFilterAgain = useRef(true);
   const calendarRef = useRef(null);
   const startDate = useRef(null);
   const selectedDay = useRef(null);
+  const periodView = useRef(periodType || initialSettings.view);
 
   function updateSize() {
     const calendarApi = calendarRef.current.getApi();
@@ -348,6 +355,9 @@ const Calendar = ({ parentElt, periodType = "month", initialDate }) => {
         parentElt={parentElt}
         updateSize={updateSize}
         isDataToFilterAgain={isDataToFilterAgain}
+        isInSidebar={isInSidebar}
+        initialSticky={initialSettings.sticky}
+        initialMinimized={initialSettings.minimized}
       />
       <FullCalendar
         plugins={[
@@ -370,13 +380,7 @@ const Calendar = ({ parentElt, periodType = "month", initialDate }) => {
         multiMonthMinWidth={440}
         // multiMonthMaxColumns={2}
         initialDate={initialDate || null}
-        initialView={
-          periodType === "day"
-            ? "dayGridDay"
-            : periodType === "week"
-            ? "dayGridWeek"
-            : "dayGridMonth"
-        }
+        initialView={periodView.current}
         headerToolbar={{
           left: "prev,next today refreshButton",
           center: "title",
@@ -424,6 +428,15 @@ const Calendar = ({ parentElt, periodType = "month", initialDate }) => {
         eventDrop={handleEventDrop}
         dateClick={handleSquareDayClick}
         select={handleSelectDays}
+        datesSet={(info) => {
+          if (periodView.current !== info.view.type) {
+            localStorage.setItem(
+              "fc-periodView" + (isInSidebar ? "-sb" : ""),
+              info.view.type
+            );
+            periodView.current = info.view.type;
+          }
+        }}
         dayHeaders={true}
         viewWillUnmount={() => (isDataToReload.current = true)}
         // dayCellContent={renderDayContent}
