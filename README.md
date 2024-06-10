@@ -19,13 +19,13 @@ You can also select the initial date and the type of period to display (month, w
 
 If you press Shift at the same time, it will be opened in the sidebar.
 
-All th view settings are automatically saved, separately for the main page and the sidebar.
-
 ## Events and tasks displayed in the calendar
 
 - By default, the events and tasks displayed in the calendar are the first children block of `#calendar` block (nb: only its first mention is taken into account), in each Daily Notes Pages (DNP). This calendar tag can be customized.
 - If you click on `dnp` switch in the calendar header, all blocks in the whole DNP matching the current tag filter will be displayed.
 - If you click on `refs` switch in the calendar header, all blocks in linked references of your DNP matching the current tag filter will be displayed.
+
+**All the view settings are automatically saved, separately for the main page and the sidebar.**
 
 ## Handle events
 
