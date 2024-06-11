@@ -168,15 +168,17 @@ const handleClickOnCalendarBtn = (e) => {
           once: true,
         }
       );
+      if (window.roamAlphaAPI.platform.isTouchDevice) {
+        fcButton.addEventListener(
+          "touchend",
+          (e) => handleRightClickOnCalendarBtn(e, true),
+          {
+            once: true,
+          }
+        );
+      }
     }
   }, 100);
-};
-
-const handleLongTouchOnCalendarBtn = (e) => {
-  let appWrapper;
-  const parentElt = document.querySelector(".rm-article-wrapper");
-  if (parentElt) appWrapper = parentElt.querySelector(".full-calendar-comp");
-  if (!appWrapper) renderApp(false);
 };
 
 const onDragStart = (event) => {
@@ -197,7 +199,8 @@ const addListeners = () => {
     handleRightClickOnCalendarBtn(e);
   });
   calendarBtnElt.addEventListener("click", handleClickOnCalendarBtn);
-  handleLongTouch(calendarBtnElt, handleLongTouchOnCalendarBtn);
+  if (window.roamAlphaAPI.platform.isTouchDevice)
+    calendarBtnElt.addEventListener("touchend", handleClickOnCalendarBtn);
 };
 
 const removeListeners = () => {
@@ -206,7 +209,8 @@ const removeListeners = () => {
     handleRightClickOnCalendarBtn(e);
   });
   calendarBtnElt.removeEventListener("click", handleClickOnCalendarBtn);
-  handleLongTouch(calendarBtnElt, null); // remove corresponding listeners
+  if (window.roamAlphaAPI.platform.isTouchDevice)
+    calendarBtnElt.addEventListener("touchend", handleClickOnCalendarBtn);
 };
 
 const initializeMapOfTags = (extensionAPI) => {
