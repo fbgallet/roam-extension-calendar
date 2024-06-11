@@ -1,3 +1,5 @@
+import { renderApp, unmountApp } from "../components/App";
+
 export const getFocusedDateInDatepicker = (clickEvt) => {
   let periodType, firstDay;
   if (!clickEvt.target) return null;
