@@ -54,7 +54,10 @@ const Calendar = ({
   const isDataToReload = useRef(true);
   const isDataToFilterAgain = useRef(true);
   const calendarRef = useRef(null);
-  const startDate = useRef(null);
+  const viewRange = useRef({
+    start: null,
+    end: null,
+  });
   const selectedDay = useRef(null);
   const periodView = useRef(periodType || initialSettings.view);
 
@@ -202,13 +205,15 @@ const Calendar = ({
 
   const getEventsFromDNP = async (info) => {
     if (
-      startDate.current &&
-      startDate.current.getDate() !== info.start.getDate()
+      viewRange.current.start &&
+      viewRange.current.start.getDate() !== info.start.getDate() &&
+      viewRange.current.end.getDate() !== info.end.getDate()
     ) {
       isDataToReload.current = true;
       isDataToFilterAgain.current = true;
     }
-    startDate.current = info.start;
+    viewRange.current.start = info.start;
+    viewRange.current.end = info.end;
     if (isDataToReload.current) {
       events = await getBlocksToDisplayFromDNP(
         info.start,
