@@ -8,7 +8,7 @@ import {
   onDragStart,
 } from "./util/roamDom";
 
-const calendarBtnElt = document.querySelector(
+export const calendarBtnElt = document.querySelector(
   "button:has(span[icon='calendar'])"
 )?.parentElement?.parentElement;
 const storedTagsInfo = JSON.parse(localStorage.getItem("fc-tags-info"));

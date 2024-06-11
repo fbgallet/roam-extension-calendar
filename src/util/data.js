@@ -141,13 +141,19 @@ export const parseEventObject = (
   }
   const backgroundColorDisplayed = colorToDisplay(matchingTags);
 
+  // const hasTime = title.slice(0, 5) === "11:05";
+  // const customTime = new Date("2024-06-12T09:30:00");
+
   return {
     id,
     title: prefix + title,
     date,
+    // start: hasTime ? customTime : date,
+    // end: hasTime ? customTime + 3600000 : null, // "2024-06-12T11:00:00" : date,
     classNames: classNames,
     extendedProps: { eventTags: matchingTags, isRef: isRef },
     color: backgroundColorDisplayed,
+    // display: "block",
     textColor:
       // matchingTags.length && matchingTags[0].color === "transparent"
       backgroundColorDisplayed === "transparent" ? "revert" : null,

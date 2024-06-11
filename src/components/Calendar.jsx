@@ -248,7 +248,7 @@ const Calendar = ({
           evt.color;
         return evt;
       });
-      // console.log("Filtered events to display:>> ", filteredEvents);
+      console.log("Filtered events to display:>> ", filteredEvents);
     }
     // isDataToReload.current = false;
     // isDataToFilterAgain.current = false;

@@ -1,3 +1,4 @@
+import { calendarBtnElt } from "..";
 import { renderApp, unmountApp } from "../components/App";
 
 export const getFocusedDateInDatepicker = (clickEvt) => {
@@ -55,7 +56,9 @@ export const handleRightClickOnCalendarBtn = (e, isCommand) => {
     );
   }
   const datePickerElt = document.querySelector(".bp3-datepicker");
-  if (datePickerElt) datePickerElt.parentElement.parentElement.remove();
+  if (datePickerElt)
+    simulateClick(calendarBtnElt, window.roamAlphaAPI.platform.isTouchDevice);
+  //datePickerElt.parentElement.parentElement.remove();
 };
 
 export const handleClickOnCalendarBtn = (e) => {
@@ -99,3 +102,22 @@ export const onDragStart = (event) => {
     event.dataTransfer.setData("text/plain", sourceBlockUid);
   }
 };
+
+function simulateClick(el, isTouch) {
+  const options = {
+    bubbles: true,
+    cancelable: true,
+    view: window,
+    target: el,
+    which: 1,
+    button: 0,
+  };
+  if (!isTouch) {
+    el.dispatchEvent(new MouseEvent("mousedown", options));
+    el.dispatchEvent(new MouseEvent("mouseup", options));
+    // el.dispatchEvent(new MouseEvent("click", options));
+  } else {
+    el.dispatchEvent(new MouseEvent("touchstart", options));
+    el.dispatchEvent(new MouseEvent("touchend", options));
+  }
+}
