@@ -109,6 +109,17 @@
   padding-right: 0.6em;
 }
 
+.bp3-datepicker {
+  flex-direction: column;
+}
+.fc-open-button {
+  padding-left: 10px;
+  cursor: pointer;
+}
+.fc-open-button:hover {
+  background-color: rgb(0, 0, 0, 0.1);
+}
+
 /* .full-calendar-comp .fc .fc-header-toolbar.fc-toolbar {
   margin-bottom: 10px;
 } */

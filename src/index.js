@@ -112,8 +112,9 @@ const updateTagPagesWithUserList = (tagName, pageList) => {
   } else tag.updatePages(getTrimedArrayFromList(pageList));
 };
 
-const handleClickOnCalendarBtn = (e, isCommand) => {
+const handleRightClickOnCalendarBtn = (e, isCommand) => {
   !isCommand && e.preventDefault();
+  !isCommand && e.stopPropagation();
   let appWrapper;
   let inSidebar = false;
   const periodFromDatepicker = isCommand ? null : getFocusedDateInDatepicker(e);
@@ -145,6 +146,30 @@ const handleClickOnCalendarBtn = (e, isCommand) => {
         : 100
     );
   }
+  const datePickerElt = document.querySelector(".bp3-datepicker");
+  if (datePickerElt) datePickerElt.parentElement.parentElement.remove();
+};
+
+const handleClickOnCalendarBtn = (e) => {
+  setTimeout(() => {
+    let fcButton = document.querySelector(".fc-open-button");
+    if (!fcButton) {
+      fcButton = document.createElement("div");
+      fcButton.classList.add("fc-open-button");
+      fcButton.innerText = "Open Full Calendar";
+      fcButton.setAttribute("title", "Click + shift to open in sidebar");
+      const datePickerElt = document.querySelector(".bp3-datepicker");
+      if (!datePickerElt) return;
+      datePickerElt.appendChild(fcButton);
+      fcButton.addEventListener(
+        "click",
+        (e) => handleRightClickOnCalendarBtn(e, true),
+        {
+          once: true,
+        }
+      );
+    }
+  }, 100);
 };
 
 const handleLongTouchOnCalendarBtn = (e) => {
@@ -169,16 +194,18 @@ const addListeners = () => {
   removeListeners();
   document.addEventListener("dragstart", onDragStart);
   calendarBtnElt.addEventListener("contextmenu", (e) => {
-    handleClickOnCalendarBtn(e);
+    handleRightClickOnCalendarBtn(e);
   });
+  calendarBtnElt.addEventListener("click", handleClickOnCalendarBtn);
   handleLongTouch(calendarBtnElt, handleLongTouchOnCalendarBtn);
 };
 
 const removeListeners = () => {
   document.removeEventListener("dragstart", onDragStart);
   calendarBtnElt.removeEventListener("contextmenu", (e) => {
-    handleClickOnCalendarBtn(e);
+    handleRightClickOnCalendarBtn(e);
   });
+  calendarBtnElt.removeEventListener("click", handleClickOnCalendarBtn);
   handleLongTouch(calendarBtnElt, null); // remove corresponding listeners
 };
 
@@ -307,13 +334,13 @@ export default {
     extensionAPI.ui.commandPalette.addCommand({
       label: "Full Calendar: Display/Hide in main window",
       callback: () => {
-        handleClickOnCalendarBtn(null, true);
+        handleRightClickOnCalendarBtn(null, true);
       },
     });
     extensionAPI.ui.commandPalette.addCommand({
       label: "Full Calendar: Display/Hide in Sidebar",
       callback: () => {
-        handleClickOnCalendarBtn({ shiftKey: true }, true);
+        handleRightClickOnCalendarBtn({ shiftKey: true }, true);
       },
     });
 
