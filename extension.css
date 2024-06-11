@@ -113,8 +113,9 @@
   flex-direction: column;
 }
 .fc-open-button {
-  padding-left: 10px;
+  padding: 7px 5px 7px 5px;
   cursor: pointer;
+  text-align: center;
 }
 .fc-open-button:hover {
   background-color: rgb(0, 0, 0, 0.1);

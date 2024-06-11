@@ -6,7 +6,8 @@
 
 ## Open the calendar view
 
-- `Right click` on the native calendar icon in the top bar to open Full Calendar at the top of the main view, or just click on the calendar icon, then on `Open Full Calendar` button, under the datepicker. You can also `Long press` on mobile.
+- Click on the native calendar icon, then on `Open Full Calendar` button, under the datepicker (only way to open it on mobile), to open it at the top of the main view,
+- or `Right click` on the native calendar icon.
 - `Shift + Right click` on calendar icon or on 'Open Full calendar' button to open it in the sidebar.
 
 The same action close the corresponding Full Calendar component. You can also use `Display/Hide in [main window or sidebar]` commands in Roam Command palette.
