@@ -67,6 +67,8 @@ In the calendar header, you have the following options:
 - Filter content with any page title
 - ...
 
+If you want to encourage me to develop further and enhance this extension, you can [buy me a coffee ☕ here](https://buymeacoffee.com/fbgallet). Thanks in advance for your support! 🙏
+
 ---
 
 ### For any question or suggestion, DM me on **Twitter** and follow me to be informed of updates and new extensions : [@fbgallet](https://twitter.com/fbgallet).
