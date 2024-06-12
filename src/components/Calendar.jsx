@@ -1,7 +1,7 @@
 import FullCalendar from "@fullcalendar/react";
 import interactionPlugin, { Draggable } from "@fullcalendar/interaction";
 import dayGridPlugin from "@fullcalendar/daygrid";
-// import timeGridPlugin from "@fullcalendar/timegrid";
+import timeGridPlugin from "@fullcalendar/timegrid";
 import multiMonthPlugin from "@fullcalendar/multimonth";
 import {
   getBlocksToDisplayFromDNP,
@@ -22,10 +22,18 @@ import {
   getParentBlock,
   isExistingNode,
   resolveReferences,
+  updateBlock,
 } from "../util/roamApi";
 import { roamDateRegex } from "../util/regex";
 import NewEventDialog from "./NewEventDialog";
-import { dateToISOString } from "../util/dates";
+import {
+  dateToISOString,
+  getFormatedRange,
+  getNormalizedTimestamp,
+  getTimestampFromHM,
+  parseRange,
+  strictTimestampRegex,
+} from "../util/dates";
 import { calendarTag, mapOfTags } from "..";
 
 let events = [];
@@ -206,20 +214,22 @@ const Calendar = ({
   const getEventsFromDNP = async (info) => {
     if (
       viewRange.current.start &&
-      viewRange.current.start.getDate() !== info.start.getDate() &&
-      viewRange.current.end.getDate() !== info.end.getDate()
+      (viewRange.current.start.getDate() !== info.start.getDate() ||
+        viewRange.current.end.getDate() !== info.end.getDate())
     ) {
       isDataToReload.current = true;
       isDataToFilterAgain.current = true;
     }
     viewRange.current.start = info.start;
     viewRange.current.end = info.end;
+
     if (isDataToReload.current) {
       events = await getBlocksToDisplayFromDNP(
         info.start,
         info.end,
         !isEntireDNP,
-        isIncludingRefs
+        isIncludingRefs,
+        periodView.current.includes("time")
       );
       isDataToFilterAgain.current = true;
     } //else isDataToReload.current = true;
@@ -256,9 +266,76 @@ const Calendar = ({
   };
 
   const handleEventDrop = async (info) => {
+    console.log("info :>> ", info);
     let evtIndex = events.findIndex((evt) => evt.id === info.event.id);
     events[evtIndex].date = dateToISOString(info.event.start);
     isDataToFilterAgain.current = true;
+
+    if (info.view.type.includes("time")) {
+      // is in timeGrid
+      events[evtIndex].start = info.event.start;
+      console.log("info.event :>> ", info.event);
+      events[evtIndex].end = info.event.end;
+      console.log("events[evtIndex] :>> ", events[evtIndex]);
+      const startTimestamp = getTimestampFromHM(
+        info.event.start.getHours(),
+        info.event.start.getMinutes()
+      );
+      console.log("start timestamp", startTimestamp);
+      let endTimestamp;
+      let hasTimestamp = true;
+      let initialRange, newRange, hasDuration;
+      let blockContent = getBlockContentByUid(info.event.id);
+      if (info.event.end) {
+        endTimestamp = getTimestampFromHM(
+          info.event.end.getHours(),
+          info.event.end.getMinutes()
+        );
+        initialRange = parseRange(blockContent);
+        if (initialRange) {
+          initialRange = initialRange.matchingString.trim();
+          console.log("initialRange :>> ", initialRange);
+          newRange = getFormatedRange(startTimestamp, endTimestamp);
+        }
+        // if range is defined by a start time + duration
+        else {
+          hasDuration = true;
+        }
+      }
+      if (!info.event.end || hasDuration) {
+        initialRange = getNormalizedTimestamp(
+          blockContent,
+          strictTimestampRegex
+        );
+        if (initialRange) {
+          initialRange = initialRange.matchingString.trim();
+        } else hasTimestamp = false;
+        console.log("initialRange :>> ", initialRange);
+        newRange = startTimestamp;
+      }
+      if (hasTimestamp) {
+        if (startTimestamp === "00:00") newRange = "";
+        blockContent = blockContent.replace(initialRange, newRange).trim();
+      } else {
+        const shift =
+          blockContent.includes("{{[[TODO]]}}") ||
+          blockContent.includes("{{[[DONE]]}}")
+            ? 13
+            : 0;
+        blockContent = shift
+          ? blockContent.substring(0, shift) +
+            newRange +
+            " " +
+            blockContent.substring(shift)
+          : newRange + " " + blockContent;
+      }
+      console.log("blockContent :>> ", blockContent);
+      await updateBlock(info.event.id, blockContent);
+    }
+
+    // if moved in the same day, doesn't need block move
+    if (!info.delta.days && !info.delta.months) return;
+
     if (info.event.extendedProps.isRef) {
       let blockContent = getBlockContentByUid(info.event.id);
       let matchingDates = blockContent.match(roamDateRegex);
@@ -367,7 +444,7 @@ const Calendar = ({
       <FullCalendar
         plugins={[
           dayGridPlugin,
-          // timeGridPlugin,
+          timeGridPlugin,
           multiMonthPlugin,
           interactionPlugin,
         ]}
@@ -389,15 +466,15 @@ const Calendar = ({
         headerToolbar={{
           left: "prev,next today refreshButton",
           center: "title",
-          right: "multiMonthYear,dayGridMonth,dayGridWeek,dayGridDay",
+          right: "multiMonthYear,dayGridMonth,timeGridWeek,dayGridDay",
         }}
         firstDay={1}
         weekends={isWEtoDisplay}
         fixedWeekCount={false}
         weekNumbers={true}
-        // nowIndicator={true}
-        // slotMinTime="06:00"
-        // slotMaxTime="22:00"
+        nowIndicator={true}
+        slotMinTime="06:00"
+        slotMaxTime="22:00"
         navLinks={true}
         editable={true}
         selectable={true}
@@ -405,6 +482,17 @@ const Calendar = ({
         // draggable={true}
         dayMaxEvents={true}
         // initialEvents={getEventsFromDNP}
+        datesSet={(info) => {
+          if (periodView.current !== info.view.type) {
+            periodView.current = info.view.type;
+            localStorage.setItem(
+              "fc-periodView" + (isInSidebar ? "-sb" : ""),
+              info.view.type
+            );
+            if (info.view.type.includes("time"))
+              setForceToReload((prev) => !prev);
+          }
+        }}
         events={getEventsFromDNP}
         // events={[
         //   {
@@ -433,15 +521,6 @@ const Calendar = ({
         eventDrop={handleEventDrop}
         dateClick={handleSquareDayClick}
         select={handleSelectDays}
-        datesSet={(info) => {
-          if (periodView.current !== info.view.type) {
-            localStorage.setItem(
-              "fc-periodView" + (isInSidebar ? "-sb" : ""),
-              info.view.type
-            );
-            periodView.current = info.view.type;
-          }
-        }}
         dayHeaders={true}
         viewWillUnmount={() => (isDataToReload.current = true)}
         // dayCellContent={renderDayContent}

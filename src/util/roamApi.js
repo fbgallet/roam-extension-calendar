@@ -143,8 +143,10 @@ export function getPageUidByPageName(title) {
   else return null;
 }
 
-export function updateBlock(uid, content) {
-  window.roamAlphaAPI.updateBlock({ block: { uid: uid, string: content } });
+export async function updateBlock(uid, content) {
+  await window.roamAlphaAPI.updateBlock({
+    block: { uid: uid, string: content },
+  });
 }
 
 export async function deleteBlock(targetUid) {

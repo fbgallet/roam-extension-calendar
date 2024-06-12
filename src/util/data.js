@@ -1,5 +1,13 @@
 import { calendarTag, mapOfTags } from "..";
-import { dateToISOString, getDistantDate } from "./dates";
+import {
+  dateToISOString,
+  getDateAddingDurationToDate,
+  getDistantDate,
+  getDurationInMin,
+  getNormalizedTimestamp,
+  parseRange,
+  strictTimestampRegex,
+} from "./dates";
 import { dnpUidRegex } from "./regex";
 import {
   createChildBlock,
@@ -17,7 +25,8 @@ export const getBlocksToDisplayFromDNP = async (
   start,
   end,
   onlyCalendarTag,
-  isIncludingRefs
+  isIncludingRefs,
+  isTimeGrid
 ) => {
   // console.log("mapOfTags :>> ", mapOfTags);
   let events = [];
@@ -44,7 +53,8 @@ export const getBlocksToDisplayFromDNP = async (
         pageAndRefsTrees[i],
         mapOfTags,
         onlyCalendarTag,
-        i > 0 ? true : false
+        i > 0 ? true : false,
+        isTimeGrid
       );
       // console.log("filteredEvents :>> ", filteredEvents);
       if (filteredEvents.length > 0) events = events.concat(filteredEvents);
@@ -60,7 +70,8 @@ const filterTreeToGetEvents = (
   tree,
   mapToInclude,
   onlyCalendarTag,
-  isRef
+  isRef,
+  isTimeGrid
 ) => {
   // console.log("currentDate :>> ", currentDate);
   const events = [];
@@ -95,7 +106,8 @@ const filterTreeToGetEvents = (
                 matchingTags: matchingTags,
                 isRef: isRef,
               },
-              isCalendarTree
+              isCalendarTree,
+              isTimeGrid
             )
           );
         }
@@ -125,7 +137,8 @@ export const getMatchingTags = (mapOfTags, refUidArray) => {
 
 export const parseEventObject = (
   { id, title, date, matchingTags, isRef = false },
-  isCalendarTree = true
+  isCalendarTree = true,
+  isTimeGrid = true
 ) => {
   let prefix = "";
   if (isCalendarTree && !matchingTags.length) {
@@ -141,19 +154,46 @@ export const parseEventObject = (
   }
   const backgroundColorDisplayed = colorToDisplay(matchingTags);
 
-  // const hasTime = title.slice(0, 5) === "11:05";
-  // const customTime = new Date("2024-06-12T09:30:00");
+  let hasTime = false;
+  let range, endDate;
+  if (isTimeGrid) {
+    let parsedRange = parseRange(title);
+    if (parsedRange) {
+      range = parsedRange.range;
+      console.log("range :>> ", range);
+      title = title.replace(parsedRange.matchingString, "");
+      console.log("title :>> ", title);
+      hasTime = true;
+    } else {
+      let parsedTime = getNormalizedTimestamp(title, strictTimestampRegex);
+      if (parsedTime) {
+        hasTime = true;
+        range = { start: parsedTime.timestamp };
+        title = title.replace(parsedTime.matchingString, "");
+        let duration = getDurationInMin(title);
+        if (duration) {
+          endDate = getDateAddingDurationToDate(
+            new Date(`${date}T${range.start}`),
+            duration
+          );
+        }
+      }
+    }
+  }
 
   return {
     id,
     title: prefix + title,
-    date,
-    // start: hasTime ? customTime : date,
-    // end: hasTime ? customTime + 3600000 : null, // "2024-06-12T11:00:00" : date,
+    // date,
+    start: hasTime ? `${date}T${range.start}` : date,
+    end:
+      hasTime && (range.end || endDate)
+        ? endDate || `${date}T${range.end}`
+        : null,
     classNames: classNames,
     extendedProps: { eventTags: matchingTags, isRef: isRef },
     color: backgroundColorDisplayed,
-    // display: "block",
+    display: "block",
     textColor:
       // matchingTags.length && matchingTags[0].color === "transparent"
       backgroundColorDisplayed === "transparent" ? "revert" : null,
