@@ -23,7 +23,14 @@ import {
 } from "../util/roamApi";
 import NewEventDialog from "./NewEventDialog";
 import { dateToISOString, eventTimeFormats } from "../util/dates";
-import { calendarTag, mapOfTags, timeFormat } from "..";
+import {
+  calendarTag,
+  mapOfTags,
+  maxTime,
+  minTime,
+  timeFormat,
+  timeGrid,
+} from "..";
 
 let events = [];
 let filteredEvents = [];
@@ -377,7 +384,10 @@ const Calendar = ({
         headerToolbar={{
           left: "prev,next today refreshButton",
           center: "title",
-          right: "multiMonthYear,dayGridMonth,timeGridWeek,dayGridDay",
+          right:
+            "multiMonthYear,dayGridMonth," +
+            (timeGrid.week ? "timeGridWeek," : "dayGridWeek,") +
+            (timeGrid.day ? "timeGridDay" : "dayGridDay"),
         }}
         firstDay={1}
         weekends={isWEtoDisplay}
@@ -385,8 +395,9 @@ const Calendar = ({
         weekNumbers={true}
         nowIndicator={true}
         eventTimeFormat={eventTimeFormats[timeFormat]}
-        slotMinTime="06:00"
-        slotMaxTime="22:00"
+        slotLabelFormat={eventTimeFormats[timeFormat]}
+        slotMinTime={minTime}
+        slotMaxTime={maxTime}
         navLinks={true}
         editable={true}
         selectable={true}

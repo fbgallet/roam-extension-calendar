@@ -17,6 +17,11 @@ const storedTagsInfo = JSON.parse(localStorage.getItem("fc-tags-info"));
 export let mapOfTags = [];
 export let calendarTag;
 export let timeFormat;
+export let minTime, maxTime;
+export let timeGrid = {
+  day: true,
+  week: true,
+};
 
 const panelConfig = {
   tabTitle: "Calendar",
@@ -108,7 +113,81 @@ const panelConfig = {
         },
       },
     },
+    {
+      id: "minTime",
+      name: "Start time",
+      description: "Start of the displayed time range in week- and day-views:",
+      action: {
+        type: "select",
+        items: [
+          "00:00",
+          "01:00",
+          "02:00",
+          "03:00",
+          "04:00",
+          "05:00",
+          "06:00",
+          "07:00",
+          "08:00",
+        ],
+        onChange: (sel) => {
+          minTime = sel;
+        },
+      },
+    },
+    {
+      id: "maxTime",
+      name: "End time",
+      description:
+        "End of the displayed time range in week- and day-views (corresponding time slot is excluded):",
+      action: {
+        type: "select",
+        items: ["18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "00:00"],
+        onChange: (sel) => {
+          maxTime = sel;
+        },
+      },
+    },
+    {
+      id: "dayTimegrid",
+      name: "Daily time grid",
+      description: "Display events on day-view in a time grid:",
+      action: {
+        type: "switch",
+        onChange: () => {
+          timeGrid.day = !timeGrid.day;
+          updateLocalStorageView("Day", timeGrid.day);
+          updateLocalStorageView("Day", timeGrid.day, "-sb");
+        },
+      },
+    },
+    {
+      id: "weekTimegrid",
+      name: "Weekly time grid",
+      description: "Display events on week-view in a time grid:",
+      action: {
+        type: "switch",
+        onChange: () => {
+          timeGrid.week = !timeGrid.week;
+          updateLocalStorageView("Week", timeGrid.week);
+          updateLocalStorageView("Week", timeGrid.week, "-sb");
+        },
+      },
+    },
   ],
+};
+
+const updateLocalStorageView = (period, isTimeGrid, suffix = "") => {
+  if (
+    localStorage.getItem("fc-periodView" + suffix) === `dayGrid${period}` &&
+    isTimeGrid
+  )
+    localStorage.setItem("fc-periodView" + suffix, `timeGrid${period}`);
+  else if (
+    localStorage.getItem("fc-periodView" + suffix) === `timeGrid${period}` &&
+    !isTimeGrid
+  )
+    localStorage.setItem("fc-periodView" + suffix, `dayGrid${period}`);
 };
 
 const updateTagPagesWithUserList = (tagName, pageList) => {
@@ -287,6 +366,19 @@ export default {
     if (extensionAPI.settings.get("timeFormat") === null)
       await extensionAPI.settings.set("timeFormat", "14:00");
     setTimeFormat(extensionAPI.settings.get("timeFormat"));
+    if (extensionAPI.settings.get("minTime") === null)
+      await extensionAPI.settings.set("minTime", "07:00");
+    minTime = extensionAPI.settings.get("minTime");
+    if (extensionAPI.settings.get("maxTime") === null)
+      await extensionAPI.settings.set("maxTime", "21:00");
+    maxTime = extensionAPI.settings.get("maxTime");
+    if (extensionAPI.settings.get("dayTimegrid") === null)
+      await extensionAPI.settings.set("dayTimegrid", true);
+    console.log("dayGrid", extensionAPI.settings.get("dayTimegrid"));
+    timeGrid.day = extensionAPI.settings.get("dayTimegrid");
+    if (extensionAPI.settings.get("weekTimegrid") === null)
+      await extensionAPI.settings.set("weekTimegrid", true);
+    timeGrid.week = extensionAPI.settings.get("weekTimegrid");
 
     extensionAPI.ui.commandPalette.addCommand({
       label: "Full Calendar: Display/Hide in main window",
