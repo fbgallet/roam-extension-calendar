@@ -16,6 +16,7 @@ const storedTagsInfo = JSON.parse(localStorage.getItem("fc-tags-info"));
 
 export let mapOfTags = [];
 export let calendarTag;
+export let timeFormat;
 
 const panelConfig = {
   tabTitle: "Calendar",
@@ -91,6 +92,19 @@ const panelConfig = {
         type: "input",
         onChange: (evt) => {
           updageUserTags(evt.target.value, Colors.GRAY1);
+        },
+      },
+    },
+    {
+      id: "timeFormat",
+      name: "Time format output",
+      description:
+        "How timestamps and ranges are displayed in the calendar (regardless of the input format)",
+      action: {
+        type: "select",
+        items: ["14:00", "2:00pm", "2pm"],
+        onChange: (sel) => {
+          setTimeFormat(sel);
         },
       },
     },
@@ -235,6 +249,20 @@ const getStoredTagInfos = (tagName) => {
     : null;
 };
 
+const setTimeFormat = (example) => {
+  switch (example) {
+    case "14:00":
+      timeFormat = "long";
+      break;
+    case "2:00pm":
+      timeFormat = "medium";
+      break;
+    case "2pm":
+      timeFormat = "short";
+      break;
+  }
+};
+
 export default {
   onload: async ({ extensionAPI }) => {
     extensionAPI.settings.panel.create(panelConfig);
@@ -256,6 +284,9 @@ export default {
       await extensionAPI.settings.set("dueTag", "due");
     if (extensionAPI.settings.get("userTags") === null)
       await extensionAPI.settings.set("userTags", "");
+    if (extensionAPI.settings.get("timeFormat") === null)
+      await extensionAPI.settings.set("timeFormat", "14:00");
+    setTimeFormat(extensionAPI.settings.get("timeFormat"));
 
     extensionAPI.ui.commandPalette.addCommand({
       label: "Full Calendar: Display/Hide in main window",

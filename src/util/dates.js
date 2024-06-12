@@ -1,5 +1,25 @@
 import { DateTime } from "luxon";
 
+export const eventTimeFormats = {
+  long: {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: false,
+  },
+  medium: {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    meridiem: "short",
+  },
+  short: {
+    hour: "numeric",
+    minute: "2-digit",
+    omitZeroMinute: true,
+    meridiem: "short",
+  },
+};
+
 export const timestampRegex = /([0-9]{1,2})([:|h]([0-9]{1,2})?)?/;
 export const strictTimestampRegex =
   /\b(\d{1,2})(:)(\d{1,2})(\s|\b)|\b(\d{1,2})(h)(\d{1,2})?(\s|\b)/;
@@ -37,6 +57,7 @@ export const parseRange = (string) => {
 export const getNormalizedTimestamp = (timestamp, regex = timestampRegex) => {
   const matchingTime = timestamp.match(regex);
   if (matchingTime) {
+    console.log("matchingTime :>> ", matchingTime);
     let shift = 0;
     if (!matchingTime[1]) shift = 4;
     // console.log("matchingTime :>> ", matchingTime);
@@ -51,7 +72,7 @@ export const getNormalizedTimestamp = (timestamp, regex = timestampRegex) => {
 };
 
 export function getTimestampFromHM(h, m) {
-  return addZero(h) + ":" + addZero(m);
+  return h + ":" + addZero(m);
 }
 
 export const addZero = (i) => {

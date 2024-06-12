@@ -7,34 +7,23 @@ import {
   getBlocksToDisplayFromDNP,
   getCalendarUidFromPage,
   getMatchingTags,
+  moveDroppedEventBlock,
   parseEventObject,
-  removeSquareBrackets,
   updateEventColor,
+  updateTimestampsInBlock,
 } from "../util/data";
 import { useState, useEffect, useRef } from "react";
 import Event from "./Event";
 import MultiSelectFilter from "./MultiSelectFilter";
 import {
   createChildBlock,
-  deleteBlockIfNoChild,
   getBlockContentByUid,
   getBlocksUidReferencedInThisBlock,
-  getParentBlock,
   isExistingNode,
-  resolveReferences,
-  updateBlock,
 } from "../util/roamApi";
-import { roamDateRegex } from "../util/regex";
 import NewEventDialog from "./NewEventDialog";
-import {
-  dateToISOString,
-  getFormatedRange,
-  getNormalizedTimestamp,
-  getTimestampFromHM,
-  parseRange,
-  strictTimestampRegex,
-} from "../util/dates";
-import { calendarTag, mapOfTags } from "..";
+import { dateToISOString, eventTimeFormats } from "../util/dates";
+import { calendarTag, mapOfTags, timeFormat } from "..";
 
 let events = [];
 let filteredEvents = [];
@@ -266,104 +255,21 @@ const Calendar = ({
   };
 
   const handleEventDrop = async (info) => {
-    console.log("info :>> ", info);
     let evtIndex = events.findIndex((evt) => evt.id === info.event.id);
     events[evtIndex].date = dateToISOString(info.event.start);
     isDataToFilterAgain.current = true;
 
+    // is in a timeGrid view
     if (info.view.type.includes("time")) {
-      // is in timeGrid
       events[evtIndex].start = info.event.start;
-      console.log("info.event :>> ", info.event);
       events[evtIndex].end = info.event.end;
-      console.log("events[evtIndex] :>> ", events[evtIndex]);
-      const startTimestamp = getTimestampFromHM(
-        info.event.start.getHours(),
-        info.event.start.getMinutes()
-      );
-      console.log("start timestamp", startTimestamp);
-      let endTimestamp;
-      let hasTimestamp = true;
-      let initialRange, newRange, hasDuration;
-      let blockContent = getBlockContentByUid(info.event.id);
-      if (info.event.end) {
-        endTimestamp = getTimestampFromHM(
-          info.event.end.getHours(),
-          info.event.end.getMinutes()
-        );
-        initialRange = parseRange(blockContent);
-        if (initialRange) {
-          initialRange = initialRange.matchingString.trim();
-          console.log("initialRange :>> ", initialRange);
-          newRange = getFormatedRange(startTimestamp, endTimestamp);
-        }
-        // if range is defined by a start time + duration
-        else {
-          hasDuration = true;
-        }
-      }
-      if (!info.event.end || hasDuration) {
-        initialRange = getNormalizedTimestamp(
-          blockContent,
-          strictTimestampRegex
-        );
-        if (initialRange) {
-          initialRange = initialRange.matchingString.trim();
-        } else hasTimestamp = false;
-        console.log("initialRange :>> ", initialRange);
-        newRange = startTimestamp;
-      }
-      if (hasTimestamp) {
-        if (startTimestamp === "00:00") newRange = "";
-        blockContent = blockContent.replace(initialRange, newRange).trim();
-      } else {
-        const shift =
-          blockContent.includes("{{[[TODO]]}}") ||
-          blockContent.includes("{{[[DONE]]}}")
-            ? 13
-            : 0;
-        blockContent = shift
-          ? blockContent.substring(0, shift) +
-            newRange +
-            " " +
-            blockContent.substring(shift)
-          : newRange + " " + blockContent;
-      }
-      console.log("blockContent :>> ", blockContent);
-      await updateBlock(info.event.id, blockContent);
+      await updateTimestampsInBlock(info.event, info.oldEvent);
     }
 
     // if moved in the same day, doesn't need block move
     if (!info.delta.days && !info.delta.months) return;
 
-    if (info.event.extendedProps.isRef) {
-      let blockContent = getBlockContentByUid(info.event.id);
-      let matchingDates = blockContent.match(roamDateRegex);
-      const newRoamDate = window.roamAlphaAPI.util.dateToPageTitle(
-        info.event.start
-      );
-      if (matchingDates && matchingDates.length) {
-        let currentDateStr = removeSquareBrackets(matchingDates[0]);
-        blockContent = blockContent.replace(currentDateStr, newRoamDate);
-      } else blockContent += ` [[${newRoamDate}]]`;
-      window.roamAlphaAPI.updateBlock({
-        block: { uid: info.event.id, string: blockContent },
-      });
-      info.event.setProp("title", resolveReferences(blockContent));
-    } else {
-      const currentCalendarUid = getParentBlock(info.event.id);
-      let calendarBlockUid = await getCalendarUidFromPage(
-        window.roamAlphaAPI.util.dateToPageUid(info.event.start)
-      );
-      await window.roamAlphaAPI.moveBlock({
-        location: {
-          "parent-uid": calendarBlockUid,
-          order: "last",
-        },
-        block: { uid: info.event.id },
-      });
-      deleteBlockIfNoChild(currentCalendarUid);
-    }
+    await moveDroppedEventBlock(info.event);
   };
 
   const handleExternalDrop = async (e) => {
@@ -403,6 +309,11 @@ const Calendar = ({
     );
     isDataToReload.current = false;
     setForceToReload((prev) => !prev);
+  };
+
+  const handleEventResize = (info) => {
+    console.log("info :>> ", info);
+    updateTimestampsInBlock(info.event);
   };
 
   return (
@@ -473,6 +384,7 @@ const Calendar = ({
         fixedWeekCount={false}
         weekNumbers={true}
         nowIndicator={true}
+        eventTimeFormat={eventTimeFormats[timeFormat]}
         slotMinTime="06:00"
         slotMaxTime="22:00"
         navLinks={true}
@@ -494,22 +406,6 @@ const Calendar = ({
           }
         }}
         events={getEventsFromDNP}
-        // events={[
-        //   {
-        //     title: "My timed event",
-        //     start: "2024-04-08T09:30:00",
-        //     end: "2024-04-08T11:00:00",
-        //     display: "list-item",
-        //     color: "red",
-        //     // allDay: false,
-        //   },
-        // ]}
-        // eventTimeFormat={{
-        //   // like '14:30:00'
-        //   hour: "2-digit",
-        //   minute: "2-digit",
-        //   meridiem: false,
-        // }}
         eventContent={(info, jsEvent) => renderEventContent(info, jsEvent)}
         eventClick={(info) => {
           if (info.jsEvent.shiftKey) {
@@ -519,6 +415,8 @@ const Calendar = ({
           }
         }}
         eventDrop={handleEventDrop}
+        eventResizableFromStart={true}
+        eventResize={handleEventResize}
         dateClick={handleSquareDayClick}
         select={handleSelectDays}
         dayHeaders={true}

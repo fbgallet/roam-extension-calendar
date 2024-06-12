@@ -4,21 +4,27 @@ import {
   getDateAddingDurationToDate,
   getDistantDate,
   getDurationInMin,
+  getFormatedRange,
   getNormalizedTimestamp,
+  getTimestampFromHM,
   parseRange,
   strictTimestampRegex,
 } from "./dates";
 import { dnpUidRegex } from "./regex";
 import {
   createChildBlock,
+  deleteBlockIfNoChild,
   dnpUidToPageTitle,
+  getBlockContentByUid,
   getFirstBlockUidByReferenceOnPage,
   getLinkedReferencesTrees,
   getPageNameByPageUid,
   getPageUidByPageName,
+  getParentBlock,
   getTreeByUid,
   isExistingNode,
   resolveReferences,
+  updateBlock,
 } from "./roamApi";
 
 export const getBlocksToDisplayFromDNP = async (
@@ -160,9 +166,7 @@ export const parseEventObject = (
     let parsedRange = parseRange(title);
     if (parsedRange) {
       range = parsedRange.range;
-      console.log("range :>> ", range);
       title = title.replace(parsedRange.matchingString, "");
-      console.log("title :>> ", title);
       hasTime = true;
     } else {
       let parsedTime = getNormalizedTimestamp(title, strictTimestampRegex);
@@ -267,4 +271,94 @@ export const getTrimedArrayFromList = (list) => {
 export const saveViewSetting = (setting, value, isInSidebar) => {
   const sidebarSuffix = isInSidebar ? "-sb" : "";
   localStorage.setItem(setting + sidebarSuffix, value);
+};
+
+export const moveDroppedEventBlock = async (event) => {
+  if (event.extendedProps.isRef) {
+    let blockContent = getBlockContentByUid(event.id);
+    let matchingDates = blockContent.match(roamDateRegex);
+    const newRoamDate = window.roamAlphaAPI.util.dateToPageTitle(event.start);
+    if (matchingDates && matchingDates.length) {
+      let currentDateStr = removeSquareBrackets(matchingDates[0]);
+      blockContent = blockContent.replace(currentDateStr, newRoamDate);
+    } else blockContent += ` [[${newRoamDate}]]`;
+    await window.roamAlphaAPI.updateBlock({
+      block: { uid: event.id, string: blockContent },
+    });
+    event.setProp("title", resolveReferences(blockContent));
+  } else {
+    const currentCalendarUid = getParentBlock(event.id);
+    let calendarBlockUid = await getCalendarUidFromPage(
+      window.roamAlphaAPI.util.dateToPageUid(event.start)
+    );
+    await window.roamAlphaAPI.moveBlock({
+      location: {
+        "parent-uid": calendarBlockUid,
+        order: "last",
+      },
+      block: { uid: event.id },
+    });
+    deleteBlockIfNoChild(currentCalendarUid);
+  }
+};
+
+export const updateTimestampsInBlock = async (event, oldEvent) => {
+  const startTimestamp = getTimestampFromHM(
+    event.start.getHours(),
+    event.start.getMinutes()
+  );
+  console.log("start timestamp", startTimestamp);
+  console.log("oldEvent :>> ", oldEvent);
+  let endTimestamp;
+  let hasTimestamp = true;
+  let initialRange, newRange, hasDuration;
+  let blockContent = getBlockContentByUid(event.id);
+  if (event.end || oldEvent.end) {
+    if (event.end)
+      endTimestamp = getTimestampFromHM(
+        event.end.getHours(),
+        event.end.getMinutes()
+      );
+    initialRange = parseRange(blockContent);
+    if (initialRange) {
+      initialRange = initialRange.matchingString.trim();
+      console.log("initialRange :>> ", initialRange);
+      newRange = getFormatedRange(startTimestamp, endTimestamp);
+    }
+    // if range is defined by a start time + duration
+    else {
+      hasDuration = true;
+    }
+  }
+  if ((!event.end && !oldEvent.end) || hasDuration) {
+    initialRange = getNormalizedTimestamp(blockContent, strictTimestampRegex);
+    if (initialRange) {
+      initialRange = initialRange.matchingString.trim();
+    } else hasTimestamp = false;
+    console.log("initialRange :>> ", initialRange);
+    newRange = event.end
+      ? getFormatedRange(startTimestamp, endTimestamp)
+      : startTimestamp;
+  }
+  if (hasTimestamp) {
+    if (startTimestamp === "0:00") {
+      newRange = "";
+      initialRange += " ";
+    }
+    blockContent = blockContent.replace(initialRange, newRange);
+  } else {
+    const shift =
+      blockContent.includes("{{[[TODO]]}}") ||
+      blockContent.includes("{{[[DONE]]}}")
+        ? 13
+        : 0;
+    blockContent = shift
+      ? blockContent.substring(0, shift) +
+        newRange +
+        " " +
+        blockContent.substring(shift)
+      : newRange + " " + blockContent;
+  }
+  console.log("blockContent :>> ", blockContent);
+  await updateBlock(event.id, blockContent);
 };
