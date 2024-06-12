@@ -5,6 +5,7 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import multiMonthPlugin from "@fullcalendar/multimonth";
 import {
+  filterEvents,
   getBlocksToDisplayFromDNP,
   getCalendarUidFromPage,
   getMatchingTags,
@@ -137,7 +138,6 @@ const Calendar = ({
   };
 
   const renderEventContent = (info) => {
-    console.log("info :>> ", info);
     let title = info.event.title;
     let hasCheckbox = false;
     let isChecked;
@@ -231,36 +231,11 @@ const Calendar = ({
         periodView.current.includes("time")
       );
       isDataToFilterAgain.current = true;
-    } //else isDataToReload.current = true;
-    // if (!events.length) return [];
+    }
     if (isDataToFilterAgain.current) {
-      const eventsToDisplay =
-        filterLogic === "Or"
-          ? events.filter(
-              (evt) =>
-                !(
-                  evt.extendedProps?.eventTags[0].name === "DONE" &&
-                  !tagsToDisplay.some((tag) => tag.name === "DONE")
-                ) &&
-                evt.extendedProps?.eventTags?.some((tag) => tag.isToDisplay)
-            )
-          : events.filter((evt) =>
-              tagsToDisplay.every((tag) =>
-                evt.extendedProps?.eventTags?.some((t) => t.name === tag.name)
-              )
-            );
-
-      filteredEvents = eventsToDisplay.map((evt) => {
-        // if (evt.extendedProps.eventTags.length > 1)
-        evt.color =
-          updateEventColor(evt.extendedProps.eventTags, tagsToDisplay) ||
-          evt.color;
-        return evt;
-      });
+      filteredEvents = filterEvents(events, tagsToDisplay, filterLogic);
       console.log("Filtered events to display:>> ", filteredEvents);
     }
-    // isDataToReload.current = false;
-    // isDataToFilterAgain.current = false;
     return filteredEvents;
   };
 
@@ -322,7 +297,7 @@ const Calendar = ({
   };
 
   const handleEventResize = (info) => {
-    console.log("info :>> ", info);
+    // console.log("info :>> ", info);
     updateTimestampsInBlock(info.event);
   };
 
@@ -439,15 +414,15 @@ const Calendar = ({
           }
         }}
         // events={getEventsFromDNP}
-        googleCalendarApiKey="AIzaSyALOQwUEZww3Ez721OSS1iwFZgDmZKJ7Qo"
+        //googleCalendarApiKey= // in .env
         eventSources={[
           getEventsFromDNP,
-          tagsToDisplay.find((tag) => tag.name === "Google calendar")
-            ? {
-                googleCalendarId: "fbgallet@gmail.com",
-                eventDataTransform: parseGoogleCalendarEvent,
-              }
-            : null,
+          // tagsToDisplay.find((tag) => tag.name === "Google calendar")
+          //   ? {
+          //       googleCalendarId: "fbgallet@gmail.com",
+          //       eventDataTransform: parseGoogleCalendarEvent,
+          //     }
+          //   : null,
         ]}
         eventContent={(info, jsEvent) => renderEventContent(info, jsEvent)}
         eventClick={(info) => {

@@ -362,3 +362,27 @@ export const updateTimestampsInBlock = async (event, oldEvent) => {
   console.log("blockContent :>> ", blockContent);
   await updateBlock(event.id, blockContent);
 };
+
+export const filterEvents = (events, tagsToDisplay, filterLogic) => {
+  const eventsToDisplay =
+    filterLogic === "Or"
+      ? events.filter(
+          (evt) =>
+            !(
+              evt.extendedProps?.eventTags[0].name === "DONE" &&
+              !tagsToDisplay.some((tag) => tag.name === "DONE")
+            ) && evt.extendedProps?.eventTags?.some((tag) => tag.isToDisplay)
+        )
+      : events.filter((evt) =>
+          tagsToDisplay.every((tag) =>
+            evt.extendedProps?.eventTags?.some((t) => t.name === tag.name)
+          )
+        );
+
+  return eventsToDisplay.map((evt) => {
+    // if (evt.extendedProps.eventTags.length > 1)
+    evt.color =
+      updateEventColor(evt.extendedProps.eventTags, tagsToDisplay) || evt.color;
+    return evt;
+  });
+};
