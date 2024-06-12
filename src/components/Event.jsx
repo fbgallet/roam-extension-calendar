@@ -94,7 +94,7 @@ const Event = ({
           />
           <div ref={popoverRef}></div>
           <div>
-            {eventTagList[0].name !== calendarTag.name ? (
+            {eventTagList && eventTagList[0].name !== calendarTag.name ? (
               <TagList
                 list={eventTagList}
                 setEventTagList={setEventTagList}
@@ -146,6 +146,10 @@ const Event = ({
       <div
         className="fc-event-content"
         onClick={(e) => {
+          if (eventTagList && eventTagList[0].name === "Google calendar") {
+            window.open(event.url, "_blank");
+            return;
+          }
           if (e.target.parentElement.className.includes("bp3-checkbox")) return;
           if (e.nativeEvent.shiftKey) return;
           // e.stopPropagation();
@@ -214,7 +218,7 @@ const Event = ({
           content={
             <>
               <p>{event.title}</p>
-              {eventTagList[0].name !== calendarTag.name ? (
+              {eventTagList && eventTagList[0].name !== calendarTag.name ? (
                 <TagList list={eventTagList} isInteractive={false} />
               ) : null}
             </>

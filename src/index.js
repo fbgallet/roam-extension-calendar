@@ -284,6 +284,13 @@ const initializeMapOfTags = (extensionAPI) => {
         pages: getTrimedArrayFromList(tagPagesList),
       })
     );
+  mapOfTags.push(
+    new EventTag({
+      name: "Google calendar",
+      color: Colors.GRAY5,
+      ...getStoredTagInfos("Google calendar"),
+    })
+  );
   const userTags = extensionAPI.settings.get("userTags");
   if (userTags) updageUserTags(userTags);
   mapOfTags.push(calendarTag);

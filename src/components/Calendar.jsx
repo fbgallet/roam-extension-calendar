@@ -1,5 +1,6 @@
 import FullCalendar from "@fullcalendar/react";
 import interactionPlugin, { Draggable } from "@fullcalendar/interaction";
+import googleCalendarPlugin from "@fullcalendar/google-calendar";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import multiMonthPlugin from "@fullcalendar/multimonth";
@@ -31,6 +32,7 @@ import {
   timeFormat,
   timeGrid,
 } from "..";
+import { getTagColorFromName, getTagFromName } from "../models/EventTag";
 
 let events = [];
 let filteredEvents = [];
@@ -135,6 +137,7 @@ const Calendar = ({
   };
 
   const renderEventContent = (info) => {
+    console.log("info :>> ", info);
     let title = info.event.title;
     let hasCheckbox = false;
     let isChecked;
@@ -323,6 +326,24 @@ const Calendar = ({
     updateTimestampsInBlock(info.event);
   };
 
+  const parseGoogleCalendarEvent = (event) => {
+    return {
+      id: event.id,
+      title: event.title,
+      start: event.start,
+      end: event.end,
+      classNames: ["fc-event-gcal"],
+      extendedProps: {
+        eventTags: [getTagFromName("Google calendar")],
+        isRef: false,
+      },
+      color: getTagColorFromName("Google calendar"),
+      display: "block",
+      editable: false,
+      url: event.url,
+    };
+  };
+
   return (
     <div
       onDragOver={(e) => {
@@ -365,6 +386,7 @@ const Calendar = ({
           timeGridPlugin,
           multiMonthPlugin,
           interactionPlugin,
+          googleCalendarPlugin,
         ]}
         ref={calendarRef}
         // aspectRatio={1.35}
@@ -416,9 +438,20 @@ const Calendar = ({
               setForceToReload((prev) => !prev);
           }
         }}
-        events={getEventsFromDNP}
+        // events={getEventsFromDNP}
+        googleCalendarApiKey="AIzaSyALOQwUEZww3Ez721OSS1iwFZgDmZKJ7Qo"
+        eventSources={[
+          getEventsFromDNP,
+          tagsToDisplay.find((tag) => tag.name === "Google calendar")
+            ? {
+                googleCalendarId: "fbgallet@gmail.com",
+                eventDataTransform: parseGoogleCalendarEvent,
+              }
+            : null,
+        ]}
         eventContent={(info, jsEvent) => renderEventContent(info, jsEvent)}
         eventClick={(info) => {
+          info.jsEvent.preventDefault();
           if (info.jsEvent.shiftKey) {
             window.roamAlphaAPI.ui.rightSidebar.addWindow({
               window: { type: "block", "block-uid": info.event.id },
