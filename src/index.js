@@ -7,14 +7,16 @@ import {
   handleRightClickOnCalendarBtn,
   onDragStart,
 } from "./util/roamDom";
+import { alphanumRegex } from "./util/regex";
 
 export const calendarBtnElt = document.querySelector(
   "button:has(span[icon='calendar'])"
 )?.parentElement?.parentElement;
-const storedTagsInfo = JSON.parse(localStorage.getItem("fc-tags-info"));
 // console.log("storedTagsInfo :>> ", storedTagsInfo);
 
 export let mapOfTags = [];
+export let extensionStorage;
+let storedTagsInfo;
 export let calendarTag;
 export let timeFormat;
 export let minTime, maxTime;
@@ -156,8 +158,8 @@ const panelConfig = {
         type: "switch",
         onChange: () => {
           timeGrid.day = !timeGrid.day;
-          updateLocalStorageView("Day", timeGrid.day);
-          updateLocalStorageView("Day", timeGrid.day, "-sb");
+          updateStoredView("Day", timeGrid.day);
+          updateStoredView("Day", timeGrid.day, "-sb");
         },
       },
     },
@@ -169,29 +171,29 @@ const panelConfig = {
         type: "switch",
         onChange: () => {
           timeGrid.week = !timeGrid.week;
-          updateLocalStorageView("Week", timeGrid.week);
-          updateLocalStorageView("Week", timeGrid.week, "-sb");
+          updateStoredView("Week", timeGrid.week);
+          updateStoredView("Week", timeGrid.week, "-sb");
         },
       },
     },
   ],
 };
 
-const updateLocalStorageView = (period, isTimeGrid, suffix = "") => {
+const updateStoredView = (period, isTimeGrid, suffix = "") => {
   if (
-    localStorage.getItem("fc-periodView" + suffix) === `dayGrid${period}` &&
+    extensionStorage.get("fc-periodView" + suffix) === `dayGrid${period}` &&
     isTimeGrid
   )
-    localStorage.setItem("fc-periodView" + suffix, `timeGrid${period}`);
+    extensionStorage.set("fc-periodView" + suffix, `timeGrid${period}`);
   else if (
-    localStorage.getItem("fc-periodView" + suffix) === `timeGrid${period}` &&
+    extensionStorage.get("fc-periodView" + suffix) === `timeGrid${period}` &&
     !isTimeGrid
   )
-    localStorage.setItem("fc-periodView" + suffix, `dayGrid${period}`);
+    extensionStorage.set("fc-periodView" + suffix, `dayGrid${period}`);
 };
 
 const updateTagPagesWithUserList = (tagName, pageList) => {
-  if (!pageList.replace(",", "").trim()) {
+  if (!alphanumRegex.test(pageList)) {
     mapOfTags = deleteTagByName(tagName);
     return;
   }
@@ -228,7 +230,7 @@ const removeListeners = () => {
     calendarBtnElt.addEventListener("touchend", handleClickOnCalendarBtn);
 };
 
-const initializeMapOfTags = (extensionAPI) => {
+const initializeMapOfTags = () => {
   if (userTags) updageUserTags(userTags);
   mapOfTags.push(
     new EventTag({
@@ -244,8 +246,8 @@ const initializeMapOfTags = (extensionAPI) => {
       ...getStoredTagInfos("DONE"),
     })
   );
-  let tagPagesList = extensionAPI.settings.get("importantTag");
-  if (tagPagesList.trim())
+  let tagPagesList = extensionStorage.get("importantTag");
+  if (alphanumRegex.test(tagPagesList))
     mapOfTags.push(
       new EventTag({
         name: "important",
@@ -254,8 +256,8 @@ const initializeMapOfTags = (extensionAPI) => {
         pages: getTrimedArrayFromList(tagPagesList),
       })
     );
-  tagPagesList = extensionAPI.settings.get("doTag");
-  if (tagPagesList.trim())
+  tagPagesList = extensionStorage.get("doTag");
+  if (alphanumRegex.test(tagPagesList))
     mapOfTags.push(
       new EventTag({
         name: "do",
@@ -264,8 +266,8 @@ const initializeMapOfTags = (extensionAPI) => {
         pages: getTrimedArrayFromList(tagPagesList),
       })
     );
-  tagPagesList = extensionAPI.settings.get("dueTag");
-  if (tagPagesList.trim())
+  tagPagesList = extensionStorage.get("dueTag");
+  if (alphanumRegex.test(tagPagesList))
     mapOfTags.push(
       new EventTag({
         name: "due",
@@ -274,8 +276,8 @@ const initializeMapOfTags = (extensionAPI) => {
         pages: getTrimedArrayFromList(tagPagesList),
       })
     );
-  tagPagesList = extensionAPI.settings.get("doingTag");
-  if (tagPagesList.trim())
+  tagPagesList = extensionStorage.get("doingTag");
+  if (alphanumRegex.test(tagPagesList))
     mapOfTags.push(
       new EventTag({
         name: "doing",
@@ -284,15 +286,15 @@ const initializeMapOfTags = (extensionAPI) => {
         pages: getTrimedArrayFromList(tagPagesList),
       })
     );
-  mapOfTags.push(
-    new EventTag({
-      name: "Google calendar",
-      color: Colors.GRAY5,
-      ...getStoredTagInfos("Google calendar"),
-    })
-  );
-  const userTags = extensionAPI.settings.get("userTags");
-  if (userTags) updageUserTags(userTags);
+  // mapOfTags.push(
+  //   new EventTag({
+  //     name: "Google calendar",
+  //     color: Colors.GRAY5,
+  //     ...getStoredTagInfos("Google calendar"),
+  //   })
+  // );
+  const userTags = extensionStorage.get("userTags");
+  if (alphanumRegex.test(userTags)) updageUserTags(userTags);
   mapOfTags.push(calendarTag);
 };
 
@@ -331,7 +333,11 @@ const getStoredTagInfos = (tagName) => {
   if (!storedTagsInfo) return null;
   const matchingTag = storedTagsInfo.find((tag) => tagName === tag.name);
   return matchingTag
-    ? { color: matchingTag.color, isToDisplay: matchingTag.isToDisplay }
+    ? {
+        color: matchingTag.color,
+        isToDisplay: matchingTag.isToDisplay,
+        isToDisplayInSb: matchingTag.isToDisplayInSb,
+      }
     : null;
 };
 
@@ -351,41 +357,43 @@ const setTimeFormat = (example) => {
 
 export default {
   onload: async ({ extensionAPI }) => {
-    extensionAPI.settings.panel.create(panelConfig);
+    extensionStorage = extensionAPI.settings;
+    storedTagsInfo = JSON.parse(extensionStorage.get("fc-tags-info"));
 
-    if (extensionAPI.settings.get("calendarTag") === null)
-      await extensionAPI.settings.set("calendarTag", "calendar");
+    extensionStorage.panel.create(panelConfig);
+
+    if (extensionStorage.get("calendarTag") === null)
+      await extensionStorage.set("calendarTag", "calendar");
     calendarTag = new EventTag({
-      name: extensionAPI.settings.get("calendarTag"),
+      name: extensionStorage.get("calendarTag"),
       color: "transparent",
     });
     // console.log("calendarTag :>> ", calendarTag);
-    if (extensionAPI.settings.get("importantTag") === null)
-      await extensionAPI.settings.set("importantTag", "important");
-    if (extensionAPI.settings.get("doingTag") === null)
-      await extensionAPI.settings.set("doingTag", "doing");
-    if (extensionAPI.settings.get("doTag") === null)
-      await extensionAPI.settings.set("doTag", "do");
-    if (extensionAPI.settings.get("dueTag") === null)
-      await extensionAPI.settings.set("dueTag", "due");
-    if (extensionAPI.settings.get("userTags") === null)
-      await extensionAPI.settings.set("userTags", "");
-    if (extensionAPI.settings.get("timeFormat") === null)
-      await extensionAPI.settings.set("timeFormat", "14:00");
-    setTimeFormat(extensionAPI.settings.get("timeFormat"));
-    if (extensionAPI.settings.get("minTime") === null)
-      await extensionAPI.settings.set("minTime", "07:00");
-    minTime = extensionAPI.settings.get("minTime");
-    if (extensionAPI.settings.get("maxTime") === null)
-      await extensionAPI.settings.set("maxTime", "21:00");
-    maxTime = extensionAPI.settings.get("maxTime");
-    if (extensionAPI.settings.get("dayTimegrid") === null)
-      await extensionAPI.settings.set("dayTimegrid", true);
-    console.log("dayGrid", extensionAPI.settings.get("dayTimegrid"));
-    timeGrid.day = extensionAPI.settings.get("dayTimegrid");
-    if (extensionAPI.settings.get("weekTimegrid") === null)
-      await extensionAPI.settings.set("weekTimegrid", true);
-    timeGrid.week = extensionAPI.settings.get("weekTimegrid");
+    if (extensionStorage.get("importantTag") === null)
+      await extensionStorage.set("importantTag", "important");
+    if (extensionStorage.get("doingTag") === null)
+      await extensionStorage.set("doingTag", "doing");
+    if (extensionStorage.get("doTag") === null)
+      await extensionStorage.set("doTag", "do");
+    if (extensionStorage.get("dueTag") === null)
+      await extensionStorage.set("dueTag", "due");
+    if (extensionStorage.get("userTags") === null)
+      await extensionStorage.set("userTags", "");
+    if (extensionStorage.get("timeFormat") === null)
+      await extensionStorage.set("timeFormat", "14:00");
+    setTimeFormat(extensionStorage.get("timeFormat"));
+    if (extensionStorage.get("minTime") === null)
+      await extensionStorage.set("minTime", "07:00");
+    minTime = extensionStorage.get("minTime");
+    if (extensionStorage.get("maxTime") === null)
+      await extensionStorage.set("maxTime", "21:00");
+    maxTime = extensionStorage.get("maxTime");
+    if (extensionStorage.get("dayTimegrid") === null)
+      await extensionStorage.set("dayTimegrid", true);
+    timeGrid.day = extensionStorage.get("dayTimegrid");
+    if (extensionStorage.get("weekTimegrid") === null)
+      await extensionStorage.set("weekTimegrid", true);
+    timeGrid.week = extensionStorage.get("weekTimegrid");
 
     extensionAPI.ui.commandPalette.addCommand({
       label: "Full Calendar: Display/Hide in main window",
@@ -403,7 +411,7 @@ export default {
     // addObserver();
 
     addListeners();
-    initializeMapOfTags(extensionAPI);
+    initializeMapOfTags();
     // console.log("mapOfTags :>> ", mapOfTags);
 
     console.log("Full Calendar extension loaded.");

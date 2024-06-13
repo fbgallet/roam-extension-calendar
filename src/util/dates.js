@@ -57,7 +57,6 @@ export const parseRange = (string) => {
 export const getNormalizedTimestamp = (timestamp, regex = timestampRegex) => {
   const matchingTime = timestamp.match(regex);
   if (matchingTime) {
-    console.log("matchingTime :>> ", matchingTime);
     let shift = 0;
     if (!matchingTime[1]) shift = 4;
     // console.log("matchingTime :>> ", matchingTime);

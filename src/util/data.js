@@ -1,4 +1,4 @@
-import { calendarTag, mapOfTags } from "..";
+import { calendarTag, extensionStorage, mapOfTags } from "..";
 import {
   dateToISOString,
   getDateAddingDurationToDate,
@@ -87,8 +87,8 @@ const filterTreeToGetEvents = (
   return events;
 
   function processTreeRecursively(tree, isCalendarTree) {
-    let isCalendarParent = false;
     for (let i = 0; i < tree.length; i++) {
+      let isCalendarParent = false;
       if (/*!isRef && */ tree[i].refs && isReferencingDNP(tree[i].refs, dnpUid))
         continue;
       let matchingTags = getMatchingTags(
@@ -265,12 +265,12 @@ export const getCalendarUidFromPage = async (targetPageUid) => {
 export const getTrimedArrayFromList = (list) => {
   if (!list.trim()) return [];
   const arr = list.split(",");
-  return arr.map((elt) => elt.trim());
+  return arr.map((elt) => elt.trim()).filter((elt) => elt.length > 0);
 };
 
 export const saveViewSetting = (setting, value, isInSidebar) => {
   const sidebarSuffix = isInSidebar ? "-sb" : "";
-  localStorage.setItem(setting + sidebarSuffix, value);
+  extensionStorage.set(setting + sidebarSuffix, value);
 };
 
 export const moveDroppedEventBlock = async (event) => {
@@ -307,8 +307,7 @@ export const updateTimestampsInBlock = async (event, oldEvent) => {
     event.start.getHours(),
     event.start.getMinutes()
   );
-  console.log("start timestamp", startTimestamp);
-  console.log("oldEvent :>> ", oldEvent);
+  // console.log("start timestamp", startTimestamp);
   let endTimestamp;
   let hasTimestamp = true;
   let initialRange, newRange, hasDuration;
@@ -322,7 +321,7 @@ export const updateTimestampsInBlock = async (event, oldEvent) => {
     initialRange = parseRange(blockContent);
     if (initialRange) {
       initialRange = initialRange.matchingString.trim();
-      console.log("initialRange :>> ", initialRange);
+      // console.log("initialRange :>> ", initialRange);
       newRange = getFormatedRange(startTimestamp, endTimestamp);
     }
     // if range is defined by a start time + duration
@@ -335,7 +334,7 @@ export const updateTimestampsInBlock = async (event, oldEvent) => {
     if (initialRange) {
       initialRange = initialRange.matchingString.trim();
     } else hasTimestamp = false;
-    console.log("initialRange :>> ", initialRange);
+    // console.log("initialRange :>> ", initialRange);
     newRange = event.end
       ? getFormatedRange(startTimestamp, endTimestamp)
       : startTimestamp;
@@ -359,11 +358,15 @@ export const updateTimestampsInBlock = async (event, oldEvent) => {
         blockContent.substring(shift)
       : newRange + " " + blockContent;
   }
-  console.log("blockContent :>> ", blockContent);
   await updateBlock(event.id, blockContent);
 };
 
-export const filterEvents = (events, tagsToDisplay, filterLogic) => {
+export const filterEvents = (
+  events,
+  tagsToDisplay,
+  filterLogic,
+  isInSidebar
+) => {
   const eventsToDisplay =
     filterLogic === "Or"
       ? events.filter(
@@ -371,7 +374,10 @@ export const filterEvents = (events, tagsToDisplay, filterLogic) => {
             !(
               evt.extendedProps?.eventTags[0].name === "DONE" &&
               !tagsToDisplay.some((tag) => tag.name === "DONE")
-            ) && evt.extendedProps?.eventTags?.some((tag) => tag.isToDisplay)
+            ) &&
+            evt.extendedProps?.eventTags?.some(
+              (tag) => tag["isToDisplay" + (isInSidebar ? "InSb" : "")]
+            )
         )
       : events.filter((evt) =>
           tagsToDisplay.every((tag) =>

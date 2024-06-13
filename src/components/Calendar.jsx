@@ -1,5 +1,5 @@
 import FullCalendar from "@fullcalendar/react";
-import interactionPlugin, { Draggable } from "@fullcalendar/interaction";
+import interactionPlugin from "@fullcalendar/interaction";
 import googleCalendarPlugin from "@fullcalendar/google-calendar";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -11,7 +11,6 @@ import {
   getMatchingTags,
   moveDroppedEventBlock,
   parseEventObject,
-  updateEventColor,
   updateTimestampsInBlock,
 } from "../util/data";
 import { useState, useEffect, useRef } from "react";
@@ -26,7 +25,7 @@ import {
 import NewEventDialog from "./NewEventDialog";
 import { dateToISOString, eventTimeFormats } from "../util/dates";
 import {
-  calendarTag,
+  extensionStorage,
   mapOfTags,
   maxTime,
   minTime,
@@ -53,11 +52,17 @@ const Calendar = ({
 
   const [filterLogic, setFilterLogic] = useState("Or");
   const [tagsToDisplay, setTagsToDisplay] = useState(
-    mapOfTags.filter((tag) => tag.isToDisplay)
+    mapOfTags.filter((tag) => tag["isToDisplay" + (isInSidebar ? "InSb" : "")])
   );
-  const [isEntireDNP, setIsEntireDNP] = useState(initialSettings.dnp);
-  const [isIncludingRefs, setIsIncludingRefs] = useState(initialSettings.refs);
-  const [isWEtoDisplay, setIsWEtoDisplay] = useState(initialSettings.we);
+  const [isEntireDNP, setIsEntireDNP] = useState(
+    initialSettings.dnp !== null ? initialSettings.dnp : false
+  );
+  const [isIncludingRefs, setIsIncludingRefs] = useState(
+    initialSettings.refs !== null ? initialSettings.refs : false
+  );
+  const [isWEtoDisplay, setIsWEtoDisplay] = useState(
+    initialSettings.we !== null ? initialSettings.we : true
+  );
   const isDataToReload = useRef(true);
   const isDataToFilterAgain = useRef(true);
   const calendarRef = useRef(null);
@@ -66,7 +71,10 @@ const Calendar = ({
     end: null,
   });
   const selectedDay = useRef(null);
-  const periodView = useRef(periodType || initialSettings.view);
+  const periodView = useRef(
+    periodType ||
+      (initialSettings.view !== null ? initialSettings.view : "dayGridMonth")
+  );
 
   function updateSize() {
     const calendarApi = calendarRef.current.getApi();
@@ -82,14 +90,14 @@ const Calendar = ({
 
   useEffect(() => {
     isDataToFilterAgain.current = true;
-    if (events.length !== 0) isDataToReload.current = false;
-    localStorage.setItem(
+    extensionStorage.set(
       "fc-tags-info",
       JSON.stringify(
         mapOfTags.map((tag) => ({
           name: tag.name,
           color: tag.color,
           isToDisplay: tag.isToDisplay,
+          isToDisplayInSb: tag.isToDisplayInSb,
         }))
       )
     );
@@ -105,7 +113,7 @@ const Calendar = ({
   }, [forceToReload]);
 
   const handleSelectDays = (e) => {
-    console.log("Day selected");
+    // console.log("Day selected");
   };
 
   const handleSquareDayClick = async (info) => {
@@ -233,8 +241,13 @@ const Calendar = ({
       isDataToFilterAgain.current = true;
     }
     if (isDataToFilterAgain.current) {
-      filteredEvents = filterEvents(events, tagsToDisplay, filterLogic);
-      console.log("Filtered events to display:>> ", filteredEvents);
+      filteredEvents = filterEvents(
+        events,
+        tagsToDisplay,
+        filterLogic,
+        isInSidebar
+      );
+      //console.log("Filtered events to display:>> ", filteredEvents);
     }
     return filteredEvents;
   };
@@ -339,7 +352,6 @@ const Calendar = ({
       <MultiSelectFilter
         tagsToDisplay={tagsToDisplay}
         setTagsToDisplay={setTagsToDisplay}
-        isDataToReload={isDataToReload}
         filterLogic={filterLogic}
         setFilterLogic={setFilterLogic}
         isEntireDNP={isEntireDNP}
@@ -350,10 +362,15 @@ const Calendar = ({
         setIsWEtoDisplay={setIsWEtoDisplay}
         parentElt={parentElt}
         updateSize={updateSize}
+        isDataToReload={isDataToReload}
         isDataToFilterAgain={isDataToFilterAgain}
         isInSidebar={isInSidebar}
-        initialSticky={initialSettings.sticky}
-        initialMinimized={initialSettings.minimized}
+        initialSticky={
+          initialSettings.sticky !== null ? initialSettings.sticky : false
+        }
+        initialMinimized={
+          initialSettings.minimized !== null ? initialSettings.minimized : false
+        }
       />
       <FullCalendar
         plugins={[
@@ -405,7 +422,7 @@ const Calendar = ({
         datesSet={(info) => {
           if (periodView.current !== info.view.type) {
             periodView.current = info.view.type;
-            localStorage.setItem(
+            extensionStorage.set(
               "fc-periodView" + (isInSidebar ? "-sb" : ""),
               info.view.type
             );
