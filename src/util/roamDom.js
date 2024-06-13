@@ -28,14 +28,14 @@ export const getFocusedDateInDatepicker = (clickEvt) => {
 };
 
 export const handleRightClickOnCalendarBtn = (e, isCommand, timeout = 0) => {
+  !isCommand && e.preventDefault();
+  !isCommand && e.stopPropagation();
   setTimeout(() => {
     runningCount++;
     if (runningCount > 1) {
       runningCount = 0;
       return;
     }
-    !isCommand && e.preventDefault();
-    // !isCommand && e.stopPropagation();
     let appWrapper;
     let inSidebar = false;
     const periodFromDatepicker = isCommand
@@ -191,6 +191,12 @@ function onCalendarClick(mutation) {
           }
         }
       }, 100);
+    } else if (
+      mutation[0].nextSibling?.className === "rm-topbar__spacer-sm" ||
+      (mutation[0].removedNodes[0]?.className === "rm-topbar__spacer-sm" &&
+        mutation[0].previousSibling === null)
+    ) {
+      addListeners();
     }
   }, 50);
 }
