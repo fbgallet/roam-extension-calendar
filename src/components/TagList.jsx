@@ -14,7 +14,6 @@ const TagList = ({ list, setEventTagList, isInteractive, event }) => {
       return updatedTags;
     });
   };
-
   return (
     <div className="fc-tag-list">
       {list.map((tag) => (

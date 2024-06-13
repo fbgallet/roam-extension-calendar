@@ -1,32 +1,38 @@
 import FullCalendar from "@fullcalendar/react";
-import interactionPlugin, { Draggable } from "@fullcalendar/interaction";
+import interactionPlugin from "@fullcalendar/interaction";
+import googleCalendarPlugin from "@fullcalendar/google-calendar";
 import dayGridPlugin from "@fullcalendar/daygrid";
-// import timeGridPlugin from "@fullcalendar/timegrid";
+import timeGridPlugin from "@fullcalendar/timegrid";
 import multiMonthPlugin from "@fullcalendar/multimonth";
 import {
+  filterEvents,
   getBlocksToDisplayFromDNP,
   getCalendarUidFromPage,
   getMatchingTags,
+  moveDroppedEventBlock,
   parseEventObject,
-  removeSquareBrackets,
-  updateEventColor,
+  updateTimestampsInBlock,
 } from "../util/data";
 import { useState, useEffect, useRef } from "react";
 import Event from "./Event";
 import MultiSelectFilter from "./MultiSelectFilter";
 import {
   createChildBlock,
-  deleteBlockIfNoChild,
   getBlockContentByUid,
   getBlocksUidReferencedInThisBlock,
-  getParentBlock,
   isExistingNode,
-  resolveReferences,
 } from "../util/roamApi";
-import { roamDateRegex } from "../util/regex";
 import NewEventDialog from "./NewEventDialog";
-import { dateToISOString } from "../util/dates";
-import { calendarTag, mapOfTags } from "..";
+import { dateToISOString, eventTimeFormats } from "../util/dates";
+import {
+  extensionStorage,
+  mapOfTags,
+  maxTime,
+  minTime,
+  timeFormat,
+  timeGrid,
+} from "..";
+import { getTagColorFromName, getTagFromName } from "../models/EventTag";
 
 let events = [];
 let filteredEvents = [];
@@ -46,11 +52,17 @@ const Calendar = ({
 
   const [filterLogic, setFilterLogic] = useState("Or");
   const [tagsToDisplay, setTagsToDisplay] = useState(
-    mapOfTags.filter((tag) => tag.isToDisplay)
+    mapOfTags.filter((tag) => tag["isToDisplay" + (isInSidebar ? "InSb" : "")])
   );
-  const [isEntireDNP, setIsEntireDNP] = useState(initialSettings.dnp);
-  const [isIncludingRefs, setIsIncludingRefs] = useState(initialSettings.refs);
-  const [isWEtoDisplay, setIsWEtoDisplay] = useState(initialSettings.we);
+  const [isEntireDNP, setIsEntireDNP] = useState(
+    initialSettings.dnp !== null ? initialSettings.dnp : false
+  );
+  const [isIncludingRefs, setIsIncludingRefs] = useState(
+    initialSettings.refs !== null ? initialSettings.refs : false
+  );
+  const [isWEtoDisplay, setIsWEtoDisplay] = useState(
+    initialSettings.we !== null ? initialSettings.we : true
+  );
   const isDataToReload = useRef(true);
   const isDataToFilterAgain = useRef(true);
   const calendarRef = useRef(null);
@@ -59,7 +71,10 @@ const Calendar = ({
     end: null,
   });
   const selectedDay = useRef(null);
-  const periodView = useRef(periodType || initialSettings.view);
+  const periodView = useRef(
+    periodType ||
+      (initialSettings.view !== null ? initialSettings.view : "dayGridMonth")
+  );
 
   function updateSize() {
     const calendarApi = calendarRef.current.getApi();
@@ -75,14 +90,14 @@ const Calendar = ({
 
   useEffect(() => {
     isDataToFilterAgain.current = true;
-    if (events.length !== 0) isDataToReload.current = false;
-    localStorage.setItem(
+    extensionStorage.set(
       "fc-tags-info",
       JSON.stringify(
         mapOfTags.map((tag) => ({
           name: tag.name,
           color: tag.color,
           isToDisplay: tag.isToDisplay,
+          isToDisplayInSb: tag.isToDisplayInSb,
         }))
       )
     );
@@ -98,7 +113,7 @@ const Calendar = ({
   }, [forceToReload]);
 
   const handleSelectDays = (e) => {
-    console.log("Day selected");
+    // console.log("Day selected");
   };
 
   const handleSquareDayClick = async (info) => {
@@ -206,52 +221,34 @@ const Calendar = ({
   const getEventsFromDNP = async (info) => {
     if (
       viewRange.current.start &&
-      viewRange.current.start.getDate() !== info.start.getDate() &&
-      viewRange.current.end.getDate() !== info.end.getDate()
+      (viewRange.current.start.getDate() !== info.start.getDate() ||
+        viewRange.current.end.getDate() !== info.end.getDate())
     ) {
       isDataToReload.current = true;
       isDataToFilterAgain.current = true;
     }
     viewRange.current.start = info.start;
     viewRange.current.end = info.end;
+
     if (isDataToReload.current) {
       events = await getBlocksToDisplayFromDNP(
         info.start,
         info.end,
         !isEntireDNP,
-        isIncludingRefs
+        isIncludingRefs,
+        periodView.current.includes("time")
       );
       isDataToFilterAgain.current = true;
-    } //else isDataToReload.current = true;
-    // if (!events.length) return [];
-    if (isDataToFilterAgain.current) {
-      const eventsToDisplay =
-        filterLogic === "Or"
-          ? events.filter(
-              (evt) =>
-                !(
-                  evt.extendedProps?.eventTags[0].name === "DONE" &&
-                  !tagsToDisplay.some((tag) => tag.name === "DONE")
-                ) &&
-                evt.extendedProps?.eventTags?.some((tag) => tag.isToDisplay)
-            )
-          : events.filter((evt) =>
-              tagsToDisplay.every((tag) =>
-                evt.extendedProps?.eventTags?.some((t) => t.name === tag.name)
-              )
-            );
-
-      filteredEvents = eventsToDisplay.map((evt) => {
-        // if (evt.extendedProps.eventTags.length > 1)
-        evt.color =
-          updateEventColor(evt.extendedProps.eventTags, tagsToDisplay) ||
-          evt.color;
-        return evt;
-      });
-      console.log("Filtered events to display:>> ", filteredEvents);
     }
-    // isDataToReload.current = false;
-    // isDataToFilterAgain.current = false;
+    if (isDataToFilterAgain.current) {
+      filteredEvents = filterEvents(
+        events,
+        tagsToDisplay,
+        filterLogic,
+        isInSidebar
+      );
+      //console.log("Filtered events to display:>> ", filteredEvents);
+    }
     return filteredEvents;
   };
 
@@ -259,34 +256,18 @@ const Calendar = ({
     let evtIndex = events.findIndex((evt) => evt.id === info.event.id);
     events[evtIndex].date = dateToISOString(info.event.start);
     isDataToFilterAgain.current = true;
-    if (info.event.extendedProps.isRef) {
-      let blockContent = getBlockContentByUid(info.event.id);
-      let matchingDates = blockContent.match(roamDateRegex);
-      const newRoamDate = window.roamAlphaAPI.util.dateToPageTitle(
-        info.event.start
-      );
-      if (matchingDates && matchingDates.length) {
-        let currentDateStr = removeSquareBrackets(matchingDates[0]);
-        blockContent = blockContent.replace(currentDateStr, newRoamDate);
-      } else blockContent += ` [[${newRoamDate}]]`;
-      window.roamAlphaAPI.updateBlock({
-        block: { uid: info.event.id, string: blockContent },
-      });
-      info.event.setProp("title", resolveReferences(blockContent));
-    } else {
-      const currentCalendarUid = getParentBlock(info.event.id);
-      let calendarBlockUid = await getCalendarUidFromPage(
-        window.roamAlphaAPI.util.dateToPageUid(info.event.start)
-      );
-      await window.roamAlphaAPI.moveBlock({
-        location: {
-          "parent-uid": calendarBlockUid,
-          order: "last",
-        },
-        block: { uid: info.event.id },
-      });
-      deleteBlockIfNoChild(currentCalendarUid);
+
+    // is in a timeGrid view
+    if (info.view.type.includes("time")) {
+      events[evtIndex].start = info.event.start;
+      events[evtIndex].end = info.event.end;
+      await updateTimestampsInBlock(info.event, info.oldEvent);
     }
+
+    // if moved in the same day, doesn't need block move
+    if (!info.delta.days && !info.delta.months) return;
+
+    await moveDroppedEventBlock(info.event);
   };
 
   const handleExternalDrop = async (e) => {
@@ -328,6 +309,29 @@ const Calendar = ({
     setForceToReload((prev) => !prev);
   };
 
+  const handleEventResize = (info) => {
+    // console.log("info :>> ", info);
+    updateTimestampsInBlock(info.event);
+  };
+
+  const parseGoogleCalendarEvent = (event) => {
+    return {
+      id: event.id,
+      title: event.title,
+      start: event.start,
+      end: event.end,
+      classNames: ["fc-event-gcal"],
+      extendedProps: {
+        eventTags: [getTagFromName("Google calendar")],
+        isRef: false,
+      },
+      color: getTagColorFromName("Google calendar"),
+      display: "block",
+      editable: false,
+      url: event.url,
+    };
+  };
+
   return (
     <div
       onDragOver={(e) => {
@@ -348,7 +352,6 @@ const Calendar = ({
       <MultiSelectFilter
         tagsToDisplay={tagsToDisplay}
         setTagsToDisplay={setTagsToDisplay}
-        isDataToReload={isDataToReload}
         filterLogic={filterLogic}
         setFilterLogic={setFilterLogic}
         isEntireDNP={isEntireDNP}
@@ -359,17 +362,23 @@ const Calendar = ({
         setIsWEtoDisplay={setIsWEtoDisplay}
         parentElt={parentElt}
         updateSize={updateSize}
+        isDataToReload={isDataToReload}
         isDataToFilterAgain={isDataToFilterAgain}
         isInSidebar={isInSidebar}
-        initialSticky={initialSettings.sticky}
-        initialMinimized={initialSettings.minimized}
+        initialSticky={
+          initialSettings.sticky !== null ? initialSettings.sticky : false
+        }
+        initialMinimized={
+          initialSettings.minimized !== null ? initialSettings.minimized : false
+        }
       />
       <FullCalendar
         plugins={[
           dayGridPlugin,
-          // timeGridPlugin,
+          timeGridPlugin,
           multiMonthPlugin,
           interactionPlugin,
+          googleCalendarPlugin,
         ]}
         ref={calendarRef}
         // aspectRatio={1.35}
@@ -389,15 +398,20 @@ const Calendar = ({
         headerToolbar={{
           left: "prev,next today refreshButton",
           center: "title",
-          right: "multiMonthYear,dayGridMonth,dayGridWeek,dayGridDay",
+          right:
+            "multiMonthYear,dayGridMonth," +
+            (timeGrid.week ? "timeGridWeek," : "dayGridWeek,") +
+            (timeGrid.day ? "timeGridDay" : "dayGridDay"),
         }}
         firstDay={1}
         weekends={isWEtoDisplay}
         fixedWeekCount={false}
         weekNumbers={true}
-        // nowIndicator={true}
-        // slotMinTime="06:00"
-        // slotMaxTime="22:00"
+        nowIndicator={true}
+        eventTimeFormat={eventTimeFormats[timeFormat]}
+        slotLabelFormat={eventTimeFormats[timeFormat]}
+        slotMinTime={minTime}
+        slotMaxTime={maxTime}
         navLinks={true}
         editable={true}
         selectable={true}
@@ -405,25 +419,31 @@ const Calendar = ({
         // draggable={true}
         dayMaxEvents={true}
         // initialEvents={getEventsFromDNP}
-        events={getEventsFromDNP}
-        // events={[
-        //   {
-        //     title: "My timed event",
-        //     start: "2024-04-08T09:30:00",
-        //     end: "2024-04-08T11:00:00",
-        //     display: "list-item",
-        //     color: "red",
-        //     // allDay: false,
-        //   },
-        // ]}
-        // eventTimeFormat={{
-        //   // like '14:30:00'
-        //   hour: "2-digit",
-        //   minute: "2-digit",
-        //   meridiem: false,
-        // }}
+        datesSet={(info) => {
+          if (periodView.current !== info.view.type) {
+            periodView.current = info.view.type;
+            extensionStorage.set(
+              "fc-periodView" + (isInSidebar ? "-sb" : ""),
+              info.view.type
+            );
+            if (info.view.type.includes("time"))
+              setForceToReload((prev) => !prev);
+          }
+        }}
+        // events={getEventsFromDNP}
+        //googleCalendarApiKey= // in .env
+        eventSources={[
+          getEventsFromDNP,
+          // tagsToDisplay.find((tag) => tag.name === "Google calendar")
+          //   ? {
+          //       googleCalendarId: "fbgallet@gmail.com",
+          //       eventDataTransform: parseGoogleCalendarEvent,
+          //     }
+          //   : null,
+        ]}
         eventContent={(info, jsEvent) => renderEventContent(info, jsEvent)}
         eventClick={(info) => {
+          info.jsEvent.preventDefault();
           if (info.jsEvent.shiftKey) {
             window.roamAlphaAPI.ui.rightSidebar.addWindow({
               window: { type: "block", "block-uid": info.event.id },
@@ -431,17 +451,10 @@ const Calendar = ({
           }
         }}
         eventDrop={handleEventDrop}
+        eventResizableFromStart={true}
+        eventResize={handleEventResize}
         dateClick={handleSquareDayClick}
         select={handleSelectDays}
-        datesSet={(info) => {
-          if (periodView.current !== info.view.type) {
-            localStorage.setItem(
-              "fc-periodView" + (isInSidebar ? "-sb" : ""),
-              info.view.type
-            );
-            periodView.current = info.view.type;
-          }
-        }}
         dayHeaders={true}
         viewWillUnmount={() => (isDataToReload.current = true)}
         // dayCellContent={renderDayContent}

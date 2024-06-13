@@ -14,6 +14,7 @@
     "@blueprintjs/core": "^5.10.1",
     "@fullcalendar/core": "^6.1.10",
     "@fullcalendar/daygrid": "^6.1.10",
+    "@fullcalendar/google-calendar": "^6.1.14",
     "@fullcalendar/interaction": "^6.1.10",
     "@fullcalendar/multimonth": "^6.1.11",
     "@fullcalendar/react": "^6.1.10",

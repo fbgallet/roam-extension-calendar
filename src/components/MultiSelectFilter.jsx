@@ -50,10 +50,10 @@ const MultiSelectFilter = ({
         (tagToDisplay) => tagToDisplay.pages[0] === tag.pages[0]
       )
     ) {
-      tag.display();
+      tag.display(isInSidebar);
       setTagsToDisplay([...tagsToDisplay, tag]);
     } else {
-      tag.hide();
+      tag.hide(isInSidebar);
       setTagsToDisplay([
         ...tagsToDisplay.filter(
           (tagToDisplay) => tagToDisplay.pages[0] !== tag.pages[0]
@@ -81,7 +81,7 @@ const MultiSelectFilter = ({
         }
         label={
           tag.name === calendarTag.name
-            ? `children of #${calendarTag.name}`
+            ? `under #${calendarTag.name} or in refs`
             : tag.pages.slice(1).join(", ")
         }
       />
@@ -89,13 +89,13 @@ const MultiSelectFilter = ({
   };
 
   const handleClear = () => {
-    tagsToDisplay.forEach((tag) => tag.hide());
+    tagsToDisplay.forEach((tag) => tag.hide(isInSidebar));
     setTagsToDisplay([]);
   };
 
   const handleAddAllTags = (e) => {
     e.stopPropagation();
-    mapOfTags.forEach((tag) => tag.display());
+    mapOfTags.forEach((tag) => tag.display(isInSidebar));
     setTagsToDisplay([...mapOfTags]);
   };
 
@@ -136,6 +136,7 @@ const MultiSelectFilter = ({
   };
 
   const renderTag = (tag) => {
+    if (!tag.pages || !tag.pages.length) return;
     const title = tag.name === calendarTag.name ? "• not tagged" : tag.pages[0];
     const aliases = tag.pages.slice(1).join(", ");
     return (
@@ -192,7 +193,9 @@ const MultiSelectFilter = ({
     if (popoverToOpen) return;
     const tagName = e.target.innerText;
     e.stopPropagation();
-    tagsToDisplay.forEach((tag) => tag.pages[0] !== tagName && tag.hide());
+    tagsToDisplay.forEach(
+      (tag) => tag.pages[0] !== tagName && tag.hide(isInSidebar)
+    );
     setTagsToDisplay([tagsToDisplay.find((tag) => tag.pages[0] === tagName)]);
     doubleClick.current = true;
     setTimeout(() => {
@@ -284,6 +287,8 @@ const MultiSelectFilter = ({
             label="dnp"
             inline={true}
             onChange={() => {
+              isDataToReload = true;
+              isDataToFilterAgain.current = true;
               saveViewSetting("fc-isEntireDNP", !isEntireDNP, isInSidebar);
               setIsEntireDNP((prev) => !prev);
             }}
@@ -298,8 +303,10 @@ const MultiSelectFilter = ({
             label="refs"
             inline={true}
             onChange={() => {
+              isDataToReload = true;
+              isDataToFilterAgain.current = true;
               saveViewSetting(
-                "fc-inIncludingRefs",
+                "fc-isIncludingRefs",
                 !isIncludingRefs,
                 isInSidebar
               );
@@ -312,6 +319,7 @@ const MultiSelectFilter = ({
           label="we"
           inline={true}
           onChange={() => {
+            isDataToReload = true;
             isDataToFilterAgain.current = true;
             saveViewSetting("fc-isWEtoDisplay", !isWEtoDisplay, isInSidebar);
             setIsWEtoDisplay((prev) => !prev);

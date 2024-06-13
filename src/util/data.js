@@ -1,23 +1,38 @@
-import { calendarTag, mapOfTags } from "..";
-import { dateToISOString, getDistantDate } from "./dates";
+import { calendarTag, extensionStorage, mapOfTags } from "..";
+import {
+  dateToISOString,
+  getDateAddingDurationToDate,
+  getDistantDate,
+  getDurationInMin,
+  getFormatedRange,
+  getNormalizedTimestamp,
+  getTimestampFromHM,
+  parseRange,
+  strictTimestampRegex,
+} from "./dates";
 import { dnpUidRegex } from "./regex";
 import {
   createChildBlock,
+  deleteBlockIfNoChild,
   dnpUidToPageTitle,
+  getBlockContentByUid,
   getFirstBlockUidByReferenceOnPage,
   getLinkedReferencesTrees,
   getPageNameByPageUid,
   getPageUidByPageName,
+  getParentBlock,
   getTreeByUid,
   isExistingNode,
   resolveReferences,
+  updateBlock,
 } from "./roamApi";
 
 export const getBlocksToDisplayFromDNP = async (
   start,
   end,
   onlyCalendarTag,
-  isIncludingRefs
+  isIncludingRefs,
+  isTimeGrid
 ) => {
   // console.log("mapOfTags :>> ", mapOfTags);
   let events = [];
@@ -44,7 +59,8 @@ export const getBlocksToDisplayFromDNP = async (
         pageAndRefsTrees[i],
         mapOfTags,
         onlyCalendarTag,
-        i > 0 ? true : false
+        i > 0 ? true : false,
+        isTimeGrid
       );
       // console.log("filteredEvents :>> ", filteredEvents);
       if (filteredEvents.length > 0) events = events.concat(filteredEvents);
@@ -60,7 +76,8 @@ const filterTreeToGetEvents = (
   tree,
   mapToInclude,
   onlyCalendarTag,
-  isRef
+  isRef,
+  isTimeGrid
 ) => {
   // console.log("currentDate :>> ", currentDate);
   const events = [];
@@ -70,8 +87,8 @@ const filterTreeToGetEvents = (
   return events;
 
   function processTreeRecursively(tree, isCalendarTree) {
-    let isCalendarParent = false;
     for (let i = 0; i < tree.length; i++) {
+      let isCalendarParent = false;
       if (/*!isRef && */ tree[i].refs && isReferencingDNP(tree[i].refs, dnpUid))
         continue;
       let matchingTags = getMatchingTags(
@@ -95,7 +112,8 @@ const filterTreeToGetEvents = (
                 matchingTags: matchingTags,
                 isRef: isRef,
               },
-              isCalendarTree
+              isCalendarTree,
+              isTimeGrid
             )
           );
         }
@@ -125,7 +143,8 @@ export const getMatchingTags = (mapOfTags, refUidArray) => {
 
 export const parseEventObject = (
   { id, title, date, matchingTags, isRef = false },
-  isCalendarTree = true
+  isCalendarTree = true,
+  isTimeGrid = true
 ) => {
   let prefix = "";
   if (isCalendarTree && !matchingTags.length) {
@@ -141,19 +160,44 @@ export const parseEventObject = (
   }
   const backgroundColorDisplayed = colorToDisplay(matchingTags);
 
-  // const hasTime = title.slice(0, 5) === "11:05";
-  // const customTime = new Date("2024-06-12T09:30:00");
+  let hasTime = false;
+  let range, endDate;
+  if (isTimeGrid) {
+    let parsedRange = parseRange(title);
+    if (parsedRange) {
+      range = parsedRange.range;
+      title = title.replace(parsedRange.matchingString, "");
+      hasTime = true;
+    } else {
+      let parsedTime = getNormalizedTimestamp(title, strictTimestampRegex);
+      if (parsedTime) {
+        hasTime = true;
+        range = { start: parsedTime.timestamp };
+        title = title.replace(parsedTime.matchingString, "");
+        let duration = getDurationInMin(title);
+        if (duration) {
+          endDate = getDateAddingDurationToDate(
+            new Date(`${date}T${range.start}`),
+            duration
+          );
+        }
+      }
+    }
+  }
 
   return {
     id,
     title: prefix + title,
-    date,
-    // start: hasTime ? customTime : date,
-    // end: hasTime ? customTime + 3600000 : null, // "2024-06-12T11:00:00" : date,
+    // date,
+    start: hasTime ? `${date}T${range.start}` : date,
+    end:
+      hasTime && (range.end || endDate)
+        ? endDate || `${date}T${range.end}`
+        : null,
     classNames: classNames,
     extendedProps: { eventTags: matchingTags, isRef: isRef },
     color: backgroundColorDisplayed,
-    // display: "block",
+    display: "block",
     textColor:
       // matchingTags.length && matchingTags[0].color === "transparent"
       backgroundColorDisplayed === "transparent" ? "revert" : null,
@@ -221,10 +265,130 @@ export const getCalendarUidFromPage = async (targetPageUid) => {
 export const getTrimedArrayFromList = (list) => {
   if (!list.trim()) return [];
   const arr = list.split(",");
-  return arr.map((elt) => elt.trim());
+  return arr.map((elt) => elt.trim()).filter((elt) => elt.length > 0);
 };
 
 export const saveViewSetting = (setting, value, isInSidebar) => {
   const sidebarSuffix = isInSidebar ? "-sb" : "";
-  localStorage.setItem(setting + sidebarSuffix, value);
+  extensionStorage.set(setting + sidebarSuffix, value);
+};
+
+export const moveDroppedEventBlock = async (event) => {
+  if (event.extendedProps.isRef) {
+    let blockContent = getBlockContentByUid(event.id);
+    let matchingDates = blockContent.match(roamDateRegex);
+    const newRoamDate = window.roamAlphaAPI.util.dateToPageTitle(event.start);
+    if (matchingDates && matchingDates.length) {
+      let currentDateStr = removeSquareBrackets(matchingDates[0]);
+      blockContent = blockContent.replace(currentDateStr, newRoamDate);
+    } else blockContent += ` [[${newRoamDate}]]`;
+    await window.roamAlphaAPI.updateBlock({
+      block: { uid: event.id, string: blockContent },
+    });
+    event.setProp("title", resolveReferences(blockContent));
+  } else {
+    const currentCalendarUid = getParentBlock(event.id);
+    let calendarBlockUid = await getCalendarUidFromPage(
+      window.roamAlphaAPI.util.dateToPageUid(event.start)
+    );
+    await window.roamAlphaAPI.moveBlock({
+      location: {
+        "parent-uid": calendarBlockUid,
+        order: "last",
+      },
+      block: { uid: event.id },
+    });
+    deleteBlockIfNoChild(currentCalendarUid);
+  }
+};
+
+export const updateTimestampsInBlock = async (event, oldEvent) => {
+  const startTimestamp = getTimestampFromHM(
+    event.start.getHours(),
+    event.start.getMinutes()
+  );
+  // console.log("start timestamp", startTimestamp);
+  let endTimestamp;
+  let hasTimestamp = true;
+  let initialRange, newRange, hasDuration;
+  let blockContent = getBlockContentByUid(event.id);
+  if (event.end || oldEvent.end) {
+    if (event.end)
+      endTimestamp = getTimestampFromHM(
+        event.end.getHours(),
+        event.end.getMinutes()
+      );
+    initialRange = parseRange(blockContent);
+    if (initialRange) {
+      initialRange = initialRange.matchingString.trim();
+      // console.log("initialRange :>> ", initialRange);
+      newRange = getFormatedRange(startTimestamp, endTimestamp);
+    }
+    // if range is defined by a start time + duration
+    else {
+      hasDuration = true;
+    }
+  }
+  if ((!event.end && !oldEvent.end) || hasDuration) {
+    initialRange = getNormalizedTimestamp(blockContent, strictTimestampRegex);
+    if (initialRange) {
+      initialRange = initialRange.matchingString.trim();
+    } else hasTimestamp = false;
+    // console.log("initialRange :>> ", initialRange);
+    newRange = event.end
+      ? getFormatedRange(startTimestamp, endTimestamp)
+      : startTimestamp;
+  }
+  if (hasTimestamp) {
+    if (startTimestamp === "0:00") {
+      newRange = "";
+      initialRange += " ";
+    }
+    blockContent = blockContent.replace(initialRange, newRange);
+  } else {
+    const shift =
+      blockContent.includes("{{[[TODO]]}}") ||
+      blockContent.includes("{{[[DONE]]}}")
+        ? 13
+        : 0;
+    blockContent = shift
+      ? blockContent.substring(0, shift) +
+        newRange +
+        " " +
+        blockContent.substring(shift)
+      : newRange + " " + blockContent;
+  }
+  await updateBlock(event.id, blockContent);
+};
+
+export const filterEvents = (
+  events,
+  tagsToDisplay,
+  filterLogic,
+  isInSidebar
+) => {
+  const eventsToDisplay =
+    filterLogic === "Or"
+      ? events.filter(
+          (evt) =>
+            !(
+              evt.extendedProps?.eventTags[0].name === "DONE" &&
+              !tagsToDisplay.some((tag) => tag.name === "DONE")
+            ) &&
+            evt.extendedProps?.eventTags?.some(
+              (tag) => tag["isToDisplay" + (isInSidebar ? "InSb" : "")]
+            )
+        )
+      : events.filter((evt) =>
+          tagsToDisplay.every((tag) =>
+            evt.extendedProps?.eventTags?.some((t) => t.name === tag.name)
+          )
+        );
+
+  return eventsToDisplay.map((evt) => {
+    // if (evt.extendedProps.eventTags.length > 1)
+    evt.color =
+      updateEventColor(evt.extendedProps.eventTags, tagsToDisplay) || evt.color;
+    return evt;
+  });
 };

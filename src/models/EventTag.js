@@ -7,6 +7,7 @@ export class EventTag {
     color = "none",
     pages = [],
     isToDisplay = true,
+    isToDisplayInSb = true,
     isUserDefined = false,
   }) {
     this.name = name;
@@ -14,6 +15,7 @@ export class EventTag {
     this.updateUids();
     this.color = color;
     this.isToDisplay = isToDisplay;
+    this.isToDisplayInSb = isToDisplayInSb;
     this.isUserDefined = isUserDefined;
   }
   setColor(color) {
@@ -26,11 +28,11 @@ export class EventTag {
   updateUids() {
     this.uids = this.pages.map((page) => getPageUidByPageName(page));
   }
-  display() {
-    this.isToDisplay = true;
+  display(inSidebar) {
+    this["isToDisplay" + (inSidebar ? "InSb" : "")] = true;
   }
-  hide() {
-    this.isToDisplay = false;
+  hide(inSidebar) {
+    this["isToDisplay" + (inSidebar ? "InSb" : "")] = false;
   }
 }
 

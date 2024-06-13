@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom";
 import Calendar from "./Calendar";
+import { extensionStorage } from "..";
 
 export function renderApp(inSidebar, periodFromDatepicker) {
   let root, parentElt;
@@ -28,28 +29,13 @@ export function renderApp(inSidebar, periodFromDatepicker) {
   if (!inSidebar) calendarElt.scrollIntoView();
   const sidebarSuffix = inSidebar ? "-sb" : "";
   const initialSettings = {
-    dnp:
-      localStorage.getItem("fc-isEntireDNP" + sidebarSuffix) === "true"
-        ? true
-        : false,
-    refs:
-      localStorage.getItem("fc-inIncludingRefs" + sidebarSuffix) === "false"
-        ? false
-        : true,
-    we:
-      localStorage.getItem("fc-isWEtoDisplay" + sidebarSuffix) == "false"
-        ? false
-        : true,
+    dnp: extensionStorage.get("fc-isEntireDNP" + sidebarSuffix),
+    refs: extensionStorage.get("fc-isIncludingRefs" + sidebarSuffix),
+    we: extensionStorage.get("fc-isWEtoDisplay" + sidebarSuffix),
     view:
-      localStorage.getItem("fc-periodView" + sidebarSuffix) || "dayGridMonth",
-    minimized:
-      localStorage.getItem("fc-minimized" + sidebarSuffix) === "true"
-        ? true
-        : false,
-    sticky:
-      localStorage.getItem("fc-sticky" + sidebarSuffix) === "true"
-        ? true
-        : false,
+      extensionStorage.get("fc-periodView" + sidebarSuffix) || "dayGridMonth",
+    minimized: extensionStorage.get("fc-minimized" + sidebarSuffix),
+    sticky: extensionStorage.get("fc-sticky" + sidebarSuffix),
   };
 
   ReactDOM.render(
