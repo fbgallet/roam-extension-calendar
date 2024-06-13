@@ -12,7 +12,6 @@ import { alphanumRegex } from "./util/regex";
 export const calendarBtnElt = document.querySelector(
   "button:has(span[icon='calendar'])"
 )?.parentElement?.parentElement;
-// console.log("storedTagsInfo :>> ", storedTagsInfo);
 
 export let mapOfTags = [];
 export let extensionStorage;

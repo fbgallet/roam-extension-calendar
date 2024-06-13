@@ -47,6 +47,20 @@ In the calendar header, you have the following options:
   - simple `drag and drop` to copy: a copy of the original block will be inserted as child of the calendar tag and a corresponding event will be created
   - press `Shift` to move: the original block will be moved as child of the calendar tag in the corresponding DNP
   - press `Control` or `Command` to reference: a block reference to the the original block will be created
+- In timegrid views (week or day), events with a timestamp can be
+  - `drag and drop` to move them to another time slot
+  - lengthen or shorten by placing the cursor at the top or bottom of the event to drag its start time or end time to a new schedule.
+
+## Handle events with timestamp and duration
+
+If the block contain a timestamp, the corresponding event will automatically have a start time and, by default, one-hour duration. A timestamp has to be in 24h format, e.g. `14:00`, `14h`, `9:05`, `9:5`, `9h05`, etc. (only `:` and `h` are supported as separator between hours and minutes).
+
+To define a duration you can:
+
+- add another timestamp avec the `-` serator, to define a range. E.g.: `14:00 - 15:30`
+- add a duration in minutes or hours, in the following format: `90m`, `2h`.The duration has to be placed after the timestamp in the block.
+
+In the settings, you can change how timestamps are displayed in the calendar, including choosing a 12-hour display. However, currently, the input entry must be in 24-hour format.
 
 ## Tags
 
@@ -58,11 +72,10 @@ In the calendar header, you have the following options:
 - By clicking on the right cross (or star), all tags will be unselected (or selected)
 - You can change the logic: by defaylt ('Or' logic) all the events containing at least one of the tags will be displayed. For more precision, if you want to display only events that contain all the selected tags (e.g. important AND due date), choose the 'And' logic.
 
-**The selected tags' state (colors and chosen tags as filters) is retained from one session to another (in the browser's memory).**
+**The selected tags' state (colors and choosen tags as filters) is retained from one session to another, and separately for the main page and the sidebar concerning the choosen tags.**
 
 ## Future developments
 
-- Events with start and end time.
 - Events spanning multiple days.
 - Import from Google calendar.
 - Filter content with any page title
