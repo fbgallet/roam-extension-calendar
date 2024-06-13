@@ -3,15 +3,13 @@ import { Colors } from "@blueprintjs/core";
 import { EventTag, deleteTagByName, getTagFromName } from "./models/EventTag";
 import { getTrimedArrayFromList } from "./util/data";
 import {
-  handleClickOnCalendarBtn,
+  addListeners,
+  connectObservers,
+  disconnectObserver,
   handleRightClickOnCalendarBtn,
-  onDragStart,
+  removeListeners,
 } from "./util/roamDom";
 import { alphanumRegex } from "./util/regex";
-
-export const calendarBtnElt = document.querySelector(
-  "button:has(span[icon='calendar'])"
-)?.parentElement?.parentElement;
 
 export let mapOfTags = [];
 export let extensionStorage;
@@ -208,27 +206,6 @@ const updateTagPagesWithUserList = (tagName, pageList) => {
   } else tag.updatePages(getTrimedArrayFromList(pageList));
 };
 
-const addListeners = () => {
-  removeListeners();
-  document.addEventListener("dragstart", onDragStart);
-  calendarBtnElt.addEventListener("contextmenu", (e) => {
-    handleRightClickOnCalendarBtn(e);
-  });
-  calendarBtnElt.addEventListener("click", handleClickOnCalendarBtn);
-  if (window.roamAlphaAPI.platform.isTouchDevice)
-    calendarBtnElt.addEventListener("touchend", handleClickOnCalendarBtn);
-};
-
-const removeListeners = () => {
-  document.removeEventListener("dragstart", onDragStart);
-  calendarBtnElt.removeEventListener("contextmenu", (e) => {
-    handleRightClickOnCalendarBtn(e);
-  });
-  calendarBtnElt.removeEventListener("click", handleClickOnCalendarBtn);
-  if (window.roamAlphaAPI.platform.isTouchDevice)
-    calendarBtnElt.addEventListener("touchend", handleClickOnCalendarBtn);
-};
-
 const initializeMapOfTags = () => {
   if (userTags) updageUserTags(userTags);
   mapOfTags.push(
@@ -407,18 +384,18 @@ export default {
       },
     });
 
-    // addObserver();
-
-    addListeners();
     initializeMapOfTags();
+    setTimeout(() => {
+      connectObservers();
+      addListeners();
+    }, 500);
     // console.log("mapOfTags :>> ", mapOfTags);
 
     console.log("Full Calendar extension loaded.");
     //return;
   },
   onunload: () => {
-    // disconnectObserver();
-
+    disconnectObserver();
     removeListeners();
 
     console.log("Full Calendar extension unloaded");

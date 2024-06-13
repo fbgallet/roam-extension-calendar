@@ -1,5 +1,11 @@
-import { calendarBtnElt } from "..";
 import { renderApp, unmountApp } from "../components/App";
+
+let runningCount = 0;
+
+export const getCalendarButtonElt = () => {
+  return document.querySelector("button:has(span[icon='calendar'])")
+    ?.parentElement?.parentElement;
+};
 
 export const getFocusedDateInDatepicker = (clickEvt) => {
   let periodType, firstDay;
@@ -21,75 +27,57 @@ export const getFocusedDateInDatepicker = (clickEvt) => {
   return { periodType, initialDate: new Date(firstDay) };
 };
 
-export const handleRightClickOnCalendarBtn = (e, isCommand) => {
-  !isCommand && e.preventDefault();
-  !isCommand && e.stopPropagation();
-  let appWrapper;
-  let inSidebar = false;
-  const periodFromDatepicker = isCommand ? null : getFocusedDateInDatepicker(e);
-  if (e && e.shiftKey) {
-    window.roamAlphaAPI.ui.rightSidebar.open();
-    inSidebar = true;
-    appWrapper = document.querySelector(".full-calendar-comp.fc-sidebar");
-  } else {
-    const parentElt = document.querySelector(".rm-article-wrapper");
-    if (parentElt) appWrapper = parentElt.querySelector(".full-calendar-comp");
-  }
-  if (!appWrapper || periodFromDatepicker) {
-    setTimeout(
-      () => {
-        if (appWrapper && periodFromDatepicker) unmountApp(appWrapper);
-        renderApp(inSidebar, periodFromDatepicker);
-      },
-      inSidebar && !document.querySelector("#roam-right-sidebar-content")
-        ? 250
-        : 0
-    );
-  } else {
-    setTimeout(
-      () => {
-        unmountApp(appWrapper);
-      },
-      inSidebar && !document.querySelector("#roam-right-sidebar-content")
-        ? 250
-        : 100
-    );
-  }
-  const datePickerElt = document.querySelector(".bp3-datepicker");
-  if (datePickerElt)
-    simulateClick(calendarBtnElt, window.roamAlphaAPI.platform.isTouchDevice);
-  //datePickerElt.parentElement.parentElement.remove();
-};
-
-export const handleClickOnCalendarBtn = (e) => {
+export const handleRightClickOnCalendarBtn = (e, isCommand, timeout = 0) => {
   setTimeout(() => {
-    let fcButton = document.querySelector(".fc-open-button");
-    if (!fcButton) {
-      fcButton = document.createElement("div");
-      fcButton.classList.add("fc-open-button");
-      fcButton.innerText = "Open Full Calendar";
-      fcButton.setAttribute("title", "Click + shift to open in sidebar");
-      const datePickerElt = document.querySelector(".bp3-datepicker");
-      if (!datePickerElt) return;
-      datePickerElt.appendChild(fcButton);
-      fcButton.addEventListener(
-        "click",
-        (e) => handleRightClickOnCalendarBtn(e, true),
-        {
-          once: true,
-        }
-      );
-      if (window.roamAlphaAPI.platform.isTouchDevice) {
-        fcButton.addEventListener(
-          "touchend",
-          (e) => handleRightClickOnCalendarBtn(e, true),
-          {
-            once: true,
-          }
-        );
-      }
+    runningCount++;
+    if (runningCount > 1) {
+      runningCount = 0;
+      return;
     }
-  }, 100);
+    !isCommand && e.preventDefault();
+    // !isCommand && e.stopPropagation();
+    let appWrapper;
+    let inSidebar = false;
+    const periodFromDatepicker = isCommand
+      ? null
+      : getFocusedDateInDatepicker(e);
+    if (e && e.shiftKey) {
+      window.roamAlphaAPI.ui.rightSidebar.open();
+      inSidebar = true;
+      appWrapper = document.querySelector(".full-calendar-comp.fc-sidebar");
+    } else {
+      const parentElt = document.querySelector(".rm-article-wrapper");
+      if (parentElt)
+        appWrapper = parentElt.querySelector(".full-calendar-comp");
+    }
+    if (!appWrapper || periodFromDatepicker) {
+      setTimeout(
+        () => {
+          if (appWrapper && periodFromDatepicker) unmountApp(appWrapper);
+          renderApp(inSidebar, periodFromDatepicker);
+        },
+        inSidebar && !document.querySelector("#roam-right-sidebar-content")
+          ? 250
+          : 0
+      );
+    } else {
+      setTimeout(
+        () => {
+          unmountApp(appWrapper);
+        },
+        inSidebar && !document.querySelector("#roam-right-sidebar-content")
+          ? 250
+          : 100
+      );
+    }
+    const datePickerElt = document.querySelector(".bp3-datepicker");
+    const buttonElt = getCalendarButtonElt();
+    if (datePickerElt)
+      simulateClick(buttonElt, window.roamAlphaAPI.platform.isTouchDevice);
+    setTimeout(() => {
+      runningCount = 0;
+    }, 500);
+  }, timeout);
 };
 
 export const onDragStart = (event) => {
@@ -120,4 +108,89 @@ function simulateClick(el, isTouch) {
     el.dispatchEvent(new MouseEvent("touchstart", options));
     el.dispatchEvent(new MouseEvent("touchend", options));
   }
+}
+
+export const addListeners = () => {
+  removeListeners();
+  const calendarBtnElt = getCalendarButtonElt();
+  document.addEventListener("dragstart", onDragStart);
+  calendarBtnElt.addEventListener("contextmenu", (e) => {
+    handleRightClickOnCalendarBtn(e);
+  });
+};
+
+export const removeListeners = () => {
+  const calendarBtnElt = getCalendarButtonElt();
+  document.removeEventListener("dragstart", onDragStart);
+  calendarBtnElt.removeEventListener("contextmenu", (e) => {
+    handleRightClickOnCalendarBtn(e);
+  });
+};
+
+let runners = {
+  observers: [],
+};
+
+export function connectObservers() {
+  addObserver(
+    document.querySelector(".rm-topbar"),
+    onCalendarClick,
+    {
+      childList: true,
+      subtree: true,
+    },
+    "calendar"
+  );
+}
+
+function addObserver(element, callback, options, name) {
+  let myObserver = new MutationObserver(callback);
+  myObserver.observe(element, options);
+
+  runners[name] = [myObserver];
+}
+export function disconnectObserver(name) {
+  if (runners[name])
+    for (let index = 0; index < runners[name].length; index++) {
+      const element = runners[name][index];
+      element.disconnect();
+    }
+}
+
+function onCalendarClick(mutation) {
+  setTimeout(() => {
+    if (
+      mutation[0].target?.className === "bp3-datepicker-caption" &&
+      mutation[0].addedNodes[0]?.className === "bp3-datepicker-caption-measure"
+    ) {
+      setTimeout(() => {
+        let fcButton = document.querySelector(".fc-open-button");
+        if (!fcButton) {
+          fcButton = document.createElement("div");
+          fcButton.classList.add("fc-open-button");
+          fcButton.innerText = "Open Full Calendar";
+          fcButton.setAttribute("title", "Click + shift to open in sidebar");
+          const datePickerElt = document.querySelector(".bp3-datepicker");
+          if (!datePickerElt) return;
+          datePickerElt.appendChild(fcButton);
+          fcButton.addEventListener(
+            "click",
+            (e) => handleRightClickOnCalendarBtn(e, true, 50),
+            {
+              once: true,
+            }
+          );
+          if (window.roamAlphaAPI.platform.isTouchDevice) {
+            fcButton.addEventListener(
+              "touchend",
+              (e) => handleRightClickOnCalendarBtn(e, true, 100),
+              {
+                once: true,
+              }
+            );
+          }
+        }
+      }, 100);
+    }
+  }, 50);
 }
