@@ -23,6 +23,10 @@
 .full-calendar-comp .fc .fc-header-toolbar.fc-toolbar > div:last-child > div {
   font-size: small;
 }
+.full-calendar-comp .fc .fc-timegrid-slot-label-cushion,
+.full-calendar-comp .fc .fc-timegrid-axis-cushion {
+  font-size: small;
+}
 
 .full-calendar-comp .fc .fc-daygrid-day-number {
   padding-top: 2px;
@@ -439,6 +443,10 @@
   padding-top: 2px;
   padding-bottom: 1px;
 }
+.full-calendar-comp.fc-sidebar .fc .fc-timegrid-slot-label-cushion,
+.full-calendar-comp.fc-sidebar .fc .fc-timegrid-axis-cushion {
+  font-size: smaller;
+}
 .full-calendar-comp.fc-sidebar .fc .fc-daygrid-week-number {
   opacity: 0.6;
   font-size: x-small;
@@ -514,7 +522,7 @@
 .fc-sidebar .fc-scrollgrid-section-header {
   font-size: x-small;
 }
-.fc-sidebar .fc-event-content {
+.fc-sidebar:not(:has(.fc-timeGridDay-view)) .fc-event-content {
   font-size: x-small;
 }
 .fc-sidebar .fc a[data-navlink] {
@@ -534,6 +542,10 @@
   .full-calendar-comp .fc .fc-daygrid-day-number {
     padding-top: 2px;
     padding-bottom: 1px;
+  }
+  .full-calendar-comp .fc .fc-timegrid-slot-label-cushion,
+  .full-calendar-comp .fc .fc-timegrid-axis-cushion {
+    font-size: small;
   }
   .full-calendar-comp .fc .fc-daygrid-week-number {
     opacity: 0.6;
@@ -602,7 +614,7 @@
   .full-calendar-comp .fc-scrollgrid-section-header {
     font-size: x-small;
   }
-  .full-calendar-comp .fc-event-content {
+  .full-calendar-comp:not(:has(.fc-timeGridDay-view)) .fc-event-content {
     font-size: x-small;
   }
   .full-calendar-comp .fc a[data-navlink] {
@@ -656,6 +668,10 @@
   .full-calendar-comp .fc-event-content {
     font-size: xx-small;
   }
+  .full-calendar-comp:has(.fc-timeGridDay-view) .fc-event-content {
+    font-size: small;
+  }
+
   .full-calendar-comp .fc a[data-navlink] {
     font-size: x-small;
   }
