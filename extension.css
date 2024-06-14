@@ -109,7 +109,7 @@
   padding-right: 0.6em;
 }
 
-.bp3-datepicker {
+.rm-topbar .bp3-datepicker {
   flex-direction: column;
 }
 .fc-open-button {

@@ -177,9 +177,20 @@ const MultiSelectFilter = ({
     handleTagSelect(tagToRemove);
   };
 
-  const handleClickOnTag = (e) => {
+  const handleClickOnTag = (e, tag) => {
     e.stopPropagation();
     if (popoverToOpen) return;
+    if (e.shiftKey && (e.metaKey || e.ctrlKey)) {
+      window.roamAlphaAPI.ui.rightSidebar.addWindow({
+        window: { type: "mentions", "block-uid": tag.uids[0] },
+      });
+      return;
+    } else if (e.shiftKey) {
+      window.roamAlphaAPI.ui.rightSidebar.addWindow({
+        window: { type: "outline", "block-uid": tag.uids[0] },
+      });
+      return;
+    }
     setTimeout(() => {
       if (doubleClick.current) {
         return;
@@ -263,7 +274,7 @@ const MultiSelectFilter = ({
               },
               interactive: true,
               className: tag.color === "transparent" ? "fc-tag-notag" : null,
-              onClick: handleClickOnTag,
+              onClick: (e) => handleClickOnTag(e, tag),
               onDoubleClick: handleDoubleClickOnTag,
             };
           },

@@ -194,8 +194,12 @@ function onCalendarClick(mutation) {
     } else if (
       mutation[0].nextSibling?.className === "rm-topbar__spacer-sm" ||
       (mutation[0].removedNodes[0]?.className === "rm-topbar__spacer-sm" &&
-        mutation[0].previousSibling === null)
+        mutation[0].previousSibling?.className !== "bp3-popover-wrapper") ||
+      //  with Yesterday & Tomorrow extsion
+      (mutation[0].nextSibling?.className === "rm-topbar__left-spacer" &&
+        mutation[0].previousSibling?.className === "rm-topbar__spacer-sm")
     ) {
+      // console.log("Left Sidebar opened/closed");
       addListeners();
     }
   }, 50);
