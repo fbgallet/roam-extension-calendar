@@ -447,7 +447,7 @@ const Calendar = ({
         ]}
         eventContent={(info, jsEvent) => renderEventContent(info, jsEvent)}
         eventClick={(info) => {
-          info.jsEvent.preventDefault();
+          // info.jsEvent.preventDefault();
           if (info.jsEvent.shiftKey) {
             window.roamAlphaAPI.ui.rightSidebar.addWindow({
               window: { type: "block", "block-uid": info.event.id },

@@ -336,8 +336,6 @@ export default {
     extensionStorage = extensionAPI.settings;
     storedTagsInfo = JSON.parse(extensionStorage.get("fc-tags-info"));
 
-    extensionStorage.panel.create(panelConfig);
-
     if (extensionStorage.get("calendarTag") === null)
       await extensionStorage.set("calendarTag", "calendar");
     calendarTag = new EventTag({
@@ -350,9 +348,9 @@ export default {
     if (extensionStorage.get("doingTag") === null)
       await extensionStorage.set("doingTag", "doing");
     if (extensionStorage.get("doTag") === null)
-      await extensionStorage.set("doTag", "do");
+      await extensionStorage.set("doTag", "do date");
     if (extensionStorage.get("dueTag") === null)
-      await extensionStorage.set("dueTag", "due");
+      await extensionStorage.set("dueTag", "due date");
     if (extensionStorage.get("userTags") === null)
       await extensionStorage.set("userTags", "");
     if (extensionStorage.get("timeFormat") === null)
@@ -370,6 +368,8 @@ export default {
     if (extensionStorage.get("weekTimegrid") === null)
       await extensionStorage.set("weekTimegrid", true);
     timeGrid.week = extensionStorage.get("weekTimegrid");
+
+    extensionStorage.panel.create(panelConfig);
 
     extensionAPI.ui.commandPalette.addCommand({
       label: "Full Calendar: Display/Hide in main window",
