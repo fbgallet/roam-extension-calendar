@@ -9,6 +9,7 @@ export class EventTag {
     isToDisplay = true,
     isToDisplayInSb = true,
     isUserDefined = false,
+    isTemporary = false,
   }) {
     this.name = name;
     this.pages = pages.length ? pages : [name];
@@ -17,6 +18,7 @@ export class EventTag {
     this.isToDisplay = isToDisplay;
     this.isToDisplayInSb = isToDisplayInSb;
     this.isUserDefined = isUserDefined;
+    this.isTemporary = isTemporary;
   }
   setColor(color) {
     this.color = color;

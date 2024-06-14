@@ -93,12 +93,14 @@ const Calendar = ({
     extensionStorage.set(
       "fc-tags-info",
       JSON.stringify(
-        mapOfTags.map((tag) => ({
-          name: tag.name,
-          color: tag.color,
-          isToDisplay: tag.isToDisplay,
-          isToDisplayInSb: tag.isToDisplayInSb,
-        }))
+        mapOfTags
+          .filter((tag) => !tag.isTemporary)
+          .map((tag) => ({
+            name: tag.name,
+            color: tag.color,
+            isToDisplay: tag.isToDisplay,
+            isToDisplayInSb: tag.isToDisplayInSb,
+          }))
       )
     );
   }, [tagsToDisplay]);

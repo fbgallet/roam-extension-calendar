@@ -1,5 +1,6 @@
 import {
   Classes,
+  Colors,
   HTMLSelect,
   Icon,
   MenuItem,
@@ -13,6 +14,7 @@ import { calendarTag, mapOfTags } from "..";
 import ColorPicker from "./ColorPicker";
 import { unmountApp } from "./App";
 import { saveViewSetting } from "../util/data";
+import { EventTag } from "../models/EventTag";
 
 const MultiSelectFilter = ({
   tagsToDisplay,
@@ -45,20 +47,27 @@ const MultiSelectFilter = ({
   }, []);
 
   const handleTagSelect = (tag) => {
-    if (
-      !tagsToDisplay.some(
-        (tagToDisplay) => tagToDisplay.pages[0] === tag.pages[0]
-      )
-    ) {
-      tag.display(isInSidebar);
-      setTagsToDisplay([...tagsToDisplay, tag]);
+    // if new tag
+    if (!mapOfTags.find((existingTag) => existingTag.name === tag.name)) {
+      mapOfTags.push(tag);
+      setTagsToDisplay((prev) => [...prev, tag]);
+      isDataToReload.current = true;
     } else {
-      tag.hide(isInSidebar);
-      setTagsToDisplay([
-        ...tagsToDisplay.filter(
-          (tagToDisplay) => tagToDisplay.pages[0] !== tag.pages[0]
-        ),
-      ]);
+      if (
+        !tagsToDisplay.some(
+          (tagToDisplay) => tagToDisplay.pages[0] === tag.pages[0]
+        )
+      ) {
+        tag.display(isInSidebar);
+        setTagsToDisplay([...tagsToDisplay, tag]);
+      } else {
+        tag.hide(isInSidebar);
+        setTagsToDisplay([
+          ...tagsToDisplay.filter(
+            (tagToDisplay) => tagToDisplay.pages[0] !== tag.pages[0]
+          ),
+        ]);
+      }
     }
     isDataToFilterAgain.current = true;
     setQueryStr("");
@@ -214,6 +223,17 @@ const MultiSelectFilter = ({
     }, 600);
   };
 
+  const handleCreateNewTag = (query) => {
+    if (!query.trim()) return;
+    const newTag = new EventTag({
+      name: query,
+      color: Colors.GRAY3,
+      isUserDefined: true,
+      isTemporary: true,
+    });
+    return newTag;
+  };
+
   return (
     <div className="fc-filters">
       <MultiSelect
@@ -287,6 +307,17 @@ const MultiSelectFilter = ({
             page.toLowerCase().includes(query.toLowerCase())
           );
         }}
+        createNewItemFromQuery={handleCreateNewTag}
+        createNewItemRenderer={(query, active, handleClick) => (
+          <MenuItem
+            icon="add"
+            text={`Add: ${query}`}
+            roleStructure="listoption"
+            active={active}
+            onClick={handleClick}
+            shouldDismissPopover={false}
+          />
+        )}
       />
       <div className="fc-options-section">
         <Tooltip
