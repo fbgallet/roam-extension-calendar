@@ -270,6 +270,11 @@ const MultiSelectFilter = ({
                 }}
                 onChange={(evt) => {
                   setFilterLogic(evt.currentTarget.value);
+                  saveViewSetting(
+                    "fc-filterLogic",
+                    evt.currentTarget.value,
+                    isInSidebar
+                  );
                 }}
               />
               {tagsToDisplay.length > 0 ? (

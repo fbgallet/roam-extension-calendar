@@ -50,7 +50,9 @@ const Calendar = ({
   const [forceToReload, setForceToReload] = useState(false);
   const [position, setPosition] = useState({ x: null, y: null });
 
-  const [filterLogic, setFilterLogic] = useState("Or");
+  const [filterLogic, setFilterLogic] = useState(
+    initialSettings.logic !== null ? initialSettings.logic : "Or"
+  );
   const [tagsToDisplay, setTagsToDisplay] = useState(
     mapOfTags.filter((tag) => tag["isToDisplay" + (isInSidebar ? "InSb" : "")])
   );

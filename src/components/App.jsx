@@ -29,6 +29,7 @@ export function renderApp(inSidebar, periodFromDatepicker) {
   if (!inSidebar) calendarElt.scrollIntoView();
   const sidebarSuffix = inSidebar ? "-sb" : "";
   const initialSettings = {
+    logic: extensionStorage.get("fc-filterLogic" + sidebarSuffix),
     dnp: extensionStorage.get("fc-isEntireDNP" + sidebarSuffix),
     refs: extensionStorage.get("fc-isIncludingRefs" + sidebarSuffix),
     we: extensionStorage.get("fc-isWEtoDisplay" + sidebarSuffix),
