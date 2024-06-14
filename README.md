@@ -66,7 +66,7 @@ In the settings, you can change how timestamps are displayed in the calendar, in
 
 - Default tags are TODO, DONE, important, do date, due date, doing
 - You can specify the correspoding page title for each of them (except for TODO & DONE), and add aliases.
-- You can specify your own tags.
+- You can specify your own tags, permanently in the extension settings, temporary directly in the filter input (type some page title and press on "Add: <your tag>". Temporary tag will be removed from the tag list if you refresh your Roam graph.
 - By clicking on a tag, you can change it's color.
 - By double-clicking on a tag, it will be selected as the only filter tag.
 - By clicking on the right cross (or star), all tags will be unselected (or selected)
