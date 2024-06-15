@@ -6,7 +6,7 @@
 
 ## Open the calendar view
 
-- Click on the native calendar icon, then on `Open Full Calendar` button, under the datepicker (only way to open it on mobile), to open it at the top of the main view,
+- Click on the native calendar icon, then on `Toggle Full Calendar` button, under the datepicker (only way to open it on mobile), to open it at the top of the main view,
 - or `Right click` on the native calendar icon.
 - `Shift + Right click` on calendar icon or on 'Open Full calendar' button to open it in the sidebar.
 

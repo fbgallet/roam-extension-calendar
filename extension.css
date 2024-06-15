@@ -10,6 +10,10 @@
   height: 100%;
 }
 
+.full-calendar-comp .fc-multimonth-daygrid {
+  background-color: transparent;
+}
+
 .fc-event-content {
   font-size: 12px;
 }
@@ -51,7 +55,7 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  background: var(--fc-page-bg-color);
+  background: var(--bc-app, --fc-page-bg-color);
 }
 .full-calendar-comp.fc-sticky > div {
   height: 100%;

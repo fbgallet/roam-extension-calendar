@@ -54,3 +54,9 @@ export function deleteTagByName(name) {
   clone.splice(tagIndex, 1);
   return clone;
 }
+
+export function refreshTagsUids() {
+  mapOfTags.forEach((tag) => {
+    if (tag.uids.some((uid) => uid === null)) tag.updateUids();
+  });
+}

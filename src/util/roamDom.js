@@ -168,7 +168,7 @@ function onCalendarClick(mutation) {
         if (!fcButton) {
           fcButton = document.createElement("div");
           fcButton.classList.add("fc-open-button");
-          fcButton.innerText = "Open Full Calendar";
+          fcButton.innerText = "Toggle Full Calendar";
           fcButton.setAttribute("title", "Click + shift to open in sidebar");
           const datePickerElt = document.querySelector(".bp3-datepicker");
           if (!datePickerElt) return;

@@ -32,7 +32,11 @@ import {
   timeFormat,
   timeGrid,
 } from "..";
-import { getTagColorFromName, getTagFromName } from "../models/EventTag";
+import {
+  getTagColorFromName,
+  getTagFromName,
+  refreshTagsUids,
+} from "../models/EventTag";
 
 let events = [];
 let filteredEvents = [];
@@ -235,6 +239,7 @@ const Calendar = ({
     viewRange.current.end = info.end;
 
     if (isDataToReload.current) {
+      refreshTagsUids();
       events = await getBlocksToDisplayFromDNP(
         info.start,
         info.end,
