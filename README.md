@@ -6,9 +6,8 @@
 
 ## Open the calendar view
 
-- Click on the native calendar icon, then on `Toggle Full Calendar` button, under the datepicker (only way to open it on mobile), to open it at the top of the main view,
-- or `Right click` on the native calendar icon.
-- `Shift + Right click` on calendar icon or on 'Open Full calendar' button to open it in the sidebar.
+- Click on the native calendar icon, then on `Toggle Full Calendar` button, under the datepicker (only way to open it on mobile), to open it at the top of the main view, or `Shift + Click` to open it in the right sidebar,
+- or `Right click` on the native calendar icon, or `Shift + Right click` to open Full Calendar in the right sidebar.
 
 The same action close the corresponding Full Calendar component. You can also use `Display/Hide in [main window or sidebar]` commands in Roam Command palette.
 
@@ -57,7 +56,7 @@ If the block contain a timestamp, the corresponding event will automatically hav
 
 To define a duration you can:
 
-- add another timestamp avec the `-` serator, to define a range. E.g.: `14:00 - 15:30`
+- add another timestamp with `-` serator, to define a range. E.g.: `14:00 - 15:30`
 - add a duration in minutes or hours, in the following format: `90m`, `2h`.The duration has to be placed after the timestamp in the block.
 
 In the settings, you can change how timestamps are displayed in the calendar, including choosing a 12-hour display. However, currently, the input entry must be in 24-hour format.
@@ -78,10 +77,11 @@ In the settings, you can change how timestamps are displayed in the calendar, in
 
 - Events spanning multiple days.
 - Import from Google calendar.
-- Filter content with any page title
 - ...
 
-If you want to encourage me to develop further and enhance this extension, you can [buy me a coffee ☕ here](https://buymeacoffee.com/fbgallet). Thanks in advance for your support! 🙏
+## Support my work
+
+This extension represents a significant amount of work. If you want to encourage me to develop further and enhance it, you can [buy me a coffee ☕ here](https://buymeacoffee.com/fbgallet). Thanks in advance for your support! 🙏
 
 ---
 

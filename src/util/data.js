@@ -10,7 +10,7 @@ import {
   parseRange,
   strictTimestampRegex,
 } from "./dates";
-import { dnpUidRegex } from "./regex";
+import { dnpUidRegex, untilDateRegex } from "./regex";
 import {
   createChildBlock,
   deleteBlockIfNoChild,
@@ -89,7 +89,12 @@ const filterTreeToGetEvents = (
   function processTreeRecursively(tree, isCalendarTree) {
     for (let i = 0; i < tree.length; i++) {
       let isCalendarParent = false;
-      if (/*!isRef && */ tree[i].refs && isReferencingDNP(tree[i].refs, dnpUid))
+      if (
+        !isCalendarTree &&
+        isRef && // shouldn't be !isRef  ?????
+        tree[i].refs &&
+        isReferencingDNP(tree[i].refs, dnpUid)
+      )
         continue;
       let matchingTags = getMatchingTags(
         mapToInclude,
@@ -102,15 +107,29 @@ const filterTreeToGetEvents = (
         if (!isCalendarTree && matchingTags[0].name === calendarTag.name)
           isCalendarParent = true;
         else {
+          let title = tree[i].string;
           if (!isCalendarTree && onlyCalendarTag) continue;
+          let untilDate;
+          if (isCalendarTree || isRef) {
+            const matchingUntilDate = tree[i].string.match(untilDateRegex);
+            if (matchingUntilDate.length) {
+              if (isRef) continue;
+              untilDate = matchingUntilDate[1];
+              title = title.replace(matchingUntilDate[0], "").trim();
+              untilDate = window.roamAlphaAPI.util.pageTitleToDate(untilDate);
+              console.log("matchingUntilDate :>> ", untilDate);
+              untilDate = untilDate.setDate(untilDate.getDate() + 1);
+            }
+          }
           events.push(
             parseEventObject(
               {
                 id: tree[i].uid,
-                title: resolveReferences(tree[i].string),
+                title: resolveReferences(title),
                 date: dateString,
-                matchingTags: matchingTags,
-                isRef: isRef,
+                untilDate,
+                matchingTags,
+                isRef,
               },
               isCalendarTree,
               isTimeGrid
@@ -142,7 +161,7 @@ export const getMatchingTags = (mapOfTags, refUidArray) => {
 };
 
 export const parseEventObject = (
-  { id, title, date, matchingTags, isRef = false },
+  { id, title, date, untilDate, matchingTags, isRef = false },
   isCalendarTree = true,
   isTimeGrid = true
 ) => {
@@ -190,10 +209,11 @@ export const parseEventObject = (
     title: prefix + title,
     // date,
     start: hasTime ? `${date}T${range.start}` : date,
-    end:
-      hasTime && (range.end || endDate)
-        ? endDate || `${date}T${range.end}`
-        : null,
+    end: untilDate
+      ? untilDate
+      : hasTime && (range.end || endDate)
+      ? endDate || `${date}T${range.end}`
+      : null,
     classNames: classNames,
     extendedProps: { eventTags: matchingTags, isRef: isRef },
     color: backgroundColorDisplayed,
