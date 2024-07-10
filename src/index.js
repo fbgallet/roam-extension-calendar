@@ -9,7 +9,7 @@ import {
   handleRightClickOnCalendarBtn,
   removeListeners,
 } from "./util/roamDom";
-import { alphanumRegex } from "./util/regex";
+import { notNullOrCommaRegex } from "./util/regex";
 
 export let mapOfTags = [];
 export let extensionStorage;
@@ -190,7 +190,7 @@ const updateStoredView = (period, isTimeGrid, suffix = "") => {
 };
 
 const updateTagPagesWithUserList = (tagName, pageList) => {
-  if (!alphanumRegex.test(pageList)) {
+  if (!notNullOrCommaRegex.test(pageList)) {
     mapOfTags = deleteTagByName(tagName);
     return;
   }
@@ -223,7 +223,7 @@ const initializeMapOfTags = () => {
     })
   );
   let tagPagesList = extensionStorage.get("importantTag");
-  if (alphanumRegex.test(tagPagesList))
+  if (notNullOrCommaRegex.test(tagPagesList))
     mapOfTags.push(
       new EventTag({
         name: "important",
@@ -233,7 +233,7 @@ const initializeMapOfTags = () => {
       })
     );
   tagPagesList = extensionStorage.get("doTag");
-  if (alphanumRegex.test(tagPagesList))
+  if (notNullOrCommaRegex.test(tagPagesList))
     mapOfTags.push(
       new EventTag({
         name: "do",
@@ -243,7 +243,7 @@ const initializeMapOfTags = () => {
       })
     );
   tagPagesList = extensionStorage.get("dueTag");
-  if (alphanumRegex.test(tagPagesList))
+  if (notNullOrCommaRegex.test(tagPagesList))
     mapOfTags.push(
       new EventTag({
         name: "due",
@@ -253,7 +253,7 @@ const initializeMapOfTags = () => {
       })
     );
   tagPagesList = extensionStorage.get("doingTag");
-  if (alphanumRegex.test(tagPagesList))
+  if (notNullOrCommaRegex.test(tagPagesList))
     mapOfTags.push(
       new EventTag({
         name: "doing",
@@ -270,7 +270,7 @@ const initializeMapOfTags = () => {
   //   })
   // );
   const userTags = extensionStorage.get("userTags");
-  if (alphanumRegex.test(userTags)) updageUserTags(userTags);
+  if (notNullOrCommaRegex.test(userTags)) updageUserTags(userTags);
   mapOfTags.push(calendarTag);
 };
 
@@ -389,7 +389,7 @@ export default {
       connectObservers();
       addListeners();
     }, 500);
-    // console.log("mapOfTags :>> ", mapOfTags);
+    console.log("mapOfTags :>> ", mapOfTags);
 
     console.log("Full Calendar extension loaded.");
     //return;

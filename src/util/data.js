@@ -100,6 +100,7 @@ const filterTreeToGetEvents = (
         mapToInclude,
         tree[i].refs?.map((ref) => ref.uid)
       );
+      console.log("matchingTags :>> ", matchingTags);
       if (
         isCalendarTree ||
         (tree[i].refs?.length > 0 && matchingTags.length > 0)
@@ -111,8 +112,9 @@ const filterTreeToGetEvents = (
           if (!isCalendarTree && onlyCalendarTag) continue;
           let untilDate;
           if (isCalendarTree || isRef) {
-            const matchingUntilDate = tree[i].string.match(untilDateRegex);
-            if (matchingUntilDate.length) {
+            const matchingUntilDate = title.match(untilDateRegex);
+            console.log("matchingUntilDate :>> ", matchingUntilDate);
+            if (matchingUntilDate && matchingUntilDate.length) {
               if (isRef) continue;
               untilDate = matchingUntilDate[1];
               title = title.replace(matchingUntilDate[0], "").trim();
