@@ -115,7 +115,9 @@ const filterTreeToGetEvents = (
           if (isCalendarTree || isRef) {
             const until = getUntilDate(title);
             if (until) {
-              if (isRef) continue;
+              if (isRef) {
+                if (dateString === dateToISOString(until.date)) continue;
+              }
               title = title.replace(until.matchingStr, "").trim();
               untilDate = addDaysToDate(until.date, 1);
             }
@@ -416,7 +418,7 @@ const getUntilDate = (str) => {
   let untilDate = null;
   const matchingUntilDate = str.match(untilDateRegex);
   if (matchingUntilDate && matchingUntilDate.length) {
-    const untilDateStr = matchingUntilDate[1];
+    const untilDateStr = matchingUntilDate[2];
     untilDate = window.roamAlphaAPI.util.pageTitleToDate(untilDateStr);
     return {
       matchingStr: matchingUntilDate[0],
@@ -436,8 +438,6 @@ export const updateUntilDate = async (event, isToAddIfAbsent = true) => {
   );
   const until = getUntilDate(blockContent);
   if (until) {
-    console.log("until.dateStr :>> ", until.dateStr);
-    console.log("untilDateStr :>> ", untilDateStr);
     blockContent =
       untilDateStr !==
       window.roamAlphaAPI.util.dateToPageTitle(new Date(event.start))

@@ -6,4 +6,4 @@ export const roamDateRegex =
 export const notNullOrCommaRegex = /^(?!\s*,*\s*$).+/;
 export const alphanumRegex = /^[\p{L}\p{N}\p{Emoji}]+$/u;
 export const untilDateRegex =
-  /until \[\[(\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s(?:1st|2nd|3rd|[4-9]th|1\d{1}th|2\d{1}th|30th|31st),\s\d{4}\b)\]\]/i;
+  /(until|to) \[\[(\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s(?:1st|2nd|3rd|[4-9]th|1\d{1}th|2\d{1}th|30th|31st),\s\d{4}\b)\]\]/i;
