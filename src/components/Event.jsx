@@ -226,7 +226,7 @@ const Event = ({
           popoverClassName="fc-event-tooltip"
         >
           <span>
-            {timeText ? <b>{timeText} </b> : ""}
+            {timeText && event.extendedProps.hasTime ? <b>{timeText} </b> : ""}
             {displayTitle}
           </span>
         </Tooltip>

@@ -1,5 +1,6 @@
 import { calendarTag, extensionStorage, mapOfTags } from "..";
 import {
+  addDaysToDate,
   dateToISOString,
   getDateAddingDurationToDate,
   getDistantDate,
@@ -100,7 +101,7 @@ const filterTreeToGetEvents = (
         mapToInclude,
         tree[i].refs?.map((ref) => ref.uid)
       );
-      console.log("matchingTags :>> ", matchingTags);
+
       if (
         isCalendarTree ||
         (tree[i].refs?.length > 0 && matchingTags.length > 0)
@@ -112,15 +113,11 @@ const filterTreeToGetEvents = (
           if (!isCalendarTree && onlyCalendarTag) continue;
           let untilDate;
           if (isCalendarTree || isRef) {
-            const matchingUntilDate = title.match(untilDateRegex);
-            console.log("matchingUntilDate :>> ", matchingUntilDate);
-            if (matchingUntilDate && matchingUntilDate.length) {
+            const until = getUntilDate(title);
+            if (until) {
               if (isRef) continue;
-              untilDate = matchingUntilDate[1];
-              title = title.replace(matchingUntilDate[0], "").trim();
-              untilDate = window.roamAlphaAPI.util.pageTitleToDate(untilDate);
-              console.log("matchingUntilDate :>> ", untilDate);
-              untilDate = untilDate.setDate(untilDate.getDate() + 1);
+              title = title.replace(until.matchingStr, "").trim();
+              untilDate = addDaysToDate(until.date, 1);
             }
           }
           events.push(
@@ -212,12 +209,12 @@ export const parseEventObject = (
     // date,
     start: hasTime ? `${date}T${range.start}` : date,
     end: untilDate
-      ? untilDate
+      ? dateToISOString(new Date(untilDate))
       : hasTime && (range.end || endDate)
       ? endDate || `${date}T${range.end}`
       : null,
     classNames: classNames,
-    extendedProps: { eventTags: matchingTags, isRef: isRef },
+    extendedProps: { eventTags: matchingTags, isRef: isRef, hasTime },
     color: backgroundColorDisplayed,
     display: "block",
     textColor:
@@ -413,4 +410,42 @@ export const filterEvents = (
       updateEventColor(evt.extendedProps.eventTags, tagsToDisplay) || evt.color;
     return evt;
   });
+};
+
+const getUntilDate = (str) => {
+  let untilDate = null;
+  const matchingUntilDate = str.match(untilDateRegex);
+  if (matchingUntilDate && matchingUntilDate.length) {
+    const untilDateStr = matchingUntilDate[1];
+    untilDate = window.roamAlphaAPI.util.pageTitleToDate(untilDateStr);
+    return {
+      matchingStr: matchingUntilDate[0],
+      dateStr: untilDateStr,
+      date: untilDate,
+    };
+  }
+  return null;
+};
+
+export const updateUntilDate = async (event, isToAddIfAbsent = true) => {
+  let blockContent = getBlockContentByUid(event.id);
+  const untilDate = event.end;
+  const untilDateExcluding = addDaysToDate(untilDate, -1);
+  const untilDateStr = window.roamAlphaAPI.util.dateToPageTitle(
+    new Date(untilDateExcluding)
+  );
+  const until = getUntilDate(blockContent);
+  if (until) {
+    console.log("until.dateStr :>> ", until.dateStr);
+    console.log("untilDateStr :>> ", untilDateStr);
+    blockContent =
+      untilDateStr !==
+      window.roamAlphaAPI.util.dateToPageTitle(new Date(event.start))
+        ? blockContent.replace(until.dateStr, untilDateStr)
+        : blockContent.replace(until.matchingStr, "").trim();
+  } else if (isToAddIfAbsent) {
+    blockContent += `\nuntil [[${untilDateStr}]]`;
+  }
+  console.log("blockContent :>> ", blockContent);
+  await updateBlock(event.id, blockContent);
 };

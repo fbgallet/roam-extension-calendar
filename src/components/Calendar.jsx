@@ -12,6 +12,7 @@ import {
   moveDroppedEventBlock,
   parseEventObject,
   updateTimestampsInBlock,
+  updateUntilDate,
 } from "../util/data";
 import { useState, useEffect, useRef } from "react";
 import Event from "./Event";
@@ -23,7 +24,7 @@ import {
   isExistingNode,
 } from "../util/roamApi";
 import NewEventDialog from "./NewEventDialog";
-import { dateToISOString, eventTimeFormats } from "../util/dates";
+import { dateToISOString, eventTimeFormats, getDayOfYear } from "../util/dates";
 import {
   extensionStorage,
   mapOfTags,
@@ -256,7 +257,7 @@ const Calendar = ({
         filterLogic,
         isInSidebar
       );
-      //console.log("Filtered events to display:>> ", filteredEvents);
+      console.log("Filtered events to display:>> ", filteredEvents);
     }
     return filteredEvents;
   };
@@ -271,6 +272,14 @@ const Calendar = ({
       events[evtIndex].start = info.event.start;
       events[evtIndex].end = info.event.end;
       await updateTimestampsInBlock(info.event, info.oldEvent);
+    }
+    // if is multiple days event
+    if (info.event.end) {
+      const startDayOfYear = getDayOfYear(info.event.start);
+      const endDayOfYear = getDayOfYear(info.event.end);
+      if (endDayOfYear - startDayOfYear !== 0) {
+        await updateUntilDate(info.event.end, false);
+      }
     }
 
     // if moved in the same day, doesn't need block move
@@ -318,9 +327,16 @@ const Calendar = ({
     setForceToReload((prev) => !prev);
   };
 
-  const handleEventResize = (info) => {
-    // console.log("info :>> ", info);
-    updateTimestampsInBlock(info.event);
+  const handleEventResize = async (info) => {
+    if (info.view.type.includes("Month") || info.view.type.includes("Year")) {
+      if (info.endDelta.days) await updateUntilDate(info.event);
+      else if (info.startDelta.days) {
+        if (!info.oldEvent.end) await updateUntilDate(info.event);
+        moveDroppedEventBlock(info.event);
+      }
+    } else {
+      updateTimestampsInBlock(info.event);
+    }
   };
 
   const parseGoogleCalendarEvent = (event) => {

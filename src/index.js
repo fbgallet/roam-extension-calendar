@@ -389,7 +389,6 @@ export default {
       connectObservers();
       addListeners();
     }, 500);
-    console.log("mapOfTags :>> ", mapOfTags);
 
     console.log("Full Calendar extension loaded.");
     //return;

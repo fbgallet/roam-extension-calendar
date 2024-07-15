@@ -99,3 +99,15 @@ export const getDurationInMin = (string) => {
 export const getDateAddingDurationToDate = (initialDate, duration) => {
   return new Date(initialDate.getTime() + duration * 60000);
 };
+
+export const addDaysToDate = (initialDate, days) => {
+  return initialDate.setDate(initialDate.getDate() + days);
+};
+
+export const getDayOfYear = (date) => {
+  const startOfYear = new Date(date.getFullYear(), 0, 1);
+  const diff = date - startOfYear;
+  const oneDay = 1000 * 60 * 60 * 24;
+  const dayOfYear = Math.floor(diff / oneDay) + 1;
+  return dayOfYear;
+};
