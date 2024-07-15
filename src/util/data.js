@@ -11,7 +11,7 @@ import {
   parseRange,
   strictTimestampRegex,
 } from "./dates";
-import { dnpUidRegex, untilDateRegex } from "./regex";
+import { dnpUidRegex, roamDateRegex, untilDateRegex } from "./regex";
 import {
   createChildBlock,
   deleteBlockIfNoChild,

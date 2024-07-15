@@ -275,10 +275,11 @@ const Calendar = ({
     }
     // if is multiple days event
     if (info.event.end) {
+      console.log("info.event.end :>> ", info.event.end);
       const startDayOfYear = getDayOfYear(info.event.start);
       const endDayOfYear = getDayOfYear(info.event.end);
       if (endDayOfYear - startDayOfYear !== 0) {
-        await updateUntilDate(info.event.end, false);
+        await updateUntilDate(info.event, false);
       }
     }
 
