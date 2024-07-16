@@ -73,7 +73,22 @@ const Event = ({
         const children = tree && tree.length ? tree[0].children : null;
         if (children) {
           const childrenInfos = getInfosFromChildren(children);
-          console.log("childrenInfos :>> ", childrenInfos);
+
+          /******** */
+          /* TODO : update all references of the corresponding event
+          /********* */
+
+          // console.log("childrenInfos :>> ", childrenInfos);
+          // if (childrenInfos.eventRefs.length) {
+          //   for (let i=0; i< childrenInfos.eventRefs.length; i++) {
+          //     const ref = childrenInfos.eventRefs[i];
+          //     const updatedEvent = parseEventObject({
+          //       title: updatedContent,
+          //       matchingTags})
+          //       await updateEvent(event, updatedEvent);
+          //   }
+          // }
+
           matchingTags = matchingTags.concat(childrenInfos.tags);
         }
       }
@@ -82,8 +97,8 @@ const Event = ({
         matchingTags,
         isRef: event.extendedProps.isRef,
         hasTime: event.extendedProps.hasTime,
-        hasInfosInChildren: event.extendedProps.hasInfosInChildren,
-        untilUid: event.extendedProps.untilUid,
+        // hasInfosInChildren: event.extendedProps.hasInfosInChildren,
+        // untilUid: event.extendedProps.untilUid,
       });
       await updateEvent(event, updatedEvent);
       initialContent.current = null;

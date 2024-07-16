@@ -1,10 +1,19 @@
 import { Tag } from "@blueprintjs/core";
-import { removeTagsFromBlock } from "../util/roamApi";
+import { getTreeByUid, removeTagsFromBlock } from "../util/roamApi";
 import { calendarTag } from "..";
 
 const TagList = ({ list, setEventTagList, isInteractive, event }) => {
   const handleOnRemove = (tag) => {
     removeTagsFromBlock(event.id, tag.pages);
+    if (event.extendedProps.hasInfosInChildren) {
+      const tree = getTreeByUid(event.id);
+      const children = tree && tree.length ? tree[0].children : null;
+      if (children) {
+        children.forEach((child) => {
+          removeTagsFromBlock(child.uid, tag.pages);
+        });
+      }
+    }
     setEventTagList((prev) => {
       let updatedTags = [...prev];
       const index = updatedTags.indexOf(tag);

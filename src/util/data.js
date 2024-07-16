@@ -128,7 +128,9 @@ const filterTreeToGetEvents = (
               childInfos = getInfosFromChildren(subTree);
               if (childInfos) {
                 until = childInfos.until;
-                matchingTags = matchingTags.concat(childInfos.tags);
+                // avoid duplicates
+                const tagsSet = new Set([...matchingTags, ...childInfos.tags]);
+                matchingTags = Array.from(tagsSet);
                 if (childInfos.eventRefs.length) {
                   childInfos.eventRefs.forEach((childRef) => {
                     eventsRefs.push(childRef.uid);
