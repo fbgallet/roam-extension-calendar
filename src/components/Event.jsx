@@ -12,6 +12,7 @@ import {
   deleteBlockIfNoChild,
   getBlockContentByUid,
   getBlocksUidReferencedInThisBlock,
+  getFlattenedContentOfParentAndFirstChildren,
   getParentBlock,
   getTreeByUid,
   updateBlock,
@@ -62,7 +63,9 @@ const Event = ({
   // }
 
   const handleClose = async () => {
-    const updatedContent = getBlockContentByUid(event.id);
+    const updatedContent = event.extendedProps.hasInfosInChildren
+      ? getFlattenedContentOfParentAndFirstChildren(event.id)
+      : getBlockContentByUid(event.id);
     let matchingTags = getMatchingTags(
       tagsToDisplay,
       getBlocksUidReferencedInThisBlock(event.id)
@@ -154,7 +157,11 @@ const Event = ({
           "zoom-path?": event.extendedProps.isRef,
           "open?": false,
         });
-        initialContent.current = getBlockContentByUid(event.id);
+        if (event.extendedProps.hasInfosInChildren) {
+          initialContent.current = getFlattenedContentOfParentAndFirstChildren(
+            event.id
+          );
+        } else initialContent.current = getBlockContentByUid(event.id);
       }}
     >
       <div

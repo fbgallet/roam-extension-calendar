@@ -117,6 +117,16 @@ export function getLinkedReferencesTrees(pageUid, sourcePageUidToExclude) {
   return reverseTimeSorted;
 }
 
+export function getFlattenedContentOfParentAndFirstChildren(uid) {
+  let flattenedContent = getBlockContentByUid(uid);
+  let children = getOrderedDirectChildren(uid);
+  if (children)
+    children.forEach((child) => {
+      flattenedContent += "\n" + child.string;
+    });
+  return flattenedContent;
+}
+
 function getOrderedDirectChildren(uid) {
   if (!uid) return null;
   let result = window.roamAlphaAPI.q(`[:find (pull ?page
