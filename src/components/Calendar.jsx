@@ -200,25 +200,42 @@ const Calendar = ({
     isDataToFilterAgain.current = true;
   };
 
-  const updateEvent = async (event, updatedProperties) => {
-    const index = events.findIndex((evt) => evt.id === event.id);
-    for (const key in updatedProperties) {
-      if (updatedProperties[key] !== undefined) {
-        events[index][key] = updatedProperties[key];
-        if (key !== "extendedProps") event.setProp(key, updatedProperties[key]);
-        else {
-          event.setExtendedProp("eventTags", updatedProperties[key].eventTags);
-          event.setExtendedProp("isRef", updatedProperties[key].isRef);
-          event.setExtendedProp("hasTime", updatedProperties[key].hasTime);
-          event.setExtendedProp(
-            "hasInfosInChildren",
-            updatedProperties[key].hasInfosInChildren
-          );
-          event.setExtendedProp("untilUid", updatedProperties[key].untilUid);
+  const updateEvent = (event, updatedProperties) => {
+    if (event.extendedProps.hasInfosInChildren || event.extendedProps.refNb) {
+      const matchingEvents = events.filter((evt) => evt.id === event.id);
+      console.log("matchingEvents :>> ", matchingEvents);
+      if (matchingEvents.length > 1) {
+        // isDataToReload.current = true;
+        setForceToReload((prev) => !prev);
+      }
+    } else {
+      const index = events.findIndex(
+        (evt) =>
+          evt.id === event.id &&
+          evt.extendedProps.refNb === event.extendedProps.refNb
+      );
+      for (const key in updatedProperties) {
+        if (updatedProperties[key] !== undefined) {
+          events[index][key] = updatedProperties[key];
+          if (key !== "extendedProps")
+            event.setProp(key, updatedProperties[key]);
+          else {
+            event.setExtendedProp(
+              "eventTags",
+              updatedProperties[key].eventTags
+            );
+            event.setExtendedProp("isRef", updatedProperties[key].isRef);
+            // event.setExtendedProp("hasTime", updatedProperties[key].hasTime);
+            // event.setExtendedProp(
+            //   "hasInfosInChildren",
+            //   updatedProperties[key].hasInfosInChildren
+            // );
+            // event.setExtendedProp("untilUid", updatedProperties[key].untilUid);
+          }
         }
       }
+      isDataToFilterAgain.current = true;
     }
-    isDataToFilterAgain.current = true;
   };
 
   const deleteEvent = (event) => {

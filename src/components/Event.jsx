@@ -73,22 +73,6 @@ const Event = ({
         const children = tree && tree.length ? tree[0].children : null;
         if (children) {
           const childrenInfos = getInfosFromChildren(children);
-
-          /******** */
-          /* TODO : update all references of the corresponding event
-          /********* */
-
-          // console.log("childrenInfos :>> ", childrenInfos);
-          // if (childrenInfos.eventRefs.length) {
-          //   for (let i=0; i< childrenInfos.eventRefs.length; i++) {
-          //     const ref = childrenInfos.eventRefs[i];
-          //     const updatedEvent = parseEventObject({
-          //       title: updatedContent,
-          //       matchingTags})
-          //       await updateEvent(event, updatedEvent);
-          //   }
-          // }
-
           matchingTags = matchingTags.concat(childrenInfos.tags);
         }
       }
@@ -100,7 +84,7 @@ const Event = ({
         // hasInfosInChildren: event.extendedProps.hasInfosInChildren,
         // untilUid: event.extendedProps.untilUid,
       });
-      await updateEvent(event, updatedEvent);
+      updateEvent(event, updatedEvent);
       initialContent.current = null;
     }
     setTimeout(() => {
@@ -190,7 +174,7 @@ const Event = ({
           <Checkbox
             checked={isChecked}
             // onClick={(e) => {}}
-            onChange={(e) => {
+            onChange={async (e) => {
               if (e.nativeEvent.shiftKey) return;
               e.stopPropagation();
               let updatedTitle, updatedClassNames, updatedTags;
@@ -228,6 +212,7 @@ const Event = ({
                 );
               }
               const updatedColor = colorToDisplay(updatedTags);
+              await updateBlock(event.id, updatedTitle);
               updateEvent(event, {
                 title: updatedTitle,
                 classNames: updatedClassNames,
@@ -237,7 +222,6 @@ const Event = ({
                   isRef: event.extendedProps.isRef,
                 },
               });
-              updateBlock(event.id, updatedTitle);
             }}
           />
         )}

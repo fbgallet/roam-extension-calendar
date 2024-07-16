@@ -96,8 +96,8 @@ const filterTreeToGetEvents = (
       let isCalendarParent = false;
       let subTree = tree[i].children;
       if (isRef) {
-        console.log("tree[i].uid :>> ", tree[i].uid);
-        console.log("eventsRefs :>> ", eventsRefs);
+        // console.log("tree[i].uid :>> ", tree[i].uid);
+        // console.log("eventsRefs :>> ", eventsRefs);
       }
       if (
         (!isCalendarTree &&
@@ -132,6 +132,7 @@ const filterTreeToGetEvents = (
                 const tagsSet = new Set([...matchingTags, ...childInfos.tags]);
                 matchingTags = Array.from(tagsSet);
                 if (childInfos.eventRefs.length) {
+                  let refNb = 1;
                   childInfos.eventRefs.forEach((childRef) => {
                     eventsRefs.push(childRef.uid);
                     events.push(
@@ -148,7 +149,8 @@ const filterTreeToGetEvents = (
                           hasInfosInChildren: true,
                         },
                         isCalendarTree,
-                        isTimeGrid
+                        isTimeGrid,
+                        refNb++
                       )
                     );
                   });
@@ -220,11 +222,11 @@ export const getInfosFromChildren = (children, mapToInclude = mapOfTags) => {
       child.refs.map((ref) => ref.uid)
     );
     const childMatchingDate = child.string.match(roamDateRegex);
-    console.log("childMatchingTags :>> ", childMatchingTags);
+    // console.log("childMatchingTags :>> ", childMatchingTags);
     if (childMatchingDate) {
       hasInfosToReturn = true;
       const until = getUntilDate(child.string);
-      console.log("until :>> ", until);
+      // console.log("until :>> ", until);
       if (until) {
         infos.until = until;
         infos.until.uid = child.uid;
@@ -241,7 +243,7 @@ export const getInfosFromChildren = (children, mapToInclude = mapOfTags) => {
       infos.tags = infos.tags.concat(childMatchingTags);
     }
   }
-  console.log("infos :>> ", infos);
+  // console.log("infos :>> ", infos);
   return hasInfosToReturn ? infos : null;
 };
 
