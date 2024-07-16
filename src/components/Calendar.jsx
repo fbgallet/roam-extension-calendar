@@ -201,7 +201,10 @@ const Calendar = ({
   };
 
   const updateEvent = (event, updatedProperties) => {
-    if (event.extendedProps.hasInfosInChildren || event.extendedProps.refNb) {
+    if (
+      event.extendedProps.hasInfosInChildren ||
+      event.extendedProps.refSourceUid
+    ) {
       const matchingEvents = events.filter((evt) => evt.id === event.id);
       console.log("matchingEvents :>> ", matchingEvents);
       if (matchingEvents.length > 1) {
@@ -212,7 +215,7 @@ const Calendar = ({
       const index = events.findIndex(
         (evt) =>
           evt.id === event.id &&
-          evt.extendedProps.refNb === event.extendedProps.refNb
+          evt.extendedProps.refSourceUid === event.extendedProps.refSourceUid
       );
       for (const key in updatedProperties) {
         if (updatedProperties[key] !== undefined) {
@@ -290,23 +293,25 @@ const Calendar = ({
     events[evtIndex].date = dateToISOString(info.event.start);
     isDataToFilterAgain.current = true;
 
-    // is in a timeGrid view
-    if (info.view.type.includes("time")) {
-      events[evtIndex].start = info.event.start;
-      events[evtIndex].end = info.event.end;
-      await updateTimestampsInBlock(info.event, info.oldEvent);
-    }
-    // if is multiple days event
-    if (info.event.end) {
-      const startDayOfYear = getDayOfYear(info.event.start);
-      const endDayOfYear = getDayOfYear(info.event.end);
-      if (endDayOfYear - startDayOfYear !== 0) {
-        await updateUntilDate(info.event, false);
+    if (!info.event.extendedProps.refSourceUid) {
+      // is in a timeGrid view
+      if (info.view.type.includes("time")) {
+        events[evtIndex].start = info.event.start;
+        events[evtIndex].end = info.event.end;
+        await updateTimestampsInBlock(info.event, info.oldEvent);
+      }
+      // if moved in the same day, doesn't need block move
+      if (!info.delta.days && !info.delta.months) return;
+
+      // if is multiple days event
+      if (info.event.end) {
+        const startDayOfYear = getDayOfYear(info.event.start);
+        const endDayOfYear = getDayOfYear(info.event.end);
+        if (endDayOfYear - startDayOfYear !== 0) {
+          await updateUntilDate(info.event, false);
+        }
       }
     }
-
-    // if moved in the same day, doesn't need block move
-    if (!info.delta.days && !info.delta.months) return;
 
     await moveDroppedEventBlock(info.event);
   };

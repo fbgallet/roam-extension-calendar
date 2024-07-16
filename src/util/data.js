@@ -11,7 +11,12 @@ import {
   parseRange,
   strictTimestampRegex,
 } from "./dates";
-import { dnpUidRegex, roamDateRegex, untilDateRegex } from "./regex";
+import {
+  dnpUidRegex,
+  queryRegex,
+  roamDateRegex,
+  untilDateRegex,
+} from "./regex";
 import {
   createChildBlock,
   deleteBlock,
@@ -107,6 +112,11 @@ const filterTreeToGetEvents = (
         eventsRefs.includes(tree[i].uid)
       )
         continue;
+      let title = tree[i].string;
+      if (title) {
+        const matchingQuery = title.match(queryRegex);
+        if (matchingQuery) continue;
+      }
       let matchingTags = getMatchingTags(
         mapToInclude,
         tree[i].refs?.map((ref) => ref.uid)
@@ -119,7 +129,6 @@ const filterTreeToGetEvents = (
         if (!isCalendarTree && matchingTags[0].name === calendarTag.name)
           isCalendarParent = true;
         else {
-          let title = tree[i].string;
           if (!isCalendarTree && onlyCalendarTag) continue;
           let untilDate, untilUid, childInfos;
           if (isCalendarTree || isRef) {
@@ -132,7 +141,6 @@ const filterTreeToGetEvents = (
                 const tagsSet = new Set([...matchingTags, ...childInfos.tags]);
                 matchingTags = Array.from(tagsSet);
                 if (childInfos.eventRefs.length) {
-                  let refNb = 1;
                   childInfos.eventRefs.forEach((childRef) => {
                     eventsRefs.push(childRef.uid);
                     events.push(
@@ -147,10 +155,10 @@ const filterTreeToGetEvents = (
                           matchingTags: childRef.tags.concat(matchingTags),
                           isRef: true,
                           hasInfosInChildren: true,
+                          refSourceUid: childRef.uid,
                         },
                         isCalendarTree,
-                        isTimeGrid,
-                        refNb++
+                        isTimeGrid
                       )
                     );
                   });
@@ -257,6 +265,7 @@ export const parseEventObject = (
     isRef = false,
     hasInfosInChildren,
     untilUid,
+    refSourceUid,
   },
   isCalendarTree = true,
   isTimeGrid = true
@@ -317,6 +326,7 @@ export const parseEventObject = (
       hasTime,
       hasInfosInChildren,
       untilUid,
+      refSourceUid,
     },
     color: backgroundColorDisplayed,
     display: "block",
@@ -397,7 +407,8 @@ export const saveViewSetting = (setting, value, isInSidebar) => {
 
 export const moveDroppedEventBlock = async (event) => {
   if (event.extendedProps.isRef) {
-    let blockContent = getBlockContentByUid(event.id);
+    let targetUid = event.extendedProps.refSourceUid || event.id;
+    let blockContent = getBlockContentByUid(targetUid);
     let matchingDates = blockContent.match(roamDateRegex);
     const newRoamDate = window.roamAlphaAPI.util.dateToPageTitle(event.start);
     if (matchingDates && matchingDates.length) {
@@ -405,9 +416,10 @@ export const moveDroppedEventBlock = async (event) => {
       blockContent = blockContent.replace(currentDateStr, newRoamDate);
     } else blockContent += ` [[${newRoamDate}]]`;
     await window.roamAlphaAPI.updateBlock({
-      block: { uid: event.id, string: blockContent },
+      block: { uid: targetUid, string: blockContent },
     });
-    event.setProp("title", resolveReferences(blockContent));
+    if (!event.extendedProps.refSourceUid)
+      event.setProp("title", resolveReferences(blockContent));
   } else {
     const currentCalendarUid = getParentBlock(event.id);
     let calendarBlockUid = await getCalendarUidFromPage(
