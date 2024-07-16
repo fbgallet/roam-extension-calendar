@@ -200,7 +200,7 @@ const Calendar = ({
     isDataToFilterAgain.current = true;
   };
 
-  const updateEvent = (event, updatedProperties) => {
+  const updateEvent = async (event, updatedProperties) => {
     const index = events.findIndex((evt) => evt.id === event.id);
     for (const key in updatedProperties) {
       if (updatedProperties[key] !== undefined) {
@@ -209,6 +209,12 @@ const Calendar = ({
         else {
           event.setExtendedProp("eventTags", updatedProperties[key].eventTags);
           event.setExtendedProp("isRef", updatedProperties[key].isRef);
+          event.setExtendedProp("hasTime", updatedProperties[key].hasTime);
+          event.setExtendedProp(
+            "hasInfosInChildren",
+            updatedProperties[key].hasInfosInChildren
+          );
+          event.setExtendedProp("untilUid", updatedProperties[key].untilUid);
         }
       }
     }

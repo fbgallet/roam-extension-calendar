@@ -14,6 +14,7 @@ import {
 import { dnpUidRegex, roamDateRegex, untilDateRegex } from "./regex";
 import {
   createChildBlock,
+  deleteBlock,
   deleteBlockIfNoChild,
   dnpUidToPageTitle,
   getBlockContentByUid,
@@ -28,6 +29,8 @@ import {
   updateBlock,
 } from "./roamApi";
 
+let eventsRefs = [];
+
 export const getBlocksToDisplayFromDNP = async (
   start,
   end,
@@ -37,6 +40,7 @@ export const getBlocksToDisplayFromDNP = async (
 ) => {
   // console.log("mapOfTags :>> ", mapOfTags);
   let events = [];
+  eventsRefs = [];
   for (
     let currentDate = start;
     currentDate <= end;
@@ -90,11 +94,17 @@ const filterTreeToGetEvents = (
   function processTreeRecursively(tree, isCalendarTree) {
     for (let i = 0; i < tree.length; i++) {
       let isCalendarParent = false;
+      let subTree = tree[i].children;
+      if (isRef) {
+        console.log("tree[i].uid :>> ", tree[i].uid);
+        console.log("eventsRefs :>> ", eventsRefs);
+      }
       if (
-        !isCalendarTree &&
-        isRef && // shouldn't be !isRef  ?????
-        tree[i].refs &&
-        isReferencingDNP(tree[i].refs, dnpUid)
+        (!isCalendarTree &&
+          isRef && // shouldn't be !isRef  ?????
+          tree[i].refs &&
+          isReferencingDNP(tree[i].refs, dnpUid)) ||
+        eventsRefs.includes(tree[i].uid)
       )
         continue;
       let matchingTags = getMatchingTags(
@@ -111,15 +121,45 @@ const filterTreeToGetEvents = (
         else {
           let title = tree[i].string;
           if (!isCalendarTree && onlyCalendarTag) continue;
-          let untilDate;
+          let untilDate, untilUid, childInfos;
           if (isCalendarTree || isRef) {
-            const until = getUntilDate(title);
+            let until = getUntilDate(title);
+            if (isCalendarTree && subTree) {
+              childInfos = getInfosFromChildren(subTree);
+              if (childInfos) {
+                until = childInfos.until;
+                matchingTags = matchingTags.concat(childInfos.tags);
+                if (childInfos.eventRefs.length) {
+                  childInfos.eventRefs.forEach((childRef) => {
+                    eventsRefs.push(childRef.uid);
+                    events.push(
+                      parseEventObject(
+                        {
+                          id: tree[i].uid,
+                          title: resolveReferences(title),
+                          date: window.roamAlphaAPI.util.pageTitleToDate(
+                            removeSquareBrackets(childRef.date)
+                          ),
+                          untilDate: null,
+                          matchingTags: childRef.tags.concat(matchingTags),
+                          isRef: true,
+                          hasInfosInChildren: true,
+                        },
+                        isCalendarTree,
+                        isTimeGrid
+                      )
+                    );
+                  });
+                }
+              }
+            }
             if (until) {
               if (isRef) {
                 if (dateString === dateToISOString(until.date)) continue;
               }
               title = title.replace(until.matchingStr, "").trim();
               untilDate = addDaysToDate(until.date, 1);
+              untilUid = until.uid || null;
             }
           }
           events.push(
@@ -129,8 +169,10 @@ const filterTreeToGetEvents = (
                 title: resolveReferences(title),
                 date: dateString,
                 untilDate,
+                untilUid,
                 matchingTags,
                 isRef,
+                hasInfosInChildren: childInfos ? true : false,
               },
               isCalendarTree,
               isTimeGrid
@@ -138,7 +180,6 @@ const filterTreeToGetEvents = (
           );
         }
       }
-      let subTree = tree[i].children;
       if (
         !isRef &&
         !isCalendarTree &&
@@ -161,8 +202,58 @@ export const getMatchingTags = (mapOfTags, refUidArray) => {
   );
 };
 
+export const getInfosFromChildren = (children, mapToInclude = mapOfTags) => {
+  // console.log("children :>> ", children);
+  let hasInfosToReturn = false;
+  let infos = {
+    until: null,
+    tags: [],
+    eventRefs: [],
+  };
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i];
+    if (!child.refs) continue;
+    const childMatchingTags = getMatchingTags(
+      mapToInclude,
+      child.refs.map((ref) => ref.uid)
+    );
+    const childMatchingDate = child.string.match(roamDateRegex);
+    console.log("childMatchingTags :>> ", childMatchingTags);
+    if (childMatchingDate) {
+      hasInfosToReturn = true;
+      const until = getUntilDate(child.string);
+      console.log("until :>> ", until);
+      if (until) {
+        infos.until = until;
+        infos.until.uid = child.uid;
+        infos.tags = infos.tags.concat(childMatchingTags);
+      } else {
+        infos.eventRefs.push({
+          date: childMatchingDate[0],
+          tags: childMatchingTags,
+          uid: child.uid,
+        });
+      }
+    } else if (childMatchingTags.length) {
+      hasInfosToReturn = true;
+      infos.tags = infos.tags.concat(childMatchingTags);
+    }
+  }
+  console.log("infos :>> ", infos);
+  return hasInfosToReturn ? infos : null;
+};
+
 export const parseEventObject = (
-  { id, title, date, untilDate, matchingTags, isRef = false },
+  {
+    id,
+    title,
+    date,
+    untilDate,
+    matchingTags,
+    isRef = false,
+    hasInfosInChildren,
+    untilUid,
+  },
   isCalendarTree = true,
   isTimeGrid = true
 ) => {
@@ -216,7 +307,13 @@ export const parseEventObject = (
       ? endDate || `${date}T${range.end}`
       : null,
     classNames: classNames,
-    extendedProps: { eventTags: matchingTags, isRef: isRef, hasTime },
+    extendedProps: {
+      eventTags: matchingTags,
+      isRef: isRef,
+      hasTime,
+      hasInfosInChildren,
+      untilUid,
+    },
     color: backgroundColorDisplayed,
     display: "block",
     textColor:
@@ -430,7 +527,8 @@ const getUntilDate = (str) => {
 };
 
 export const updateUntilDate = async (event, isToAddIfAbsent = true) => {
-  let blockContent = getBlockContentByUid(event.id);
+  const untilBlockUid = event.extendedProps.untilUid || event.id;
+  let blockContent = getBlockContentByUid(untilBlockUid);
   const untilDate = event.end;
   const untilDateExcluding = addDaysToDate(untilDate, -1);
   const untilDateStr = window.roamAlphaAPI.util.dateToPageTitle(
@@ -444,8 +542,15 @@ export const updateUntilDate = async (event, isToAddIfAbsent = true) => {
         ? blockContent.replace(until.dateStr, untilDateStr)
         : blockContent.replace(until.matchingStr, "").trim();
   } else if (isToAddIfAbsent) {
-    blockContent += `\nuntil [[${untilDateStr}]]`;
+    // blockContent += `\nuntil [[${untilDateStr}]]`;
+    const childUid = await createChildBlock(
+      event.id,
+      `until: [[${untilDateStr}]]`,
+      "first"
+    );
+    event.setExtendedProp("untilUid", childUid);
   }
-  console.log("blockContent :>> ", blockContent);
-  await updateBlock(event.id, blockContent);
+  if (!blockContent.trim() && event.extendedProps.untilUid !== event.id) {
+    deleteBlock(untilBlockUid);
+  } else await updateBlock(untilBlockUid, blockContent);
 };

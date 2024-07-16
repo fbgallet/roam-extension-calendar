@@ -13,10 +13,12 @@ import {
   getBlockContentByUid,
   getBlocksUidReferencedInThisBlock,
   getParentBlock,
+  getTreeByUid,
   updateBlock,
 } from "../util/roamApi";
 import {
   colorToDisplay,
+  getInfosFromChildren,
   getMatchingTags,
   parseEventObject,
   replaceItemAndGetUpdatedArray,
@@ -59,18 +61,31 @@ const Event = ({
 
   // }
 
-  const handleClose = () => {
+  const handleClose = async () => {
     const updatedContent = getBlockContentByUid(event.id);
+    let matchingTags = getMatchingTags(
+      tagsToDisplay,
+      getBlocksUidReferencedInThisBlock(event.id)
+    );
     if (initialContent.current && initialContent.current !== updatedContent) {
+      if (event.extendedProps.hasInfosInChildren) {
+        const tree = getTreeByUid(event.id);
+        const children = tree && tree.length ? tree[0].children : null;
+        if (children) {
+          const childrenInfos = getInfosFromChildren(children);
+          console.log("childrenInfos :>> ", childrenInfos);
+          matchingTags = matchingTags.concat(childrenInfos.tags);
+        }
+      }
       const updatedEvent = parseEventObject({
         title: updatedContent,
-        matchingTags: getMatchingTags(
-          tagsToDisplay,
-          getBlocksUidReferencedInThisBlock(event.id)
-        ),
+        matchingTags,
         isRef: event.extendedProps.isRef,
+        hasTime: event.extendedProps.hasTime,
+        hasInfosInChildren: event.extendedProps.hasInfosInChildren,
+        untilUid: event.extendedProps.untilUid,
       });
-      updateEvent(event, updatedEvent);
+      await updateEvent(event, updatedEvent);
       initialContent.current = null;
     }
     setTimeout(() => {
