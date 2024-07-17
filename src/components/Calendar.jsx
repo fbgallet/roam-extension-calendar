@@ -11,6 +11,7 @@ import {
   getMatchingTags,
   moveDroppedEventBlock,
   parseEventObject,
+  updateStartDate,
   updateTimestampsInBlock,
   updateUntilDate,
 } from "../util/data";
@@ -19,9 +20,9 @@ import Event from "./Event";
 import MultiSelectFilter from "./MultiSelectFilter";
 import {
   createChildBlock,
+  createNewPageIfNotExisting,
   getBlockContentByUid,
   getBlocksUidReferencedInThisBlock,
-  isExistingNode,
 } from "../util/roamApi";
 import NewEventDialog from "./NewEventDialog";
 import { dateToISOString, eventTimeFormats, getDayOfYear } from "../util/dates";
@@ -51,6 +52,7 @@ const Calendar = ({
 }) => {
   const [newEventDialogIsOpen, setNewEventDialogIsOpen] = useState(false);
   const [focusedPageUid, setFocusedPageUid] = useState(null);
+  const [focusedPageTitle, setFocusedPageTitle] = useState(null);
   // const [events, setEvents] = useState([]);
   const [forceToReload, setForceToReload] = useState(false);
   const [position, setPosition] = useState({ x: null, y: null });
@@ -126,29 +128,28 @@ const Calendar = ({
   };
 
   const handleSquareDayClick = async (info) => {
+    console.log("info.date :>> ", info.date);
     const targetDnpUid = window.roamAlphaAPI.util.dateToPageUid(info.date);
+    const dnpTitle = window.roamAlphaAPI.util.dateToPageTitle(info.date);
+    console.log("targetDnpUid :>> ", targetDnpUid);
+    console.log("dnpTitle :>> ", dnpTitle);
     const previousSelectedDay = selectedDay.current;
     selectedDay.current =
       selectedDay.current === targetDnpUid ? null : targetDnpUid;
     if (info.jsEvent.shiftKey) {
-      if (!isExistingNode(targetDnpUid)) {
-        await window.roamAlphaAPI.data.page.create({
-          page: {
-            title: window.roamAlphaAPI.util.dateToPageTitle(info.date),
-            uid: targetDnpUid,
-          },
-        });
-      }
+      createNewPageIfNotExisting(dnpTitle, targetDnpUid, true);
       window.roamAlphaAPI.ui.rightSidebar.addWindow({
         window: { type: "outline", "block-uid": targetDnpUid },
       });
     } else {
       if (previousSelectedDay === targetDnpUid) {
+        createNewPageIfNotExisting(dnpTitle, targetDnpUid, true);
         isDataToReload.current = false;
         isDataToFilterAgain.current = false;
         // console.log("info.jsEvent :>> ", info.jsEvent);
         setPosition({ x: info.jsEvent.clientX, y: info.jsEvent.clientY - 75 });
         setFocusedPageUid(targetDnpUid);
+        setFocusedPageTitle(dnpTitle);
         setNewEventDialogIsOpen(true);
       }
     }
@@ -293,6 +294,8 @@ const Calendar = ({
     events[evtIndex].date = dateToISOString(info.event.start);
     isDataToFilterAgain.current = true;
 
+    console.log("info.event :>> ", info.event);
+
     if (!info.event.extendedProps.refSourceUid) {
       // is in a timeGrid view
       if (info.view.type.includes("time")) {
@@ -310,6 +313,12 @@ const Calendar = ({
         if (endDayOfYear - startDayOfYear !== 0) {
           await updateUntilDate(info.event, false);
         }
+      }
+
+      // if start date is in children
+      if (info.event.extendedProps.startUid) {
+        await updateStartDate(info.event);
+        return;
       }
     }
 
@@ -360,7 +369,9 @@ const Calendar = ({
       if (info.endDelta.days) await updateUntilDate(info.event);
       else if (info.startDelta.days) {
         if (!info.oldEvent.end) await updateUntilDate(info.event);
-        moveDroppedEventBlock(info.event);
+        if (info.event.extendedProps.startUid)
+          await updateStartDate(info.event);
+        else moveDroppedEventBlock(info.event);
       }
     } else {
       updateTimestampsInBlock(info.event);
@@ -399,6 +410,7 @@ const Calendar = ({
         newEventDialogIsOpen={newEventDialogIsOpen}
         setNewEventDialogIsOpen={setNewEventDialogIsOpen}
         pageUid={focusedPageUid}
+        pageTitle={focusedPageTitle}
         position={position}
         addEvent={addEvent}
       />

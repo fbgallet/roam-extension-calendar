@@ -87,6 +87,18 @@ export async function createChildBlock(
   return uid;
 }
 
+export async function createNewPageIfNotExisting(title, uid, isDNP = false) {
+  if (!isExistingNode(uid)) {
+    const page = {
+      title: title,
+    };
+    if (!isDNP) page.uid = uid;
+    await window.roamAlphaAPI.data.page.create({
+      page,
+    });
+  }
+}
+
 export function getBlockContentByUid(uid) {
   let result = window.roamAlphaAPI.pull("[:block/string]", [":block/uid", uid]);
   if (result) return result[":block/string"];
@@ -95,6 +107,7 @@ export function getBlockContentByUid(uid) {
 
 export function isExistingNode(uid) {
   let result = window.roamAlphaAPI.pull("[:db/id]", [":block/uid", uid]);
+  console.log("result from isExistingNode :>> ", result);
   if (result === null) return false;
   return true;
 }

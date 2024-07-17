@@ -5,6 +5,7 @@ import {
   deleteBlockIfNoChild,
   getPageNameByPageUid,
   getParentBlock,
+  isExistingNode,
 } from "../util/roamApi";
 import { useRef, useState } from "react";
 import { getCalendarUidFromPage } from "../util/data";
@@ -13,6 +14,7 @@ const NewEventDialog = ({
   newEventDialogIsOpen,
   setNewEventDialogIsOpen,
   pageUid,
+  pageTitle,
   setEvents,
   position,
   addEvent,
@@ -23,6 +25,8 @@ const NewEventDialog = ({
   const popoverRef = useRef(null);
 
   const handleNew = async () => {
+    console.log("pageUid :>> ", pageUid);
+    console.log("!isExistingNode(pageUid) :>> ", !isExistingNode(pageUid));
     setIsBlockRendering(true);
     const calendarBlockUid = await getCalendarUidFromPage(pageUid);
     const targetUid = await createChildBlock(calendarBlockUid);
@@ -99,7 +103,7 @@ const NewEventDialog = ({
         }}
         content={
           <>
-            <h4>New event on {getPageNameByPageUid(pageUid)}</h4>
+            <h4>New event on {pageTitle}</h4>
             <div
               autoFocus={false}
               className="fc-renderblock"
