@@ -6,6 +6,7 @@ import {
   getPageNameByPageUid,
   getParentBlock,
   isExistingNode,
+  updateBlock,
 } from "../util/roamApi";
 import { useRef, useState } from "react";
 import { getCalendarUidFromPage } from "../util/data";
@@ -25,26 +26,26 @@ const NewEventDialog = ({
   const popoverRef = useRef(null);
 
   const handleNew = async () => {
-    console.log("pageUid :>> ", pageUid);
-    console.log("!isExistingNode(pageUid) :>> ", !isExistingNode(pageUid));
-    setIsBlockRendering(true);
     const calendarBlockUid = await getCalendarUidFromPage(pageUid);
     const targetUid = await createChildBlock(calendarBlockUid);
+    // setTimeout(async () => {
+    await window.roamAlphaAPI.ui.components.renderBlock({
+      uid: targetUid,
+      el: renderRef.current,
+    });
+    updateBlock(targetUid, "hello");
+    console.log("targetUid :>> ", targetUid);
+    let blockElt = renderRef.current.querySelector(".rm-block__input");
+    if (blockElt) {
+      const placeholder = document.createElement("span");
+      placeholder.textContent =
+        "Click here to start writing. Type '/' to see commands.";
+      placeholder.style.color = "rgb(206, 217, 224)";
+      blockElt.appendChild(placeholder);
+    }
+    setIsBlockRendering(true);
     setEventUid(targetUid);
-    setTimeout(async () => {
-      await window.roamAlphaAPI.ui.components.renderBlock({
-        uid: targetUid,
-        el: renderRef.current,
-      });
-      let blockElt = renderRef.current.querySelector(".rm-block__input");
-      if (blockElt) {
-        const placeholder = document.createElement("span");
-        placeholder.textContent =
-          "Click here to start writing. Type '/' to see commands.";
-        placeholder.style.color = "rgb(206, 217, 224)";
-        blockElt.appendChild(placeholder);
-      }
-    }, 200);
+    // }, 1000);
   };
 
   const handleClose = () => {

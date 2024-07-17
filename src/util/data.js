@@ -56,11 +56,6 @@ export const getBlocksToDisplayFromDNP = async (
     const dnpUid = window.roamAlphaAPI.util.dateToPageUid(currentDate);
     let pageAndRefsTrees = [];
     pageAndRefsTrees.push(getTreeByUid(dnpUid));
-    if (dnpUid === "07-03-2024" || dnpUid === "07-07-2024") {
-      console.log("currentDate :>> ", currentDate);
-      console.log("dnpUid :>> ", dnpUid);
-      console.log("getTreeByUid(dnpUid) :>> ", getTreeByUid(dnpUid));
-    }
     if (isIncludingRefs) {
       const refTrees = getLinkedReferencesTrees(
         dnpUid,
