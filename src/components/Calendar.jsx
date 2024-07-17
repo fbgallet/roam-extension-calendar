@@ -128,11 +128,8 @@ const Calendar = ({
   };
 
   const handleSquareDayClick = async (info) => {
-    console.log("info.date :>> ", info.date);
     const targetDnpUid = window.roamAlphaAPI.util.dateToPageUid(info.date);
     const dnpTitle = window.roamAlphaAPI.util.dateToPageTitle(info.date);
-    console.log("targetDnpUid :>> ", targetDnpUid);
-    console.log("dnpTitle :>> ", dnpTitle);
     const previousSelectedDay = selectedDay.current;
     selectedDay.current =
       selectedDay.current === targetDnpUid ? null : targetDnpUid;
@@ -207,8 +204,10 @@ const Calendar = ({
       event.extendedProps.refSourceUid
     ) {
       const matchingEvents = events.filter((evt) => evt.id === event.id);
-      console.log("matchingEvents :>> ", matchingEvents);
-      if (matchingEvents.length > 1) {
+      if (
+        matchingEvents.length >= 1 ||
+        (matchingEvents.length && event.extendedProps.isRef)
+      ) {
         // isDataToReload.current = true;
         setForceToReload((prev) => !prev);
       }
@@ -224,17 +223,12 @@ const Calendar = ({
           if (key !== "extendedProps")
             event.setProp(key, updatedProperties[key]);
           else {
-            event.setExtendedProp(
-              "eventTags",
-              updatedProperties[key].eventTags
-            );
-            event.setExtendedProp("isRef", updatedProperties[key].isRef);
-            // event.setExtendedProp("hasTime", updatedProperties[key].hasTime);
-            // event.setExtendedProp(
-            //   "hasInfosInChildren",
-            //   updatedProperties[key].hasInfosInChildren
-            // );
-            // event.setExtendedProp("untilUid", updatedProperties[key].untilUid);
+            for (const extendedProp in updatedProperties["extendedProps"]) {
+              event.setExtendedProp(
+                extendedProp,
+                updatedProperties[key][extendedProp]
+              );
+            }
           }
         }
       }
@@ -293,8 +287,6 @@ const Calendar = ({
     let evtIndex = events.findIndex((evt) => evt.id === info.event.id);
     events[evtIndex].date = dateToISOString(info.event.start);
     isDataToFilterAgain.current = true;
-
-    console.log("info.event :>> ", info.event);
 
     if (!info.event.extendedProps.refSourceUid) {
       // is in a timeGrid view

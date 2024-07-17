@@ -55,7 +55,7 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  background: var(--bc-app, --fc-page-bg-color);
+  background: var(--bc-app, var(--fc-page-bg-color));
 }
 .full-calendar-comp.fc-sticky > div {
   height: 100%;

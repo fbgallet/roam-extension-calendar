@@ -33,8 +33,7 @@ const NewEventDialog = ({
       uid: targetUid,
       el: renderRef.current,
     });
-    updateBlock(targetUid, "hello");
-    console.log("targetUid :>> ", targetUid);
+
     let blockElt = renderRef.current.querySelector(".rm-block__input");
     if (blockElt) {
       const placeholder = document.createElement("span");

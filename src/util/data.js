@@ -16,6 +16,8 @@ import {
   queryRegex,
   roamDateRegex,
   startDateRegex,
+  uidInRefOrEmbedRegex,
+  uidRegex,
   untilDateRegex,
 } from "./regex";
 import {
@@ -102,18 +104,15 @@ const filterTreeToGetEvents = (
     for (let i = 0; i < tree.length; i++) {
       let isCalendarParent = false;
       let currentUid = tree[i].uid;
+      let currentRefs = tree[i].refs?.map((ref) => ref.uid);
       let subTree = tree[i].children;
       let startUid;
-      if (isRef) {
-        // console.log("currentUid :>> ", currentUid);
-        // console.log("eventsRefs :>> ", eventsRefs);
-        console.log("tree[i].string :>> ", tree[i].string);
-      }
+
       if (
         (!isCalendarTree &&
           isRef && // shouldn't be !isRef  ?????
-          tree[i].refs &&
-          isReferencingDNP(tree[i].refs, dnpUid)) ||
+          currentRefs &&
+          isReferencingDNP(currentRefs, dnpUid)) ||
         eventsRefs.includes(currentUid)
       )
         continue;
@@ -121,15 +120,26 @@ const filterTreeToGetEvents = (
       if (title) {
         const matchingQuery = title.match(queryRegex);
         if (matchingQuery) continue;
+        const matchingUid = title.match(uidInRefOrEmbedRegex);
+        if (
+          matchingUid &&
+          (!matchingUid[1] || matchingUid[1].includes("embed"))
+        ) {
+          currentUid = matchingUid[2];
+          currentRefs = getBlocksUidReferencedInThisBlock(currentUid);
+          if (matchingUid[1].includes("embed")) {
+            title = getBlockContentByUid(currentUid);
+            const embedTree = getTreeByUid(currentUid);
+            if (embedTree && embedTree[0].children)
+              subTree = embedTree[0].children;
+          }
+        }
       }
-      let matchingTags = getMatchingTags(
-        mapToInclude,
-        tree[i].refs?.map((ref) => ref.uid)
-      );
+      let matchingTags = getMatchingTags(mapToInclude, currentRefs);
 
       if (
         isCalendarTree ||
-        (tree[i].refs?.length > 0 && matchingTags.length > 0)
+        (currentRefs?.length > 0 && matchingTags.length > 0)
       ) {
         if (!isCalendarTree && matchingTags[0].name === calendarTag.name)
           isCalendarParent = true;
@@ -140,7 +150,7 @@ const filterTreeToGetEvents = (
             let until = getBoundaryDate(title);
             if (isRef) {
               let start = getBoundaryDate(title, "start");
-              console.log("start :>> ", start);
+
               if (start) {
                 const parentUid = getParentBlock(currentUid);
                 const referencedInParent = parentUid
@@ -164,6 +174,7 @@ const filterTreeToGetEvents = (
             if ((isCalendarTree && subTree) || (isRef && subTree)) {
               childInfos = getInfosFromChildren(subTree);
               if (childInfos) {
+                if (!isRef && childInfos.start) continue;
                 until = childInfos.until;
                 // avoid duplicates
                 const tagsSet = new Set([...matchingTags, ...childInfos.tags]);
@@ -238,6 +249,7 @@ const filterTreeToGetEvents = (
         subTree
       ) {
         processTreeRecursively(subTree, isCalendarParent);
+        // isCalendarParent = false;
       }
       if (isCalendarParent && onlyCalendarTag) break;
     }
@@ -256,6 +268,7 @@ export const getInfosFromChildren = (children, mapToInclude = mapOfTags) => {
   // console.log("children :>> ", children);
   let hasInfosToReturn = false;
   let infos = {
+    start: null,
     until: null,
     tags: [],
     eventRefs: [],
@@ -272,7 +285,10 @@ export const getInfosFromChildren = (children, mapToInclude = mapOfTags) => {
     if (childMatchingDate) {
       hasInfosToReturn = true;
       const start = getBoundaryDate(child.string, "start");
-      if (start) continue;
+      if (start) {
+        infos.start = true;
+        continue;
+      }
       const until = getBoundaryDate(child.string);
       // console.log("until :>> ", until);
       if (until) {
@@ -488,6 +504,10 @@ export const updateTimestampsInBlock = async (event, oldEvent) => {
   let hasTimestamp = true;
   let initialRange, newRange, hasDuration;
   let blockContent = getBlockContentByUid(event.id);
+
+  if (oldEvent.allDay && !event.allDay) {
+    event.setExtendedProp("hasTime", true);
+  }
   if (event.end || oldEvent.end) {
     if (event.end)
       endTimestamp = getTimestampFromHM(
@@ -574,7 +594,6 @@ const getBoundaryDate = (str, boundaryType = "until") => {
     boundaryType === "until" ? untilDateRegex : startDateRegex;
   let date = null;
   const matchingBoundaryDate = str.match(boundaryRegex);
-  console.log("matchingBoundaryDate :>> ", matchingBoundaryDate);
   if (matchingBoundaryDate && matchingBoundaryDate.length) {
     const boundaryDateStr = matchingBoundaryDate[2];
     date = window.roamAlphaAPI.util.pageTitleToDate(boundaryDateStr);

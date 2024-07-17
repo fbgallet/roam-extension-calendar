@@ -1,6 +1,6 @@
 {
   "name": "roam-extension-calendar",
-  "version": "1.0",
+  "version": "3.0",
   "description": "Full calendar extension for Roam Research",
   "main": "extension.js",
   "scripts": {
