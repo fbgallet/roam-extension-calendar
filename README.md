@@ -42,6 +42,15 @@ In the calendar header, you have the following options:
   - Events from DNP linked references are rendered with their path.
 - `Double click` (or select, the click later) on a day square in the calendar to create a new event. Each event created will be inserted as child of `#calendar` block.
 - You can `drag and drop` any event from one day to another.
+- Lengthen or shorten any event in month or year view to extend the event over several days.
+- First children of block event are taken into account:
+
+  - all mentionned tags will be added to the event
+  - dates (eventually with tags) will create a reference to the same event on the given date (e.g.: `due:: [[July 17th, 2024]]`)
+  - you can define start and end date for events spanning multiple days (start is optional since the daily note where the event is created define the start date)
+    - `start: [[date]]` or `begin:` or `from:`, with one, two or no colon
+    - `end: [[date]]` or `to:` or `until:`
+
 - You can drag and drop a block from your graph into the calendar:
   - simple `drag and drop` to copy: a copy of the original block will be inserted as child of the calendar tag and a corresponding event will be created
   - press `Shift` to move: the original block will be moved as child of the calendar tag in the corresponding DNP
@@ -65,7 +74,7 @@ In the settings, you can change how timestamps are displayed in the calendar, in
 
 - Default tags are TODO, DONE, important, do date, due date, doing
 - You can specify the correspoding page title for each of them (except for TODO & DONE), and add aliases.
-- You can specify your own tags, permanently in the extension settings, temporary directly in the filter input (type some page title and press on "Add: <your tag>". Temporary tag will be removed from the tag list if you refresh your Roam graph.
+- You can specify your own tags, permanently in the extension settings, temporary directly in the filter input (type some page title and press on "Add: <your tag>"). Temporary tag will be removed from the tag list if you refresh your Roam graph.
 - By clicking on a tag, you can change it's color.
 - By double-clicking on a tag, it will be selected as the only filter tag.
 - By clicking on the right cross (or star), all tags will be unselected (or selected)
@@ -75,8 +84,10 @@ In the settings, you can change how timestamps are displayed in the calendar, in
 
 ## Future developments
 
-- Events spanning multiple days.
+- Events spanning multiple days
+- Recursive events
 - Import from Google calendar.
+- Notifications
 - ...
 
 ## Support my work
@@ -86,3 +97,5 @@ This extension represents a significant amount of work. If you want to encourage
 ---
 
 ### For any question or suggestion, DM me on **Twitter** and follow me to be informed of updates and new extensions : [@fbgallet](https://twitter.com/fbgallet).
+
+Please report any issue [here](https://github.com/fbgallet/roam-extension-calendar/issues).
