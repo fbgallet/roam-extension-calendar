@@ -4,6 +4,7 @@
 - MAJOR FIX: creating a new event (or dragging it) on a DNP not yet existing was not creating DNP properly (see Roam Slack #general channel for infos)
 - support CJK text in user defined tags input
 - pinned calendar background was transparent in vanilla Roam theme
+- queries (mistakenly taken for events) are now being ignored
 - other small fixes
 
 ### Updates
