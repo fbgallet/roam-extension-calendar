@@ -105,10 +105,14 @@ const filterTreeToGetEvents = (
       let currentRefs = tree[i].refs?.map((ref) => ref.uid);
       let subTree = tree[i].children;
       let startUid;
+      // if there is an event in a given blocks, all its children are ignored
+      // unless for info about this event
+      let hasEventInBlock = false;
+      let isInlineRef = null;
 
       if (
         (!isCalendarTree &&
-          isRef && // shouldn't be !isRef  ?????
+          isRef &&
           currentRefs &&
           isReferencingDNP(currentRefs, dnpUid)) ||
         eventsRefs.includes(currentUid)
@@ -123,6 +127,7 @@ const filterTreeToGetEvents = (
           matchingUid &&
           (!matchingUid[1] || matchingUid[1].includes("embed"))
         ) {
+          isInlineRef = true;
           currentUid = matchingUid[2];
           currentRefs = getBlocksUidReferencedInThisBlock(currentUid);
           if (matchingUid[1].includes("embed")) {
@@ -220,6 +225,7 @@ const filterTreeToGetEvents = (
               untilUid = until.uid || null;
             }
           }
+          hasEventInBlock = true;
           events.push(
             parseEventObject(
               {
@@ -230,7 +236,7 @@ const filterTreeToGetEvents = (
                 untilDate,
                 untilUid,
                 matchingTags,
-                isRef,
+                isRef: isInlineRef || isRef,
                 hasInfosInChildren: childInfos ? true : false,
               },
               isCalendarTree,
@@ -240,6 +246,7 @@ const filterTreeToGetEvents = (
         }
       }
       if (
+        !hasEventInBlock &&
         !isRef &&
         !isCalendarTree &&
         (!matchingTags.length ||

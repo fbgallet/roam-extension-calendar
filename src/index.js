@@ -91,6 +91,7 @@ const panelConfig = {
     {
       id: "userTags",
       name: "User defined tags",
+      className: "liveai-settings-largeinput",
       description: "Page title for user defined tags, separated by a comma.",
       action: {
         type: "input",

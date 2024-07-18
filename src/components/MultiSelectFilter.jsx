@@ -11,10 +11,11 @@ import {
 import { MultiSelect } from "@blueprintjs/select";
 import { useState, useEffect, useRef } from "react";
 import { calendarTag, mapOfTags } from "..";
-import ColorPicker from "./ColorPicker";
+
 import { unmountApp } from "./App";
 import { saveViewSetting } from "../util/data";
 import { EventTag } from "../models/EventTag";
+import TagPopover from "./TagPopover";
 
 const MultiSelectFilter = ({
   tagsToDisplay,
@@ -150,7 +151,7 @@ const MultiSelectFilter = ({
     const aliases = tag.pages.slice(1).join(", ");
     return (
       <Popover
-        // autoFocus={false}
+        autoFocus={false}
         className="fc-popover"
         captureDismiss={true}
         isOpen={popoverToOpen === tag.pages[0] ? true : false}
@@ -158,14 +159,12 @@ const MultiSelectFilter = ({
         position={"bottom"}
         popoverClassName={Classes.POPOVER_CONTENT_SIZING}
         content={
-          <>
-            {aliases && aliases.length ? <p>Aliases: {aliases}</p> : null}
-            <ColorPicker
-              tag={tag}
-              setTagsToDisplay={setTagsToDisplay}
-              isDataToReload={isDataToReload}
-            />
-          </>
+          <TagPopover
+            aliases={aliases}
+            tag={tag}
+            setTagsToDisplay={setTagsToDisplay}
+            isDataToReload={isDataToReload}
+          />
         }
         usePortal={true}
         onClose={() => {

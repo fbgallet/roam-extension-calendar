@@ -1,3 +1,29 @@
+/**********************/
+/*      SETTINGS      */
+/**********************/
+
+.rm-settings .liveai-settings-smallinput > input[type="text"] {
+  min-width: 50px;
+  width: 80px;
+  text-align: end;
+}
+
+.liveai-settings-largeinput {
+  display: flex;
+  flex-direction: column;
+}
+.rm-settings .liveai-settings-largeinput > input[type="text"] {
+  margin-top: 12px;
+  width: 100%;
+}
+.rm-settings .liveai-settings-largeinput > div {
+  align-self: flex-start !important;
+}
+
+/**********************/
+/*** MAIN COMPONENT ***/
+/**********************/
+
 .full-calendar-comp:not(.fc-sticky) {
   min-height: calc(100vh - 40px);
   height: calc(100vh - 40px);
@@ -154,6 +180,24 @@
   align-self: center;
   padding-bottom: 7px;
 }
+
+/******* tag popover *******/
+
+.fc-tag-aliases {
+  padding-bottom: 20px;
+}
+
+.fc-aliases-input {
+  width: 100%;
+  max-width: 175px;
+}
+/* .fc-tag-aliases > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+} */
+
+/******* controls *******/
 
 .fc-tag-notag:hover {
   background-color: rgb(0, 0, 0, 0.1) !important;
