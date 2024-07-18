@@ -17,11 +17,11 @@ import {
   roamDateRegex,
   startDateRegex,
   uidInRefOrEmbedRegex,
-  uidRegex,
   untilDateRegex,
 } from "./regex";
 import {
   createChildBlock,
+  createNewPageIfNotExisting,
   deleteBlock,
   deleteBlockIfNoChild,
   dnpUidToPageTitle,
@@ -29,11 +29,9 @@ import {
   getBlocksUidReferencedInThisBlock,
   getFirstBlockUidByReferenceOnPage,
   getLinkedReferencesTrees,
-  getPageNameByPageUid,
   getPageUidByPageName,
   getParentBlock,
   getTreeByUid,
-  isExistingNode,
   resolveReferences,
   updateBlock,
 } from "./roamApi";
@@ -435,14 +433,11 @@ export const removeSquareBrackets = (str) => {
 };
 
 export const getCalendarUidFromPage = async (targetPageUid) => {
-  if (!isExistingNode(targetPageUid)) {
-    await window.roamAlphaAPI.data.page.create({
-      page: {
-        title: dnpUidToPageTitle(targetPageUid),
-        uid: targetPageUid,
-      },
-    });
-  }
+  await createNewPageIfNotExisting(
+    dnpUidToPageTitle(targetPageUid),
+    targetPageUid,
+    true
+  );
   let targetBlockUid = getFirstBlockUidByReferenceOnPage(
     "calendar",
     targetPageUid

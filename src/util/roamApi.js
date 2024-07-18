@@ -242,5 +242,5 @@ export const dnpUidToPageTitle = (dnpUid) => {
   const day = parseInt(dateArray[1]);
   const date = new Date(year, month, day);
 
-  return window.roamAlphaAPI.util.dateToPageUid(date);
+  return window.roamAlphaAPI.util.dateToPageTitle(date);
 };
