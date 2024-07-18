@@ -9,3 +9,7 @@
 - support multiple days events (not fully documented yet)
 - information (tags, dates) in the first children of an event are taken into account
 - handle sevents consisting of a single block reference or an embed
+
+## v.2 (June 15th, 2024) small fixes
+
+- fixed an issue with checkboxes in events
