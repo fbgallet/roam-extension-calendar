@@ -1,6 +1,7 @@
 export const uidRegex = /\(\([^\)]{9}\)\)/g;
 export const uidInRefOrEmbedRegex =
-  /(?:(\{\{\[?\[?(?:embed|embed-path|embed-children)\]?\]?:\s?|))\(\(([^\)]{9})\)\)/;
+  // /^(?:(\{\{\[?\[?(?:embed|embed-path|embed-children)\]?\]?:\s?|))\(\(([^\)]{9})\)\)/;
+  /^(\{\{\[?\[?(?:embed|embed-path|embed-children)\]?\]?:\s?\(\(([^\)]{9})\)\)\s?\}\})$|^\(\(([^\)]{9})\)\)$/;
 export const pageRegex = /\[\[.*\]\]/g; // very simplified, not recursive...
 export const dnpUidRegex = /(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])-[0-9]{4}/;
 export const roamDateRegex =
