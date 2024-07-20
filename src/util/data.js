@@ -103,43 +103,37 @@ const filterTreeToGetEvents = (
   function processTreeRecursively(tree, isCalendarTree) {
     for (let i = 0; i < tree.length; i++) {
       let isCalendarParent = false;
-      let currentUid = tree[i].uid;
-      let title = tree[i].string || "";
-      let currentRefs = tree[i].refs?.map((ref) => ref.uid);
-      let subTree = tree[i].children;
-      let startUid;
-
-      // true if the block contains only a block ref or embed
-      let isInlineRef;
-
-      // a "crucial date" is (date+tag) in a child => event will be displayed even if 'dnp' or 'refs' are off
-      let hasCrucialDate;
-
-      // if there is an event in a given blocks, all its children are ignored
+      let block = {
+        uid: tree[i].uid,
+        title: tree[i].string || "",
+        refs: tree[i].refs?.map((ref) => ref.uid),
+        tree: tree[i].children,
+      };
+      let startUid; // true if the block contains only a block ref or embed
+      let isInlineRef; // a "crucial date" is (date+tag) in a child => event will be displayed even if 'dnp' or 'refs' are off
+      let hasCrucialDate; // if there is an event in a given blocks, all its children are ignored
       // unless for info about this event
       let hasEventInBlock = false;
 
-      if (isDuplicateEvent(isCalendarTree, currentUid)) continue;
+      if (isDuplicateEvent(isCalendarTree, block.uid)) continue;
 
-      if (isCalendarTree && title) {
-        const matchingRef = title.trim().match(uidInRefOrEmbedRegex);
+      // substitue original block to ref if current block contains only ref or embed
+      // concerns only blocks under #calendar tag
+      if (isCalendarTree && block.title) {
+        const matchingRef = block.title.trim().match(uidInRefOrEmbedRegex);
         if (matchingRef) {
-          ({ isInlineRef, currentUid, title, subTree, currentRefs } =
-            getReferencedBlockValues(
-              matchingRef,
-              currentUid,
-              title,
-              subTree,
-              currentRefs
-            ));
+          ({ isInlineRef, block } = getReferencedBlockValues(
+            matchingRef,
+            block
+          ));
         }
       }
 
-      let matchingTags = getMatchingTags(mapToInclude, currentRefs);
+      let matchingTags = getMatchingTags(mapToInclude, block.refs);
 
-      // (currentRefs?.length > 0 && matchingTags.length > 0)
+      // (block.refs?.length > 0 && matchingTags.length > 0)
       if (isCalendarTree || matchingTags.length) {
-        if (isContainingQuery(title)) continue;
+        if (isContainingQuery(block.title)) continue;
         if (!isCalendarTree && matchingTags[0].name === calendarTag.name)
           isCalendarParent = true;
         else {
@@ -147,87 +141,35 @@ const filterTreeToGetEvents = (
 
           let untilDate, untilUid, childInfos;
           if (isCalendarTree || isRef) {
-            let until = getBoundaryDate(title);
-            if (isRef) {
-              let start = getBoundaryDate(title, "start");
-              let crucialDate =
-                matchingTags.length > 0 && roamDateRegex.test(title);
-              if (start || crucialDate) {
-                ({
-                  currentUid,
-                  title,
-                  subTree,
+            let until = getBoundaryDate(block.title);
+            isRef &&
+              ({ block, matchingTags, startUid, hasCrucialDate } =
+                substitueParentBlockValuesIfCrucialDate({
+                  block,
                   matchingTags,
-                  startUid,
-                  hasCrucialDate,
-                } = substitueParentBlockValues({
-                  currentUid,
-                  title,
-                  subTree,
-                  matchingTags,
-                  start,
-                  startUid,
                   hasCrucialDate,
                 }));
-              }
-            }
-            if ((isCalendarTree && subTree) || (isRef && subTree)) {
-              childInfos = getInfosFromChildren(subTree);
+
+            if (block.tree && (isCalendarTree || isRef)) {
+              childInfos = getInfosFromChildren(block.tree);
               if (childInfos) {
                 if (!isRef && childInfos.start) continue;
                 until = childInfos.until;
                 // avoid duplicates
-                const tagsSet = new Set([...matchingTags, ...childInfos.tags]);
-                matchingTags = Array.from(tagsSet);
-                if (childInfos.eventRefs.length) {
-                  childInfos.eventRefs.forEach((childRef) => {
-                    let hasCrucialDateRef;
-                    eventsRefs.push(childRef.uid);
-                    // console.log("childRef.uid :>> ", childRef.uid);
-                    // console.log("title :>> ", title);
-                    // console.log("childRef.tags :>> ", childRef.tags);
-                    // console.log("childRef.date :>> ", childRef.date);
-                    if (childRef.tags && childRef.date) {
-                      hasCrucialDateRef = true;
-                    }
-                    let refMatchingTags = [...matchingTags];
-                    if (
-                      matchingTags.some(
-                        (tag) => tag.name === "TODO" || tag.name === "DONE"
-                      )
-                    ) {
-                      refMatchingTags.splice(1, 0, ...childRef.tags);
-                    } else refMatchingTags = childRef.tags.concat(matchingTags);
-
-                    if (!isRef || isIncludingRefs || hasCrucialDateRef)
-                      events.push(
-                        parseEventObject(
-                          {
-                            id: currentUid,
-                            title: resolveReferences(title),
-                            date: window.roamAlphaAPI.util.pageTitleToDate(
-                              removeSquareBrackets(childRef.date)
-                            ),
-                            untilDate: null,
-                            matchingTags: refMatchingTags,
-                            isRef: true,
-                            hasInfosInChildren: true,
-                            hasCrucialDate: hasCrucialDateRef,
-                            refSourceUid: childRef.uid,
-                          },
-                          isCalendarTree,
-                          isTimeGrid
-                        )
-                      );
-                  });
-                }
+                matchingTags = Array.from(
+                  new Set([...matchingTags, ...childInfos.tags])
+                );
+                createEventRefsFromChildren(
+                  block,
+                  childInfos,
+                  matchingTags,
+                  isCalendarTree
+                );
               }
             }
             if (until) {
-              if (isRef) {
-                if (dateString === dateToISOString(until.date)) continue;
-              }
-              title = title.replace(until.matchingStr, "").trim();
+              if (isRef && dateString === dateToISOString(until.date)) continue;
+              block.title = block.title.replace(until.matchingStr, "").trim();
               untilDate = addDaysToDate(until.date, 1);
               untilUid = until.uid || null;
             }
@@ -237,8 +179,8 @@ const filterTreeToGetEvents = (
             events.push(
               parseEventObject(
                 {
-                  id: currentUid,
-                  title: resolveReferences(title),
+                  id: block.uid,
+                  title: resolveReferences(block.title),
                   date: dateString,
                   startUid,
                   untilDate,
@@ -260,10 +202,9 @@ const filterTreeToGetEvents = (
         !isCalendarTree &&
         (!matchingTags.length ||
           !(matchingTags.includes("TODO") || matchingTags.includes("DONE"))) &&
-        subTree
+        block.tree
       ) {
-        processTreeRecursively(subTree, isCalendarParent);
-        // isCalendarParent = false;
+        processTreeRecursively(block.tree, isCalendarParent);
       }
       if (isCalendarParent && onlyCalendarTag) break;
     }
@@ -273,32 +214,26 @@ const filterTreeToGetEvents = (
     if (
       (!isCalendarTree &&
         isRef &&
-        currentRefs &&
-        isReferencingDNP(currentRefs, dnpUid)) ||
+        block.refs &&
+        isReferencingDNP(block.refs, dnpUid)) ||
       eventsRefs.includes(currentUid)
     )
       return true;
     return false;
   }
 
-  function getReferencedBlockValues(
-    matchingRef,
-    currentUid,
-    title,
-    subTree,
-    currentRefs
-  ) {
+  function getReferencedBlockValues(matchingRef, { uid, title, tree, refs }) {
     if (matchingRef) {
-      currentUid = matchingRef[2] || matchingRef[3];
-      currentRefs = getBlocksUidReferencedInThisBlock(currentUid);
+      uid = matchingRef[2] || matchingRef[3];
+      refs = getBlocksUidReferencedInThisBlock(uid);
       // if embed:
       if (matchingRef[2]) {
-        title = getBlockContentByUid(currentUid);
-        const embedTree = getTreeByUid(currentUid);
-        if (embedTree && embedTree[0].children) subTree = embedTree[0].children;
+        title = getBlockContentByUid(uid);
+        const embedTree = getTreeByUid(uid);
+        if (embedTree && embedTree[0].children) tree = embedTree[0].children;
       }
     }
-    return { isInlineRef: true, currentUid, title, subTree, currentRefs };
+    return { isInlineRef: true, block: { uid, title, tree, refs } };
   }
 
   function isContainingQuery(title) {
@@ -307,48 +242,90 @@ const filterTreeToGetEvents = (
     return false;
   }
 
-  function substitueParentBlockValues({
-    currentUid,
-    title,
-    subTree,
+  function substitueParentBlockValuesIfCrucialDate({
+    block,
     matchingTags,
-    start,
     startUid,
     hasCrucialDate,
   }) {
-    const parentUid = getParentBlock(currentUid);
-    if (parentUid) {
-      const referencedInParent = parentUid
-        ? getBlocksUidReferencedInThisBlock(parentUid)
-        : null;
-      const parentMatchingTags = getMatchingTags(
-        mapToInclude,
-        referencedInParent
-      );
-      if (parentMatchingTags.length) {
-        hasCrucialDate = true;
-        if (start && !matchingTags.length && parentMatchingTags.length) {
-          // eventsRefs.push(currentUid);
-          startUid = currentUid;
-          currentUid = parentUid;
-          const parentTree = getTreeByUid(parentUid);
-          subTree = parentTree[0].children;
-          matchingTags = parentMatchingTags;
-        } else {
-          // TODO add parent tags ?
+    let start = getBoundaryDate(block.title, "start");
+    if (start || (matchingTags.length && roamDateRegex.test(block.title))) {
+      const parentUid = getParentBlock(block.uid);
+      if (parentUid) {
+        const referencedInParent = parentUid
+          ? getBlocksUidReferencedInThisBlock(parentUid)
+          : null;
+        const parentMatchingTags = getMatchingTags(
+          mapToInclude,
+          referencedInParent
+        );
+        if (parentMatchingTags.length) {
+          hasCrucialDate = true;
+          if (start && !matchingTags.length && parentMatchingTags.length) {
+            // eventsRefs.push(uid);
+            startUid = block.uid;
+            block.uid = parentUid;
+            const parentTree = getTreeByUid(parentUid);
+            block.tree = parentTree[0].children;
+            matchingTags = parentMatchingTags;
+          } else {
+            // TODO add parent tags ?
+          }
+          block.title = getBlockContentByUid(parentUid);
+          block.uid = parentUid;
         }
-        title = getBlockContentByUid(parentUid);
-        currentUid = parentUid;
       }
     }
     return {
-      currentUid,
-      title,
-      subTree,
+      block,
       matchingTags,
       startUid,
       hasCrucialDate,
     };
+  }
+
+  function createEventRefsFromChildren(
+    block,
+    childInfos,
+    matchingTags,
+    isCalendarTree
+  ) {
+    if (childInfos.eventRefs.length) {
+      childInfos.eventRefs.forEach((childRef) => {
+        let hasCrucialDateRef;
+        eventsRefs.push(childRef.uid);
+        if (childRef.tags && childRef.date) {
+          hasCrucialDateRef = true;
+        }
+        let refMatchingTags = [...matchingTags];
+        if (
+          matchingTags.some((tag) => tag.name === "TODO" || tag.name === "DONE")
+        ) {
+          refMatchingTags.splice(1, 0, ...childRef.tags);
+        } else refMatchingTags = childRef.tags.concat(matchingTags);
+
+        if (!isRef || isIncludingRefs || hasCrucialDateRef)
+          events.push(
+            parseEventObject(
+              {
+                id: block.uid,
+                title: resolveReferences(block.title),
+                date: window.roamAlphaAPI.util.pageTitleToDate(
+                  removeSquareBrackets(childRef.date)
+                ),
+                untilDate: null,
+                matchingTags: refMatchingTags,
+                isRef: true,
+                hasInfosInChildren: true,
+                hasCrucialDate: hasCrucialDateRef,
+                refSourceUid: childRef.uid,
+              },
+              isCalendarTree,
+              isTimeGrid
+            )
+          );
+      });
+    }
   }
 };
 
@@ -361,7 +338,6 @@ export const getMatchingTags = (mapOfTags, refUidArray) => {
 };
 
 export const getInfosFromChildren = (children, mapToInclude = mapOfTags) => {
-  // console.log("children :>> ", children);
   let hasInfosToReturn = false;
   let infos = {
     start: null,
@@ -377,7 +353,6 @@ export const getInfosFromChildren = (children, mapToInclude = mapOfTags) => {
       child.refs.map((ref) => ref.uid)
     );
     const childMatchingDate = child.string.match(roamDateRegex);
-    // console.log("childMatchingTags :>> ", childMatchingTags);
     if (childMatchingDate) {
       hasInfosToReturn = true;
       const start = getBoundaryDate(child.string, "start");
@@ -386,7 +361,6 @@ export const getInfosFromChildren = (children, mapToInclude = mapOfTags) => {
         continue;
       }
       const until = getBoundaryDate(child.string);
-      // console.log("until :>> ", until);
       if (until) {
         infos.until = until;
         infos.until.uid = child.uid;
