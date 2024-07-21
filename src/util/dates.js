@@ -38,6 +38,11 @@ export const dateToISOString = (date) => {
   return dt.toISODate();
 };
 
+export const getDateFromDnpUid = (dnpUid) => {
+  const parts = dnpUid.split("-");
+  return new Date(parts[2], parts[0] - 1, parts[1]);
+};
+
 export const parseRange = (string) => {
   const matchingRange = string.match(rangeRegex);
   // console.log("matchingRange :>> ", matchingRange);

@@ -3,7 +3,7 @@ import { uidRegex } from "./regex";
 export function getTreeByUid(uid) {
   if (uid)
     return window.roamAlphaAPI.q(`[:find (pull ?page
-                       [:block/uid :block/string :block/children {:block/refs [:block/uid]} :block/order :block/page
+                       [:block/uid :block/string :block/children {:block/refs [:block/uid]} :block/order {:block/page [:block/uid]}
                           {:block/children ...} ])
                         :where [?page :block/uid "${uid}"]  ]`)[0];
   else return null;
@@ -107,7 +107,6 @@ export function getBlockContentByUid(uid) {
 
 export function isExistingNode(uid) {
   let result = window.roamAlphaAPI.pull("[:db/id]", [":block/uid", uid]);
-  console.log("result from isExistingNode :>> ", result);
   if (result === null) return false;
   return true;
 }

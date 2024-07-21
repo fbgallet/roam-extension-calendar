@@ -3,6 +3,7 @@ import {
   addDaysToDate,
   dateToISOString,
   getDateAddingDurationToDate,
+  getDateFromDnpUid,
   getDistantDate,
   getDurationInMin,
   getFormatedRange,
@@ -37,6 +38,7 @@ import {
 } from "./roamApi";
 
 let eventsRefs = [];
+let possibleDuplicateEvents = [];
 
 export const getBlocksToDisplayFromDNP = async (
   start,
@@ -48,22 +50,24 @@ export const getBlocksToDisplayFromDNP = async (
   // console.log("mapOfTags :>> ", mapOfTags);
   let events = [];
   eventsRefs = [];
+  possibleDuplicateEvents = [];
   for (
     let currentDate = start;
     currentDate <= end;
     currentDate = getDistantDate(currentDate, 1)
   ) {
     const dnpUid = window.roamAlphaAPI.util.dateToPageUid(currentDate);
+    const dnpTree = getTreeByUid(dnpUid);
     let pageAndRefsTrees = [];
-    pageAndRefsTrees.push(getTreeByUid(dnpUid));
+    pageAndRefsTrees.push(
+      !dnpTree || (dnpTree && !dnpTree[0].children) ? [] : dnpTree[0].children
+    );
     // if (isIncludingRefs) {
     const refTrees = getLinkedReferencesTrees(
       dnpUid,
       getPageUidByPageName("roam/memo")
     );
     pageAndRefsTrees = pageAndRefsTrees.concat(refTrees);
-    // console.log("pageAndRefsTrees :>> ", pageAndRefsTrees);
-    // }
     for (let i = 0; i < pageAndRefsTrees.length; i++) {
       const filteredEvents = filterTreeToGetEvents(
         dnpUid,
@@ -80,6 +84,16 @@ export const getBlocksToDisplayFromDNP = async (
     }
   }
   // console.log("events from data.js :>> ", events);
+
+  for (let i = 0; i < possibleDuplicateEvents.length; i++) {
+    const duplicateEvent = events.findIndex(
+      (event) =>
+        event.id === possibleDuplicateEvents[i].id &&
+        event.start === possibleDuplicateEvents[i].start &&
+        !event.extendedProps.hasInfosInChildren
+    );
+    if (duplicateEvent !== -1) events.splice(duplicateEvent, 1);
+  }
   return events;
 };
 
@@ -110,12 +124,13 @@ const filterTreeToGetEvents = (
         tree: tree[i].children,
       };
       let startUid; // true if the block contains only a block ref or embed
-      let isInlineRef; // a "crucial date" is (date+tag) in a child => event will be displayed even if 'dnp' or 'refs' are off
-      let hasCrucialDate; // if there is an event in a given blocks, all its children are ignored
-      // unless for info about this event
-      let hasEventInBlock = false;
+      let isInlineRef;
+      let hasCrucialDate; // a "crucial date" is (date+tag) in a child => event will be displayed even if 'dnp' or 'refs' are off
+      let hasEventInBlock = false; // if there is an event in a given blocks, all its children are ignored
 
-      if (isDuplicateEvent(isCalendarTree, block.uid)) continue;
+      if (isDuplicateEvent(isCalendarTree, block)) {
+        continue;
+      }
 
       // substitue original block to ref if current block contains only ref or embed
       // concerns only blocks under #calendar tag
@@ -131,29 +146,31 @@ const filterTreeToGetEvents = (
 
       let matchingTags = getMatchingTags(mapToInclude, block.refs);
 
-      // (block.refs?.length > 0 && matchingTags.length > 0)
+      // let until = getBoundaryDate(block.title);
+
       if (isCalendarTree || matchingTags.length) {
         if (isContainingQuery(block.title)) continue;
         if (!isCalendarTree && matchingTags[0].name === calendarTag.name)
           isCalendarParent = true;
         else {
-          if (!isCalendarTree && onlyCalendarTag) continue;
+          if (!isCalendarTree && !isRef && onlyCalendarTag) continue;
 
-          let untilDate, untilUid, childInfos;
+          let untilDate, untilUid, childInfos, startDNP;
           if (isCalendarTree || isRef) {
             let until = getBoundaryDate(block.title);
             isRef &&
-              ({ block, matchingTags, startUid, hasCrucialDate } =
+              ({ block, matchingTags, startUid, startDNP, hasCrucialDate } =
                 substitueParentBlockValuesIfCrucialDate({
                   block,
                   matchingTags,
-                  hasCrucialDate,
+                  until,
                 }));
 
-            if (block.tree && (isCalendarTree || isRef)) {
+            if (block.tree) {
               childInfos = getInfosFromChildren(block.tree);
               if (childInfos) {
                 if (!isRef && childInfos.start) continue;
+                if (isRef && !startDNP && until) continue; // ????
                 until = childInfos.until;
                 // avoid duplicates
                 matchingTags = Array.from(
@@ -168,32 +185,38 @@ const filterTreeToGetEvents = (
               }
             }
             if (until) {
-              if (isRef && dateString === dateToISOString(until.date)) continue;
+              if (
+                isRef &&
+                (!startDNP || childInfos?.start) &&
+                dateString === dateToISOString(until.date)
+              )
+                continue;
               block.title = block.title.replace(until.matchingStr, "").trim();
               untilDate = addDaysToDate(until.date, 1);
               untilUid = until.uid || null;
             }
           }
           hasEventInBlock = true;
-          if (!isRef || isIncludingRefs || hasCrucialDate)
+          if (!isRef || isIncludingRefs || hasCrucialDate) {
             events.push(
               parseEventObject(
                 {
                   id: block.uid,
                   title: resolveReferences(block.title),
-                  date: dateString,
+                  date: startDNP || dateString,
                   startUid,
                   untilDate,
                   untilUid,
                   matchingTags,
-                  isRef: isInlineRef || isRef,
+                  isRef: isInlineRef || (isRef && !startDNP),
                   hasInfosInChildren: childInfos ? true : false,
-                  hasCrucialDate,
+                  hasCrucialDate: hasCrucialDate,
                 },
                 isCalendarTree,
                 isTimeGrid
               )
             );
+          }
         }
       }
       if (
@@ -210,13 +233,15 @@ const filterTreeToGetEvents = (
     }
   }
 
-  function isDuplicateEvent(isCalendarTree, currentUid) {
+  function isDuplicateEvent(isCalendarTree, block) {
+    // console.log("eventsRefs :>> ", eventsRefs);
+    // console.log("block.uid :>> ", block.uid);
     if (
       (!isCalendarTree &&
         isRef &&
-        block.refs &&
-        isReferencingDNP(block.refs, dnpUid)) ||
-      eventsRefs.includes(currentUid)
+        isReferencingDNP(block.refs, dnpUid) &&
+        block.refs) ||
+      eventsRefs.includes(block.uid)
     )
       return true;
     return false;
@@ -245,11 +270,15 @@ const filterTreeToGetEvents = (
   function substitueParentBlockValuesIfCrucialDate({
     block,
     matchingTags,
-    startUid,
-    hasCrucialDate,
+    until,
   }) {
+    let startDNP, startUid, hasCrucialDate;
     let start = getBoundaryDate(block.title, "start");
-    if (start || (matchingTags.length && roamDateRegex.test(block.title))) {
+    if (
+      start ||
+      until ||
+      (matchingTags.length && roamDateRegex.test(block.title))
+    ) {
       const parentUid = getParentBlock(block.uid);
       if (parentUid) {
         const referencedInParent = parentUid
@@ -261,18 +290,34 @@ const filterTreeToGetEvents = (
         );
         if (parentMatchingTags.length) {
           hasCrucialDate = true;
-          if (start && !matchingTags.length && parentMatchingTags.length) {
-            // eventsRefs.push(uid);
-            startUid = block.uid;
+          if (
+            (start || until) &&
+            !matchingTags.length &&
+            parentMatchingTags.length
+          ) {
+            // eventsRefs.push(parentUid);
+            if (start) startUid = block.uid;
             block.uid = parentUid;
             const parentTree = getTreeByUid(parentUid);
             block.tree = parentTree[0].children;
             matchingTags = parentMatchingTags;
+            if (until && isRef) {
+              if (block.tree && isInDNP(block.tree[0].page.uid)) {
+                const dnpUid = block.tree[0].page.uid;
+                startDNP = dateToISOString(getDateFromDnpUid(dnpUid));
+                possibleDuplicateEvents.push({
+                  id: block.uid,
+                  start: startDNP,
+                });
+              }
+            }
           } else {
             // TODO add parent tags ?
           }
           block.title = getBlockContentByUid(parentUid);
           block.uid = parentUid;
+        } else if (start || until) {
+          hasCrucialDate = true;
         }
       }
     }
@@ -280,6 +325,7 @@ const filterTreeToGetEvents = (
       block,
       matchingTags,
       startUid,
+      startDNP,
       hasCrucialDate,
     };
   }
@@ -354,6 +400,8 @@ export const getInfosFromChildren = (children, mapToInclude = mapOfTags) => {
     );
     const childMatchingDate = child.string.match(roamDateRegex);
     if (childMatchingDate) {
+      eventsRefs.push(child.uid);
+
       hasInfosToReturn = true;
       const start = getBoundaryDate(child.string, "start");
       if (start) {
@@ -485,6 +533,10 @@ export const updateEventColor = (eventTags, tagsToDisplay) => {
 const isReferencingDNP = (refs, dnpUid) => {
   dnpUidRegex.lastIndex = 0;
   return refs.some((ref) => ref.uid !== dnpUid && dnpUidRegex.test(ref.uid));
+};
+
+const isInDNP = (pageUid) => {
+  return dnpUidRegex.test(pageUid);
 };
 
 export const replaceItemAndGetUpdatedArray = (
