@@ -383,12 +383,15 @@
 }
 
 .fc-event-popover {
-  min-width: 250px;
+  min-width: 280px;
   display: flex;
   flex-direction: column;
 }
 .fc-event-popover .rm-api-render--block .roam-block-container {
-  min-width: 220px;
+  min-width: 240px;
+}
+.fc-event-popover .rm-embed-container {
+  margin-right: -22px;
 }
 .fc-event-popover > div:first-of-type {
   padding-bottom: 15px;

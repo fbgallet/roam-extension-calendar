@@ -124,7 +124,7 @@ const filterTreeToGetEvents = (
         tree: tree[i].children,
       };
       let startUid; // true if the block contains only a block ref or embed
-      let isInlineRef;
+      let isInlineRef, containerBlockUid;
       let hasCrucialDate; // a "crucial date" is (date+tag) in a child => event will be displayed even if 'dnp' or 'refs' are off
       let hasEventInBlock = false; // if there is an event in a given blocks, all its children are ignored
 
@@ -137,6 +137,7 @@ const filterTreeToGetEvents = (
       if (isCalendarTree && block.title) {
         const matchingRef = block.title.trim().match(uidInRefOrEmbedRegex);
         if (matchingRef) {
+          containerBlockUid = block.uid;
           ({ isInlineRef, block } = getReferencedBlockValues(
             matchingRef,
             block
@@ -191,7 +192,7 @@ const filterTreeToGetEvents = (
                 dateString === dateToISOString(until.date)
               )
                 continue;
-              block.title = block.title.replace(until.matchingStr, "").trim();
+              // block.title = block.title.replace(until.matchingStr, "").trim();
               untilDate = addDaysToDate(until.date, 1);
               untilUid = until.uid || null;
             }
@@ -201,16 +202,17 @@ const filterTreeToGetEvents = (
             events.push(
               parseEventObject(
                 {
-                  id: block.uid,
+                  id: containerBlockUid || block.uid,
                   title: resolveReferences(block.title),
                   date: startDNP || dateString,
                   startUid,
                   untilDate,
                   untilUid,
                   matchingTags,
-                  isRef: isInlineRef || (isRef && !startDNP),
+                  isRef: isRef && !startDNP,
                   hasInfosInChildren: childInfos ? true : false,
                   hasCrucialDate: hasCrucialDate,
+                  isInlineRef,
                 },
                 isCalendarTree,
                 isTimeGrid
@@ -318,6 +320,10 @@ const filterTreeToGetEvents = (
           block.uid = parentUid;
         } else if (start || until) {
           hasCrucialDate = true;
+          if (start)
+            block.title = block.title.replace(start.matchingStr, "").trim();
+          if (until)
+            block.title = block.title.replace(until.matchingStr, "").trim();
         }
       }
     }
