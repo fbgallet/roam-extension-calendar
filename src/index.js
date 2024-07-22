@@ -252,7 +252,7 @@ const updateKeywordsInRangeRegex = (list, type) => {
   customizeRegex(
     type === "start" ? defaultStartDateRegex : defaultUntilDateRegex,
     normalizedList,
-    type === "start" ? 15 : 3
+    type === "start" ? 11 : 1
   );
 };
 
