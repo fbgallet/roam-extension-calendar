@@ -30,6 +30,7 @@ export let timeGrid = {
   day: true,
   week: true,
 };
+export let rangeEndAttribute;
 const defaultStartKeywords = "date,from,start,begin,on";
 const defaultEndKeywords = "until,to,end";
 
@@ -249,10 +250,11 @@ const updateKeywordsInRangeRegex = (list, type) => {
       type === "start"
         ? getNormalizedDisjunctionForRegex(defaultStartKeywords)
         : getNormalizedDisjunctionForRegex(defaultEndKeywords);
+  if (type === "end") rangeEndAttribute = normalizedList.split("|")[0];
   customizeRegex(
     type === "start" ? defaultStartDateRegex : defaultUntilDateRegex,
     normalizedList,
-    type === "start" ? 11 : 1
+    type === "start" ? 21 : 9
   );
 };
 

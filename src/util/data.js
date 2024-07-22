@@ -1,4 +1,9 @@
-import { calendarTag, extensionStorage, mapOfTags } from "..";
+import {
+  calendarTag,
+  extensionStorage,
+  mapOfTags,
+  rangeEndAttribute,
+} from "..";
 import {
   addDaysToDate,
   dateToISOString,
@@ -758,7 +763,7 @@ export const updateUntilDate = async (event, isToAddIfAbsent = true) => {
     // blockContent += `\nuntil [[${untilDateStr}]]`;
     const childUid = await createChildBlock(
       event.id,
-      `until: [[${untilDateStr}]]`,
+      `${rangeEndAttribute}:: [[${untilDateStr}]]`,
       "first"
     );
     event.setExtendedProp("untilUid", childUid);
