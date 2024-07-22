@@ -9,8 +9,24 @@ export const roamDateRegex =
   /\[\[(\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s(?:1st|2nd|3rd|[4-9]th|1\d{1}th|21st|22nd|23rd|2\d{1}th|30th|31st),\s\d{4}\b)\]\]/g;
 export const notNullOrCommaRegex = /^(?!\s*,*\s*$).+/;
 export const alphanumRegex = /^[\p{L}\p{N}\p{Emoji}]+$/u;
-export const untilDateRegex =
-  /\b(until|to|end):?:?\s?(?:on|)\s?\[\[(\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s(?:1st|2nd|3rd|[4-9]th|1\d{1}th|21st|22nd|23rd|2\d{1}th|30th|31st),\s\d{4}\b)\]\]/i;
-export const startDateRegex =
-  /\b(?<!due\s)\b(start|from|begin|date|on):?:?\s?(?:on|)\s?\[\[(\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s(?:1st|2nd|3rd|[4-9]th|1\d{1}th|21st|22nd|23rd|2\d{1}th|30th|31st),\s\d{4}\b)\]\]/i;
+export const defaultUntilDateRegex =
+  /\b():?:?\s?(?:on|)\s?\[\[(\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s(?:1st|2nd|3rd|[4-9]th|1\d{1}th|21st|22nd|23rd|2\d{1}th|30th|31st),\s\d{4}\b)\]\]/i;
+export let untilDateRegex;
+export const defaultStartDateRegex =
+  /\b(?<!due\s)\b():?:?\s?(?:on|)\s?\[\[(\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s(?:1st|2nd|3rd|[4-9]th|1\d{1}th|21st|22nd|23rd|2\d{1}th|30th|31st),\s\d{4}\b)\]\]/i;
+export let startDateRegex;
 export const queryRegex = /\{\{query\s?:|\{\{\[\[query\]\]\s?:/;
+
+export function customizeRegex(regex, strToInsert, position) {
+  let [regexStr, flags] = regex.toString().slice(1).split("/");
+  regexStr =
+    regexStr.slice(0, position) + strToInsert + regexStr.slice(position);
+  const updatedRegex = new RegExp(regexStr, flags || "");
+  console.log("updatedRegex :>> ", updatedRegex);
+  if (regex === defaultUntilDateRegex) untilDateRegex = updatedRegex;
+  else if (regex === defaultStartDateRegex) startDateRegex = updatedRegex;
+}
+
+export function escapeCharacters(str) {
+  return str.replaceAll(/[.*+?^${}()|\[\]\\]/g, "\\$&");
+}

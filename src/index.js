@@ -1,7 +1,10 @@
 // import { addObserver, disconnectObserver } from "./observers";
 import { Colors } from "@blueprintjs/core";
 import { EventTag, deleteTagByName, getTagFromName } from "./models/EventTag";
-import { getTrimedArrayFromList } from "./util/data";
+import {
+  getNormalizedDisjunctionForRegex,
+  getTrimedArrayFromList,
+} from "./util/data";
 import {
   addListeners,
   connectObservers,
@@ -9,7 +12,13 @@ import {
   handleRightClickOnCalendarBtn,
   removeListeners,
 } from "./util/roamDom";
-import { notNullOrCommaRegex } from "./util/regex";
+import {
+  customizeRegex,
+  defaultStartDateRegex,
+  defaultUntilDateRegex,
+  escapeCharacters,
+  notNullOrCommaRegex,
+} from "./util/regex";
 
 export let mapOfTags = [];
 export let extensionStorage;
@@ -21,6 +30,8 @@ export let timeGrid = {
   day: true,
   week: true,
 };
+const defaultStartKeywords = "date,from,start,begin,on";
+const defaultEndKeywords = "until,to,end";
 
 const panelConfig = {
   tabTitle: "Calendar",
@@ -97,6 +108,30 @@ const panelConfig = {
         type: "input",
         onChange: (evt) => {
           updageUserTags(evt.target.value, Colors.GRAY1);
+        },
+      },
+    },
+    {
+      id: "userStart",
+      name: "Start keywords",
+      description:
+        "User defined keyword(s) to set a START date of an event's range, separated by a comma.",
+      action: {
+        type: "input",
+        onChange: (evt) => {
+          updateKeywordsInRangeRegex(evt.target.value, "start");
+        },
+      },
+    },
+    {
+      id: "userEnd",
+      name: "End keywords",
+      description:
+        "User defined keyword(s) to set a END date of an event's range, separated by a comma. First one will be inserted as attribute:: when resizing a day event.",
+      action: {
+        type: "input",
+        onChange: (evt) => {
+          updateKeywordsInRangeRegex(evt.target.value, "end");
         },
       },
     },
@@ -205,6 +240,20 @@ const updateTagPagesWithUserList = (tagName, pageList) => {
       })
     );
   } else tag.updatePages(getTrimedArrayFromList(pageList));
+};
+
+const updateKeywordsInRangeRegex = (list, type) => {
+  let normalizedList = getNormalizedDisjunctionForRegex(list);
+  if (!normalizedList.replaceAll("|").trim().length)
+    normalizedList =
+      type === "start"
+        ? getNormalizedDisjunctionForRegex(defaultStartKeywords)
+        : getNormalizedDisjunctionForRegex(defaultEndKeywords);
+  customizeRegex(
+    type === "start" ? defaultStartDateRegex : defaultUntilDateRegex,
+    normalizedList,
+    type === "start" ? 15 : 3
+  );
 };
 
 const initializeMapOfTags = () => {
@@ -354,6 +403,12 @@ export default {
       await extensionStorage.set("dueTag", "due date");
     if (extensionStorage.get("userTags") === null)
       await extensionStorage.set("userTags", "");
+    if (!extensionStorage.get("userStart"))
+      await extensionStorage.set("userStart", defaultStartKeywords);
+    updateKeywordsInRangeRegex(extensionStorage.get("userStart"), "start");
+    if (!extensionStorage.get("userEnd"))
+      await extensionStorage.set("userEnd", defaultEndKeywords);
+    updateKeywordsInRangeRegex(extensionStorage.get("userEnd"), "end");
     if (extensionStorage.get("timeFormat") === null)
       await extensionStorage.set("timeFormat", "14:00");
     setTimeFormat(extensionStorage.get("timeFormat"));

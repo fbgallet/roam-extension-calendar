@@ -14,6 +14,7 @@ import {
 } from "./dates";
 import {
   dnpUidRegex,
+  escapeCharacters,
   queryRegex,
   roamDateRegex,
   startDateRegex,
@@ -583,6 +584,11 @@ export const getTrimedArrayFromList = (list) => {
   if (!list.trim()) return [];
   const arr = list.split(",");
   return arr.map((elt) => elt.trim()).filter((elt) => elt.length > 0);
+};
+
+export const getNormalizedDisjunctionForRegex = (list) => {
+  const trimedArray = getTrimedArrayFromList(list);
+  return trimedArray.map((elt) => escapeCharacters(elt)).join("|");
 };
 
 export const saveViewSetting = (setting, value, isInSidebar) => {
