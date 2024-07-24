@@ -204,7 +204,7 @@ const MultiSelectFilter = ({
         return;
       }
       const tagName = e.target.innerText;
-      setPopoverToOpen(tagName);
+      if (tag.color !== "transparent") setPopoverToOpen(tagName);
     }, 300);
   };
 

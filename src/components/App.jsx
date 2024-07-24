@@ -45,7 +45,6 @@ export function renderApp(inSidebar, periodFromDatepicker) {
   const updatedTagIndex = mapOfTags.findIndex((tag) => tag.isToUpdate);
   if (updatedTagIndex > -1) {
     mapOfTags[updatedTagIndex].isToUpdate = false;
-    console.log("mapOfTags after :>> ", mapOfTags);
     extensionStorage.set(
       "fc-tags-info",
       JSON.stringify(
