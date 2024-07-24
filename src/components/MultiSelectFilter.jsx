@@ -148,7 +148,7 @@ const MultiSelectFilter = ({
   const renderTag = (tag) => {
     if (!tag.pages || !tag.pages.length) return;
     const title = tag.name === calendarTag.name ? "• not tagged" : tag.pages[0];
-    const aliases = tag.pages.slice(1).join(", ");
+    const aliases = tag.pages.length > 1 ? tag.pages.slice(1).join(", ") : "";
     return (
       <Popover
         autoFocus={false}

@@ -393,6 +393,7 @@ export default {
     calendarTag = new EventTag({
       name: extensionStorage.get("calendarTag"),
       color: "transparent",
+      isPageCreationToForce: true,
     });
     // console.log("calendarTag :>> ", calendarTag);
     if (extensionStorage.get("importantTag") === null)

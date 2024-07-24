@@ -332,7 +332,7 @@
 .fc-event.fc-event-ref {
   border-bottom: 2px dashed rgb(255, 255, 255, 0.9) !important;
 }
-.fc-event.fc-event-ref.calendar {
+.fc-event.fc-event-ref.fc-event-notag {
   border-bottom: 2px dashed rgb(0, 0, 0, 0.2) !important;
 }
 
@@ -342,7 +342,7 @@
   align-items: center;
   gap: 2px;
 }
-.fc-event:not(.calendar) .fc-event-content > span > span > span {
+.fc-event:not(.fc-event-notag) .fc-event-content > span > span > span {
   color: white;
 }
 

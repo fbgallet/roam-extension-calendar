@@ -459,13 +459,14 @@ export const parseEventObject = (
   isTimeGrid = true
 ) => {
   let prefix = "";
+  let classNames = [];
   if (isCalendarTree && !matchingTags.length) {
     matchingTags.push(calendarTag);
     prefix = "• ";
+    classNames = ["fc-event-notag"];
+  } else if (matchingTags.length) {
+    classNames = matchingTags.map((tag) => tag.name.replace(" ", "_"));
   }
-  let classNames = matchingTags.length
-    ? matchingTags.map((tag) => tag.name.replace(" ", "_"))
-    : [];
   if (isRef) {
     if (classNames.length) classNames.push("fc-event-ref");
     else classNames = ["fc-event-ref"];
@@ -577,11 +578,16 @@ export const getCalendarUidFromPage = async (targetPageUid) => {
     true
   );
   let targetBlockUid = getFirstBlockUidByReferenceOnPage(
-    "calendar",
+    calendarTag.name,
     targetPageUid
   );
   if (!targetBlockUid)
-    targetBlockUid = await createChildBlock(targetPageUid, "#calendar");
+    targetBlockUid = await createChildBlock(
+      targetPageUid,
+      calendarTag.name.includes(" ")
+        ? `#[[${calendarTag.name}]]`
+        : `#${calendarTag.name}`
+    );
   return targetBlockUid;
 };
 

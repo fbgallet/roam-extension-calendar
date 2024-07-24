@@ -1,5 +1,8 @@
 import { mapOfTags } from "..";
-import { getPageUidByPageName } from "../util/roamApi";
+import {
+  createNewPageIfNotExisting,
+  getPageUidByPageName,
+} from "../util/roamApi";
 
 export class EventTag {
   constructor({
@@ -10,10 +13,11 @@ export class EventTag {
     isToDisplayInSb = true,
     isUserDefined = false,
     isTemporary = false,
+    isPageCreationToForce = false,
   }) {
     this.name = name;
     this.pages = pages.length ? pages : [name];
-    this.updateUids();
+    this.updateUids(isPageCreationToForce);
     this.color = color;
     this.isToDisplay = isToDisplay;
     this.isToDisplayInSb = isToDisplayInSb;
@@ -27,8 +31,17 @@ export class EventTag {
     this.pages = pages.length ? pages : [this.name];
     this.updateUids();
   }
-  updateUids() {
+  updateUids(isPageCreationToForce) {
     this.uids = this.pages.map((page) => getPageUidByPageName(page));
+    if (isPageCreationToForce) {
+      for (let i = 0; i < this.uids.length; i++) {
+        if (!this.uids[i]) {
+          const newUid = window.roamAlphaAPI.util.generateUID();
+          createNewPageIfNotExisting(this.pages[i], newUid);
+          this.uids[i] = newUid;
+        }
+      }
+    }
   }
   display(inSidebar) {
     this["isToDisplay" + (inSidebar ? "InSb" : "")] = true;

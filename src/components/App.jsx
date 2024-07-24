@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom";
 import Calendar from "./Calendar";
-import { extensionStorage } from "..";
+import { calendarTag, extensionStorage } from "..";
 
 export function renderApp(inSidebar, periodFromDatepicker) {
   let root, parentElt;
@@ -38,6 +38,8 @@ export function renderApp(inSidebar, periodFromDatepicker) {
     minimized: extensionStorage.get("fc-minimized" + sidebarSuffix),
     sticky: extensionStorage.get("fc-sticky" + sidebarSuffix),
   };
+
+  if (!calendarTag.uids[0]) calendarTag.updateUids(true);
 
   ReactDOM.render(
     <Calendar
