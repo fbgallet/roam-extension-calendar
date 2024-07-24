@@ -48,7 +48,14 @@ const panelConfig = {
           calendarTag = new EventTag({
             name: evt.target.value,
             color: "transparent",
+            isToUpdate: true,
           });
+          const index = mapOfTags.findIndex(
+            (tag) => tag.color === "transparent"
+          );
+          if (index > -1) {
+            mapOfTags.splice(index, 1, calendarTag);
+          } else mapOfTags.push(calendarTag);
         },
       },
     },
@@ -324,6 +331,7 @@ const initializeMapOfTags = () => {
   const userTags = extensionStorage.get("userTags");
   if (notNullOrCommaRegex.test(userTags)) updageUserTags(userTags);
   mapOfTags.push(calendarTag);
+  console.log("mapOfTags :>> ", mapOfTags);
 };
 
 const updageUserTags = (list) => {
@@ -383,12 +391,28 @@ const setTimeFormat = (example) => {
   }
 };
 
+// clean calendarTag data, solve conflict from v.4 or from quit just after setting change
+const cleanCalendarTagStore = (currentValue, storedValue) => {
+  if (storedValue === currentValue) return; // it's OK
+  extensionStorage.set(
+    "fc-tags-info",
+    JSON.stringify(
+      mapOfTags.map((tag) => ({
+        name: tag.color === "transparent" ? currentValue : tag.name,
+        color: tag.color,
+        isToDisplay: tag.isToDisplay,
+        isToDisplayInSb: tag.isToDisplayInSb,
+      }))
+    )
+  );
+};
+
 export default {
   onload: async ({ extensionAPI }) => {
     extensionStorage = extensionAPI.settings;
     storedTagsInfo = JSON.parse(extensionStorage.get("fc-tags-info"));
-
-    if (extensionStorage.get("calendarTag") === null)
+    // console.log("storedTagsInfo :>> ", storedTagsInfo);
+    if (!extensionStorage.get("calendarTag"))
       await extensionStorage.set("calendarTag", "calendar");
     calendarTag = new EventTag({
       name: extensionStorage.get("calendarTag"),
@@ -444,6 +468,13 @@ export default {
     });
 
     initializeMapOfTags();
+
+    if (storedTagsInfo && storedTagsInfo.length)
+      cleanCalendarTagStore(
+        extensionStorage.get("calendarTag"),
+        storedTagsInfo.find((tag) => tag.color === "transparent")
+      );
+
     setTimeout(() => {
       connectObservers();
       addListeners();

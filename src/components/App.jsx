@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom";
 import Calendar from "./Calendar";
-import { calendarTag, extensionStorage } from "..";
+import { calendarTag, extensionStorage, mapOfTags } from "..";
 
 export function renderApp(inSidebar, periodFromDatepicker) {
   let root, parentElt;
@@ -40,6 +40,24 @@ export function renderApp(inSidebar, periodFromDatepicker) {
   };
 
   if (!calendarTag.uids[0]) calendarTag.updateUids(true);
+
+  // update stored data about calendarTag after a change in settings
+  const updatedTagIndex = mapOfTags.findIndex((tag) => tag.isToUpdate);
+  if (updatedTagIndex > -1) {
+    mapOfTags[updatedTagIndex].isToUpdate = false;
+    console.log("mapOfTags after :>> ", mapOfTags);
+    extensionStorage.set(
+      "fc-tags-info",
+      JSON.stringify(
+        mapOfTags.map((tag) => ({
+          name: tag.name,
+          color: tag.color,
+          isToDisplay: tag.isToDisplay,
+          isToDisplayInSb: tag.isToDisplayInSb,
+        }))
+      )
+    );
+  }
 
   ReactDOM.render(
     <Calendar
