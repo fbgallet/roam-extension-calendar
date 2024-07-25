@@ -28,6 +28,7 @@ import NewEventDialog from "./NewEventDialog";
 import { dateToISOString, eventTimeFormats, getDayOfYear } from "../util/dates";
 import {
   extensionStorage,
+  firstDay,
   mapOfTags,
   maxTime,
   minTime,
@@ -460,7 +461,7 @@ const Calendar = ({
             (timeGrid.week ? "timeGridWeek," : "dayGridWeek,") +
             (timeGrid.day ? "timeGridDay" : "dayGridDay"),
         }}
-        firstDay={1}
+        firstDay={firstDay === "Sunday" ? 0 : 1}
         weekends={isWEtoDisplay}
         fixedWeekCount={false}
         weekNumbers={true}

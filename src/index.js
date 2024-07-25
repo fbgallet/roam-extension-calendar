@@ -16,7 +16,6 @@ import {
   customizeRegex,
   defaultStartDateRegex,
   defaultUntilDateRegex,
-  escapeCharacters,
   notNullOrCommaRegex,
 } from "./util/regex";
 
@@ -24,6 +23,7 @@ export let mapOfTags = [];
 export let extensionStorage;
 let storedTagsInfo;
 export let calendarTag;
+export let firstDay;
 export let timeFormat;
 export let minTime, maxTime;
 export let timeGrid = {
@@ -140,6 +140,18 @@ const panelConfig = {
         type: "input",
         onChange: (evt) => {
           updateKeywordsInRangeRegex(evt.target.value, "end");
+        },
+      },
+    },
+    {
+      id: "firstDay",
+      name: "First day of week",
+      description: "Set the first day of week: Monday or Sunday.",
+      action: {
+        type: "select",
+        items: ["Monday", "Sunday"],
+        onChange: (sel) => {
+          firstDay = sel;
         },
       },
     },
@@ -436,6 +448,9 @@ export default {
     if (!extensionStorage.get("userEnd"))
       await extensionStorage.set("userEnd", defaultEndKeywords);
     updateKeywordsInRangeRegex(extensionStorage.get("userEnd"), "end");
+    if (extensionStorage.get("firstDay") === null)
+      await extensionStorage.set("firstDay", "Monday");
+    firstDay = extensionStorage.get("firstDay");
     if (extensionStorage.get("timeFormat") === null)
       await extensionStorage.set("timeFormat", "14:00");
     setTimeFormat(extensionStorage.get("timeFormat"));
