@@ -110,6 +110,7 @@ const Calendar = ({
             color: tag.color,
             isToDisplay: tag.isToDisplay,
             isToDisplayInSb: tag.isToDisplayInSb,
+            pages: tag.pages,
           }))
       )
     );

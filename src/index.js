@@ -385,6 +385,7 @@ const getStoredTagInfos = (tagName) => {
         color: matchingTag.color,
         isToDisplay: matchingTag.isToDisplay,
         isToDisplayInSb: matchingTag.isToDisplayInSb,
+        pages: matchingTag.pages,
       }
     : null;
 };
@@ -414,6 +415,7 @@ const cleanCalendarTagStore = (currentValue, storedValue) => {
         color: tag.color,
         isToDisplay: tag.isToDisplay,
         isToDisplayInSb: tag.isToDisplayInSb,
+        pages: tag.pages,
       }))
     )
   );

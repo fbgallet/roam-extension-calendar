@@ -7,6 +7,8 @@ import {
 } from "@blueprintjs/core";
 import { useState } from "react";
 import ColorPicker from "./ColorPicker";
+import { extensionStorage, mapOfTags } from "..";
+import { getTrimedArrayFromList } from "../util/data";
 
 const TagPopover = ({ aliases, tag, setTagsToDisplay, isDataToReload }) => {
   const [aliasesStr, setAliasesStr] = useState(aliases);
@@ -18,12 +20,39 @@ const TagPopover = ({ aliases, tag, setTagsToDisplay, isDataToReload }) => {
         <div>
           <div>Aliases: </div>
           <EditableText
-            // isEditing={false}
-            onConfirm={(evt) =>
-              tag.updatePages(
-                [tag.name].concat(evt.split(",").map((alias) => alias.trim()))
-              )
-            }
+            onConfirm={async (list) => {
+              const updatedPages = [tag.name].concat(
+                getTrimedArrayFromList(list)
+              );
+              console.log("tag :>> ", tag);
+              tag.updatePages(updatedPages);
+              if (!tag.isTemporary) {
+                if (
+                  !tag.isUserDefined &&
+                  tag.name !== "TODO" &&
+                  tag.name !== "DONE"
+                ) {
+                  await extensionStorage.set(
+                    `${tag.name}Tag`,
+                    `${tag.pages[0]},${list}`
+                  );
+                }
+                await extensionStorage.set(
+                  "fc-tags-info",
+                  JSON.stringify(
+                    mapOfTags.map((item) => ({
+                      name: item.name,
+                      color: item.color,
+                      isToDisplay: item.isToDisplay,
+                      isToDisplayInSb: item.isToDisplayInSb,
+                      pages: item.name === tag.name ? updatedPages : item.pages,
+                    }))
+                  )
+                );
+              }
+              setTagsToDisplay((prev) => [...prev]);
+              isDataToReload.current = true;
+            }}
             className="fc-aliases-input"
             multiline={true}
             confirmOnEnterKey={true}

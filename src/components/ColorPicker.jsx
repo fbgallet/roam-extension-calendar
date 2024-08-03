@@ -33,14 +33,16 @@ function ColorPicker({ tag, setTagsToDisplay, isDataToReload }) {
     setSelectedColor([color]);
     setTagsToDisplay((prev) => [...prev]);
     isDataToReload.current = true;
+    if (tag.isTemporary) return;
     extensionStorage.set(
       "fc-tags-info",
       JSON.stringify(
-        mapOfTags.map((tag) => ({
-          name: tag.name,
-          color: tag.color,
-          isToDisplay: tag.isToDisplay,
-          isToDisplayInSb: tag.isToDisplayInSb,
+        mapOfTags.map((item) => ({
+          name: item.name,
+          color: item.name === tag.name ? tag.color : item.color,
+          isToDisplay: item.isToDisplay,
+          isToDisplayInSb: item.isToDisplayInSb,
+          pages: item.pages,
         }))
       )
     );
