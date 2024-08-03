@@ -183,13 +183,19 @@
 
 /******* tag popover *******/
 
+.bp3-popover-content:has(.fc-tag-aliases) {
+  padding: 10px;
+}
+
 .fc-tag-aliases {
+  padding-left: 10px;
   padding-bottom: 20px;
 }
 
 .fc-aliases-input {
   width: 100%;
   max-width: 175px;
+  margin-top: 5px;
 }
 /* .fc-tag-aliases > div {
   display: flex;

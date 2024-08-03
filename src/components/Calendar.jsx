@@ -12,6 +12,7 @@ import {
   moveDroppedEventBlock,
   parseEventObject,
   updateStartDate,
+  updateStoredTags,
   updateTimestampsInBlock,
   updateUntilDate,
 } from "../util/data";
@@ -100,20 +101,7 @@ const Calendar = ({
 
   useEffect(() => {
     isDataToFilterAgain.current = true;
-    extensionStorage.set(
-      "fc-tags-info",
-      JSON.stringify(
-        mapOfTags
-          .filter((tag) => !tag.isTemporary)
-          .map((tag) => ({
-            name: tag.name,
-            color: tag.color,
-            isToDisplay: tag.isToDisplay,
-            isToDisplayInSb: tag.isToDisplayInSb,
-            pages: tag.pages,
-          }))
-      )
-    );
+    updateStoredTags(mapOfTags);
   }, [tagsToDisplay]);
 
   useEffect(() => {

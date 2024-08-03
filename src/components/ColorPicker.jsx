@@ -2,6 +2,7 @@ import { Button, MenuItem, Colors } from "@blueprintjs/core";
 import { Select } from "@blueprintjs/select";
 import { useState } from "react";
 import { extensionStorage, mapOfTags } from "..";
+import { updateStoredTags } from "../util/data";
 const COLORS_LIST = [
   { title: "light Red", value: Colors.RED5 },
   { title: "medium Red", value: Colors.RED3 },
@@ -34,18 +35,7 @@ function ColorPicker({ tag, setTagsToDisplay, isDataToReload }) {
     setTagsToDisplay((prev) => [...prev]);
     isDataToReload.current = true;
     if (tag.isTemporary) return;
-    extensionStorage.set(
-      "fc-tags-info",
-      JSON.stringify(
-        mapOfTags.map((item) => ({
-          name: item.name,
-          color: item.name === tag.name ? tag.color : item.color,
-          isToDisplay: item.isToDisplay,
-          isToDisplayInSb: item.isToDisplayInSb,
-          pages: item.pages,
-        }))
-      )
-    );
+    updateStoredTags(mapOfTags);
   };
 
   const renderColor = (color, { handleClick, modifiers }) => {
