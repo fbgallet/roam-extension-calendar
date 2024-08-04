@@ -796,13 +796,15 @@ export const updateStoredTags = async (tags) => {
   await extensionStorage.set(
     "fc-tags-info",
     JSON.stringify(
-      tags.map((tag) => ({
-        name: tag.name,
-        color: tag.color,
-        isToDisplay: tag.isToDisplay,
-        isToDisplayInSb: tag.isToDisplayInSb,
-        pages: tag.pages,
-      }))
+      tags
+        .filter((tag) => !tag.isTemporary)
+        .map((tag) => ({
+          name: tag.name,
+          color: tag.color,
+          isToDisplay: tag.isToDisplay,
+          isToDisplayInSb: tag.isToDisplayInSb,
+          pages: tag.pages,
+        }))
     )
   );
 };

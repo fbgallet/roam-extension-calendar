@@ -56,8 +56,7 @@ function ColorPicker({ tag, setTagsToDisplay, isDataToReload }) {
     );
   };
 
-  const renderTag = (color, a, b, c) => {
-    console.log(a, b, c);
+  const renderTag = (color) => {
     return color.title;
   };
 

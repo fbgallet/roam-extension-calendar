@@ -1,12 +1,4 @@
-import {
-  Button,
-  Checkbox,
-  Dialog,
-  Icon,
-  Tooltip,
-  Popover,
-  Classes,
-} from "@blueprintjs/core";
+import { Checkbox, Icon, Tooltip, Popover, Classes } from "@blueprintjs/core";
 import {
   deleteBlock,
   deleteBlockIfNoChild,
@@ -28,6 +20,7 @@ import { useState, useRef } from "react";
 import { getTagFromName } from "../models/EventTag";
 import { calendarTag, mapOfTags } from "..";
 import TagList from "./TagList";
+import DeleteDialog from "./DeleteDialog";
 
 const Event = ({
   displayTitle,
@@ -124,27 +117,13 @@ const Event = ({
               size="12"
               onClick={() => setIsDeleteDialogOpen(true)}
             />
-            <Dialog
-              className="fc-delete-dialog"
+            <DeleteDialog
               title="Delete event"
-              icon="trash"
-              isOpen={isDeleteDialogOpen}
-              canOutsideClickClose={true}
-              onClose={() => setIsDeleteDialogOpen(false)}
-            >
-              <p>Are you sure you want to delete this event ?</p>
-              <div>
-                <Button
-                  text="Cancel"
-                  onClick={() => setIsDeleteDialogOpen(false)}
-                />
-                <Button
-                  intent="danger"
-                  text="Delete"
-                  onClick={handleDeleteEvent}
-                />
-              </div>
-            </Dialog>
+              message={<p>Are you sure you want to delete this event ?</p>}
+              callback={handleDeleteEvent}
+              isDeleteDialogOpen={isDeleteDialogOpen}
+              setIsDeleteDialogOpen={setIsDeleteDialogOpen}
+            />
           </div>
         </div>
       }

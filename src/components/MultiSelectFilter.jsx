@@ -152,7 +152,7 @@ const MultiSelectFilter = ({
     return (
       <Popover
         autoFocus={false}
-        className="fc-popover"
+        classNames="fc-popover"
         captureDismiss={true}
         isOpen={popoverToOpen === tag.pages[0] ? true : false}
         canEscapeKeyClose={true}
@@ -162,8 +162,10 @@ const MultiSelectFilter = ({
           <TagPopover
             aliases={aliases}
             tag={tag}
+            tagsToDisplay={tagsToDisplay}
             setTagsToDisplay={setTagsToDisplay}
             isDataToReload={isDataToReload}
+            setPopoverToOpen={setPopoverToOpen}
           />
         }
         usePortal={true}
@@ -229,6 +231,8 @@ const MultiSelectFilter = ({
       color: Colors.GRAY3,
       isUserDefined: true,
       isTemporary: true,
+      isToDisplay: isInSidebar ? false : true,
+      isToDisplayInSb: isInSidebar ? true : false,
     });
     return newTag;
   };

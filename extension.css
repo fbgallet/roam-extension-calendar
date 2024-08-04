@@ -183,13 +183,15 @@
 
 /******* tag popover *******/
 
-.bp3-popover-content:has(.fc-tag-aliases) {
-  padding: 10px;
+.fc-tag-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .fc-tag-aliases {
   padding-left: 10px;
-  padding-bottom: 20px;
+  /* padding-bottom: 20px; */
 }
 
 .fc-aliases-input {
@@ -197,11 +199,31 @@
   max-width: 175px;
   margin-top: 5px;
 }
-/* .fc-tag-aliases > div {
+
+.fc-tag-popover > div:nth-child(2) {
+  align-self: center;
+}
+
+.fc-tag-popover > div:nth-child(3) {
+  align-self: flex-end;
+  cursor: pointer;
+  opacity: 0.5;
+}
+.fc-tag-popover > div:nth-child(3) > span:first-child {
+  opacity: 0;
+}
+/* .fc-tag-popover > div:nth-child(3):has(.bp3-icon:hover), */
+.fc-tag-popover > div:nth-child(3):hover > span {
+  opacity: 1;
+}
+.fc-tag-popover > div:nth-child(3) {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-} */
+  gap: 10px;
+}
+.fc-tag-popover div:nth-child(3) .bp3-icon {
+  padding-top: 1px;
+}
 
 /******* controls *******/
 
