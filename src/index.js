@@ -31,12 +31,37 @@ export let timeGrid = {
   week: true,
 };
 export let rangeEndAttribute;
+export let eventsOrder;
+export let isSubtaskToDisplay;
 const defaultStartKeywords = "date,from,start,begin,on";
 const defaultEndKeywords = "until,to,end";
 
 const panelConfig = {
   tabTitle: "Calendar",
   settings: [
+    {
+      id: "eventsOrder",
+      name: "Events order",
+      description: "In year and month views, order events in each day by:",
+      action: {
+        type: "select",
+        items: ["alphanumeric content", "block position"],
+        onChange: (sel) => {
+          eventsOrder = sel;
+        },
+      },
+    },
+    {
+      id: "displaySubtasks",
+      name: "Display subtasks",
+      description: "Display each subtask as an event:",
+      action: {
+        type: "switch",
+        onChange: () => {
+          isSubtaskToDisplay = !isSubtaskToDisplay;
+        },
+      },
+    },
     {
       id: "calendarTag",
       name: "Calendar tag",
@@ -468,6 +493,12 @@ export default {
     if (extensionStorage.get("weekTimegrid") === null)
       await extensionStorage.set("weekTimegrid", true);
     timeGrid.week = extensionStorage.get("weekTimegrid");
+    if (extensionStorage.get("eventsOrder") === null)
+      await extensionStorage.set("eventsOrder", "alphanumeric content");
+    eventsOrder = extensionStorage.get("eventsOrder");
+    if (extensionStorage.get("displaySubtasks") === null)
+      await extensionStorage.set("displaySubtasks", false);
+    isSubtaskToDisplay = extensionStorage.get("displaySubtasks");
 
     extensionStorage.panel.create(panelConfig);
 

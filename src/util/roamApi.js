@@ -216,12 +216,9 @@ export const removeTagsFromBlock = (blockUid, tagArray = []) => {
   let isRemoved = false;
   if (tagArray.length) {
     tagArray.forEach((tag) => {
-      console.log("tag :>> ", tag);
       const thisTagRegex = new RegExp(`#${tag}|#?\\[\\[${tag}\\]\\]|${tag}::`);
       thisTagRegex.lastIndex = 0;
-      console.log("thisTagRegex :>> ", thisTagRegex);
       let tagMention = blockContent.match(thisTagRegex);
-      console.log("tagMention :>> ", tagMention);
       if (tagMention) {
         tagMention = tagMention[0];
         if (tagMention === "[[DONE]]" || tagMention === "[[TODO]]")

@@ -28,6 +28,7 @@ import {
 import NewEventDialog from "./NewEventDialog";
 import { dateToISOString, eventTimeFormats, getDayOfYear } from "../util/dates";
 import {
+  eventsOrder,
   extensionStorage,
   firstDay,
   mapOfTags,
@@ -455,6 +456,11 @@ const Calendar = ({
         fixedWeekCount={false}
         weekNumbers={true}
         nowIndicator={true}
+        eventOrder={
+          eventsOrder === "alphanumeric content"
+            ? "-duration,title,level"
+            : "-duration,level,title"
+        }
         eventTimeFormat={eventTimeFormats[timeFormat]}
         slotLabelFormat={eventTimeFormats[timeFormat]}
         slotMinTime={minTime}

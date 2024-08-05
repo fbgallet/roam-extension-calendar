@@ -1,6 +1,8 @@
 import {
   calendarTag,
+  eventsOrder,
   extensionStorage,
+  isSubtaskToDisplay,
   mapOfTags,
   rangeEndAttribute,
 } from "..";
@@ -120,8 +122,16 @@ const filterTreeToGetEvents = (
   if (tree && tree.length) processTreeRecursively(tree, isRef ? true : false);
   return events;
 
-  function processTreeRecursively(tree, isCalendarTree) {
+  function processTreeRecursively(
+    tree,
+    isCalendarTree,
+    isChildOfEvent = false,
+    level = ""
+  ) {
+    if (eventsOrder === "block position" && tree[0].order)
+      tree = tree.sort((a, b) => a.order - b.order);
     for (let i = 0; i < tree.length; i++) {
+      let blockLevel = level + i.toString();
       let isCalendarParent = false;
       let block = {
         uid: tree[i].uid,
@@ -133,6 +143,7 @@ const filterTreeToGetEvents = (
       let isInlineRef, containerBlockUid;
       let hasCrucialDate; // a "crucial date" is (date+tag) in a child => event will be displayed even if 'dnp' or 'refs' are off
       let hasEventInBlock = false; // if there is an event in a given blocks, all its children are ignored
+      let childInfos, isTask;
 
       if (isDuplicateEvent(isCalendarTree, block)) {
         continue;
@@ -162,80 +173,104 @@ const filterTreeToGetEvents = (
         else {
           if (!isCalendarTree && !isRef && onlyCalendarTag) continue;
 
-          let untilDate, untilUid, childInfos, startDNP;
-          if (isCalendarTree || isRef) {
-            let until = getBoundaryDate(block.title);
-            isRef &&
-              ({ block, matchingTags, startUid, startDNP, hasCrucialDate } =
-                substitueParentBlockValuesIfCrucialDate({
-                  block,
-                  matchingTags,
-                  until,
-                }));
+          let untilDate, untilUid, startDNP;
 
-            if (block.tree) {
-              childInfos = getInfosFromChildren(block.tree);
-              if (childInfos) {
-                if (!isRef && childInfos.start) continue;
-                if (isRef && !startDNP && until) continue; // ????
-                until = childInfos.until;
-                // avoid duplicates
-                matchingTags = Array.from(
-                  new Set([...matchingTags, ...childInfos.tags])
-                );
-                createEventRefsFromChildren(
-                  block,
-                  childInfos,
-                  matchingTags,
-                  isCalendarTree
-                );
+          if (
+            // isSubtaskToDisplay &&
+            matchingTags.some(
+              (tag) => tag.name === "TODO" || tag.name === "DONE"
+            )
+          )
+            isTask = true;
+
+          if (!isChildOfEvent || isTask) {
+            if (isCalendarTree || isRef) {
+              let until = getBoundaryDate(block.title);
+              isRef &&
+                !isTask &&
+                ({ block, matchingTags, startUid, startDNP, hasCrucialDate } =
+                  substitueParentBlockValuesIfCrucialDate({
+                    block,
+                    matchingTags,
+                    until,
+                  }));
+
+              if (block.tree && !isTask) {
+                childInfos = getInfosFromChildren(block.tree);
+                if (childInfos) {
+                  if (!isRef && childInfos.start) continue;
+                  if (isRef && !startDNP && until) continue; // ????
+                  until = childInfos.until;
+                  // avoid duplicates
+                  matchingTags = Array.from(
+                    new Set([...matchingTags, ...childInfos.tags])
+                  );
+                  createEventRefsFromChildren(
+                    block,
+                    childInfos,
+                    matchingTags,
+                    isCalendarTree,
+                    blockLevel
+                  );
+                }
+              }
+              if (until) {
+                if (
+                  isRef &&
+                  (!startDNP || childInfos?.start) &&
+                  dateString === dateToISOString(until.date)
+                )
+                  continue;
+                // block.title = block.title.replace(until.matchingStr, "").trim();
+                untilDate = addDaysToDate(until.date, 1);
+                untilUid = until.uid || null;
               }
             }
-            if (until) {
-              if (
-                isRef &&
-                (!startDNP || childInfos?.start) &&
-                dateString === dateToISOString(until.date)
-              )
-                continue;
-              // block.title = block.title.replace(until.matchingStr, "").trim();
-              untilDate = addDaysToDate(until.date, 1);
-              untilUid = until.uid || null;
+            hasEventInBlock = true;
+            if (!isRef || isIncludingRefs || hasCrucialDate) {
+              events.push(
+                parseEventObject(
+                  {
+                    id: containerBlockUid || block.uid,
+                    title: resolveReferences(block.title),
+                    date: startDNP || dateString,
+                    startUid,
+                    untilDate,
+                    untilUid,
+                    matchingTags,
+                    isRef: isRef && !startDNP,
+                    hasInfosInChildren: childInfos ? true : false,
+                    hasCrucialDate: hasCrucialDate,
+                    isInlineRef,
+                    level: blockLevel,
+                  },
+                  isCalendarTree,
+                  isTimeGrid
+                )
+              );
             }
-          }
-          hasEventInBlock = true;
-          if (!isRef || isIncludingRefs || hasCrucialDate) {
-            events.push(
-              parseEventObject(
-                {
-                  id: containerBlockUid || block.uid,
-                  title: resolveReferences(block.title),
-                  date: startDNP || dateString,
-                  startUid,
-                  untilDate,
-                  untilUid,
-                  matchingTags,
-                  isRef: isRef && !startDNP,
-                  hasInfosInChildren: childInfos ? true : false,
-                  hasCrucialDate: hasCrucialDate,
-                  isInlineRef,
-                },
-                isCalendarTree,
-                isTimeGrid
-              )
-            );
           }
         }
       }
       if (
-        !hasEventInBlock &&
+        //(isSubtaskToDisplay || !hasEventInBlock) &&
+        !(hasEventInBlock && !isSubtaskToDisplay) &&
         !isRef &&
-        !isCalendarTree &&
-        (!matchingTags.length ||
-          !(matchingTags.includes("TODO") || matchingTags.includes("DONE"))) &&
+        // (isSubtaskToDisplay || !matchingTags.length) &&
+        // !isCalendarTree &&
+        // (!matchingTags.length ||
+        //   !(matchingTags.includes("TODO") || matchingTags.includes("DONE"))) &&
         block.tree
       ) {
-        processTreeRecursively(block.tree, isCalendarParent);
+        //   console.log("block.title (RECURSIV process) :>> ", block.title);
+        processTreeRecursively(
+          block.tree,
+          isCalendarParent || (isSubtaskToDisplay && isCalendarTree),
+          hasEventInBlock || childInfos || isChildOfEvent || hasCrucialDate
+            ? true
+            : false,
+          blockLevel + "."
+        );
       }
       if (isCalendarParent && onlyCalendarTag) break;
     }
@@ -281,6 +316,7 @@ const filterTreeToGetEvents = (
     until,
   }) {
     let startDNP, startUid, hasCrucialDate;
+
     let start = getBoundaryDate(block.title, "start");
     if (
       start ||
@@ -346,7 +382,8 @@ const filterTreeToGetEvents = (
     block,
     childInfos,
     matchingTags,
-    isCalendarTree
+    isCalendarTree,
+    level
   ) {
     if (childInfos.eventRefs.length) {
       childInfos.eventRefs.forEach((childRef) => {
@@ -377,6 +414,7 @@ const filterTreeToGetEvents = (
                 hasInfosInChildren: true,
                 hasCrucialDate: hasCrucialDateRef,
                 refSourceUid: childRef.uid,
+                level,
               },
               isCalendarTree,
               isTimeGrid
@@ -407,7 +445,7 @@ export const getInfosFromChildren = (children, mapToInclude = mapOfTags) => {
     const child = children[i];
     if (!child.refs) continue;
     const childMatchingTags = getMatchingTags(
-      mapToInclude,
+      mapToInclude.filter((tag) => tag.name !== "TODO" && tag.name !== "DONE"),
       child.refs.map((ref) => ref.uid)
     );
     const childMatchingDate = child.string.match(roamDateRegex);
@@ -454,6 +492,7 @@ export const parseEventObject = (
     untilUid,
     startUid,
     refSourceUid,
+    level,
   },
   isCalendarTree = true,
   isTimeGrid = true
@@ -518,6 +557,7 @@ export const parseEventObject = (
       startUid,
       untilUid,
       refSourceUid,
+      level,
     },
     color: backgroundColorDisplayed,
     display: "block",
@@ -545,6 +585,7 @@ export const updateEventColor = (eventTags, tagsToDisplay) => {
 
 const isReferencingDNP = (refs, dnpUid) => {
   dnpUidRegex.lastIndex = 0;
+  if (!refs || !refs.length) return false;
   return refs.some((ref) => ref.uid !== dnpUid && dnpUidRegex.test(ref.uid));
 };
 
