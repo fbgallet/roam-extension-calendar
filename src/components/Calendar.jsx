@@ -269,7 +269,7 @@ const Calendar = ({
         filterLogic,
         isInSidebar
       );
-      console.log("Filtered events to display:>> ", filteredEvents);
+      // console.log("Filtered events to display:>> ", filteredEvents);
     }
     return filteredEvents;
   };

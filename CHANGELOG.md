@@ -2,15 +2,18 @@
 
 ### Updates
 
-- multi-day events, fully supported
+- **multi-day events**, fully supported
 - better support of direct children informations (tags + dates)
 - user tags can now have aliases and be deleted
 - temporary tags can be added to permanent user tags
-- option to display subtasks
+- option to display subtasks as distinct events
+- option to sort events in alphanumeric order or according to blocks order
 
 ### Fixes
 
+- **important**: changing `#calendar` tag in the settings was not properly taken into account
 - the filter bar no longer worked after clicking on "not tagged"
+- events consisting of a single block ref or embed are displayed as block ref or embed in the event popover
 
 ## v.3 (July 18th, 2024) IMPORTANT fixes
 

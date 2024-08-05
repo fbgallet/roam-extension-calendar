@@ -40,29 +40,6 @@ const panelConfig = {
   tabTitle: "Calendar",
   settings: [
     {
-      id: "eventsOrder",
-      name: "Events order",
-      description: "In year and month views, order events in each day by:",
-      action: {
-        type: "select",
-        items: ["alphanumeric content", "block position"],
-        onChange: (sel) => {
-          eventsOrder = sel;
-        },
-      },
-    },
-    {
-      id: "displaySubtasks",
-      name: "Display subtasks",
-      description: "Display each subtask as an event:",
-      action: {
-        type: "switch",
-        onChange: () => {
-          isSubtaskToDisplay = !isSubtaskToDisplay;
-        },
-      },
-    },
-    {
       id: "calendarTag",
       name: "Calendar tag",
       description:
@@ -165,6 +142,29 @@ const panelConfig = {
         type: "input",
         onChange: (evt) => {
           updateKeywordsInRangeRegex(evt.target.value, "end");
+        },
+      },
+    },
+    {
+      id: "eventsOrder",
+      name: "Events order",
+      description: "In year and month views, sort events in each day by:",
+      action: {
+        type: "select",
+        items: ["alphanumeric content", "block position"],
+        onChange: (sel) => {
+          eventsOrder = sel;
+        },
+      },
+    },
+    {
+      id: "displaySubtasks",
+      name: "Display subtasks",
+      description: "Display each subtask as an event:",
+      action: {
+        type: "switch",
+        onChange: () => {
+          isSubtaskToDisplay = !isSubtaskToDisplay;
         },
       },
     },
