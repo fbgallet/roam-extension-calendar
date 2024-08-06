@@ -16,9 +16,10 @@ const NewEventDialog = ({
   setNewEventDialogIsOpen,
   pageUid,
   pageTitle,
-  setEvents,
   position,
   addEvent,
+  focusedTime,
+  periodView,
 }) => {
   const [isBlockRendering, setIsBlockRendering] = useState(false);
   const [eventUid, setEventUid] = useState(null);
@@ -27,7 +28,10 @@ const NewEventDialog = ({
 
   const handleNew = async () => {
     const calendarBlockUid = await getCalendarUidFromPage(pageUid);
-    const targetUid = await createChildBlock(calendarBlockUid);
+    const targetUid = await createChildBlock(
+      calendarBlockUid,
+      periodView.includes("time") && focusedTime ? focusedTime + " " : ""
+    );
     // setTimeout(async () => {
     await window.roamAlphaAPI.ui.components.renderBlock({
       uid: targetUid,

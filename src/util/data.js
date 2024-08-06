@@ -196,8 +196,6 @@ const filterTreeToGetEvents = (
 
               if (block.tree && !isTask) {
                 childInfos = getInfosFromChildren(block.tree);
-                console.log("matchingTags :>> ", matchingTags);
-                console.log("childInfos :>> ", childInfos);
                 if (childInfos) {
                   if (!isRef && childInfos.start) continue;
                   if (isRef && !startDNP && until) continue;

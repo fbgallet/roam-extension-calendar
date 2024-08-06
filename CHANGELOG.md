@@ -6,6 +6,7 @@
 - better support of direct children informations (tags + dates)
 - user tags can now have aliases and be deleted
 - temporary tags can be added to permanent user tags
+- timestamp automatically inserted when creating an event in a timegrid view
 - option to display subtasks as distinct events
 - option to sort events in alphanumeric order or according to blocks order
 

@@ -59,6 +59,7 @@ const Calendar = ({
   // const [events, setEvents] = useState([]);
   const [forceToReload, setForceToReload] = useState(false);
   const [position, setPosition] = useState({ x: null, y: null });
+  const [focusedTime, setFocusedTime] = useState(null);
 
   const [filterLogic, setFilterLogic] = useState(
     initialSettings.logic !== null ? initialSettings.logic : "Or"
@@ -138,6 +139,8 @@ const Calendar = ({
         setPosition({ x: info.jsEvent.clientX, y: info.jsEvent.clientY - 75 });
         setFocusedPageUid(targetDnpUid);
         setFocusedPageTitle(dnpTitle);
+        if (periodView.current.includes("time"))
+          setFocusedTime(info.dateStr.slice(11, 16));
         setNewEventDialogIsOpen(true);
       }
     }
@@ -294,14 +297,12 @@ const Calendar = ({
         const startDayOfYear = getDayOfYear(info.event.start);
         const endDayOfYear = getDayOfYear(info.event.end);
         if (endDayOfYear - startDayOfYear !== 0) {
-          console.log("update until date :>> ");
           await updateUntilDate(info.event, false);
         }
       }
 
       // if start date is in children
       if (info.event.extendedProps.startUid) {
-        console.log("startUid :>> ", info.event.extendedProps.startUid);
         await updateStartDate(info.event);
         return;
       }
@@ -398,6 +399,8 @@ const Calendar = ({
         pageTitle={focusedPageTitle}
         position={position}
         addEvent={addEvent}
+        focusedTime={focusedTime}
+        periodView={periodView.current}
       />
       <MultiSelectFilter
         tagsToDisplay={tagsToDisplay}
