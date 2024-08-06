@@ -294,12 +294,14 @@ const Calendar = ({
         const startDayOfYear = getDayOfYear(info.event.start);
         const endDayOfYear = getDayOfYear(info.event.end);
         if (endDayOfYear - startDayOfYear !== 0) {
+          console.log("update until date :>> ");
           await updateUntilDate(info.event, false);
         }
       }
 
       // if start date is in children
       if (info.event.extendedProps.startUid) {
+        console.log("startUid :>> ", info.event.extendedProps.startUid);
         await updateStartDate(info.event);
         return;
       }
@@ -357,7 +359,7 @@ const Calendar = ({
         else moveDroppedEventBlock(info.event);
       }
     } else {
-      updateTimestampsInBlock(info.event);
+      await updateTimestampsInBlock(info.event);
     }
   };
 

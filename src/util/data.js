@@ -139,9 +139,9 @@ const filterTreeToGetEvents = (
         refs: tree[i].refs?.map((ref) => ref.uid),
         tree: tree[i].children,
       };
-      let startUid; // true if the block contains only a block ref or embed
-      let isInlineRef, containerBlockUid;
-      let hasCrucialDate; // a "crucial date" is (date+tag) in a child => event will be displayed even if 'dnp' or 'refs' are off
+      let startUid, dateUid;
+      let isInlineRef, containerBlockUid; // true if the block contains only a block ref or embed
+      let crucialDateUid; // a "crucial date" is date if (date+tag) in a child => event will be displayed even if 'dnp' or 'refs' are off
       let hasEventInBlock = false; // if there is an event in a given blocks, all its children are ignored
       let childInfos, isTask;
 
@@ -176,7 +176,6 @@ const filterTreeToGetEvents = (
           let untilDate, untilUid, startDNP;
 
           if (
-            // isSubtaskToDisplay &&
             matchingTags.some(
               (tag) => tag.name === "TODO" || tag.name === "DONE"
             )
@@ -188,7 +187,7 @@ const filterTreeToGetEvents = (
               let until = getBoundaryDate(block.title);
               isRef &&
                 !isTask &&
-                ({ block, matchingTags, startUid, startDNP, hasCrucialDate } =
+                ({ block, matchingTags, startUid, startDNP, crucialDateUid } =
                   substitueParentBlockValuesIfCrucialDate({
                     block,
                     matchingTags,
@@ -197,9 +196,11 @@ const filterTreeToGetEvents = (
 
               if (block.tree && !isTask) {
                 childInfos = getInfosFromChildren(block.tree);
+                console.log("matchingTags :>> ", matchingTags);
+                console.log("childInfos :>> ", childInfos);
                 if (childInfos) {
                   if (!isRef && childInfos.start) continue;
-                  if (isRef && !startDNP && until) continue; // ????
+                  if (isRef && !startDNP && until) continue;
                   until = childInfos.until;
                   // avoid duplicates
                   matchingTags = Array.from(
@@ -227,7 +228,7 @@ const filterTreeToGetEvents = (
               }
             }
             hasEventInBlock = true;
-            if (!isRef || isIncludingRefs || hasCrucialDate) {
+            if (!isRef || isIncludingRefs || crucialDateUid) {
               events.push(
                 parseEventObject(
                   {
@@ -240,7 +241,7 @@ const filterTreeToGetEvents = (
                     matchingTags,
                     isRef: isRef && !startDNP,
                     hasInfosInChildren: childInfos ? true : false,
-                    hasCrucialDate: hasCrucialDate,
+                    crucialDateUid: crucialDateUid,
                     isInlineRef,
                     level: blockLevel,
                   },
@@ -262,11 +263,10 @@ const filterTreeToGetEvents = (
         //   !(matchingTags.includes("TODO") || matchingTags.includes("DONE"))) &&
         block.tree
       ) {
-        //   console.log("block.title (RECURSIV process) :>> ", block.title);
         processTreeRecursively(
           block.tree,
           isCalendarParent || (isSubtaskToDisplay && isCalendarTree),
-          hasEventInBlock || childInfos || isChildOfEvent || hasCrucialDate
+          hasEventInBlock || childInfos || isChildOfEvent || crucialDateUid
             ? true
             : false,
           blockLevel + "."
@@ -277,8 +277,6 @@ const filterTreeToGetEvents = (
   }
 
   function isDuplicateEvent(isCalendarTree, block) {
-    // console.log("eventsRefs :>> ", eventsRefs);
-    // console.log("block.uid :>> ", block.uid);
     if (
       (!isCalendarTree &&
         isRef &&
@@ -315,9 +313,10 @@ const filterTreeToGetEvents = (
     matchingTags,
     until,
   }) {
-    let startDNP, startUid, hasCrucialDate;
+    let startDNP, startUid, crucialDateUid;
 
     let start = getBoundaryDate(block.title, "start");
+    roamDateRegex.lastIndex = 0;
     if (
       start ||
       until ||
@@ -333,7 +332,7 @@ const filterTreeToGetEvents = (
           referencedInParent
         );
         if (parentMatchingTags.length) {
-          hasCrucialDate = true;
+          crucialDateUid = block.uid;
           if (
             (start || until) &&
             !matchingTags.length &&
@@ -356,12 +355,15 @@ const filterTreeToGetEvents = (
               }
             }
           } else {
-            // TODO add parent tags ?
+            matchingTags = concatMatchingTags(
+              [...parentMatchingTags],
+              [...matchingTags]
+            );
           }
           block.title = getBlockContentByUid(parentUid);
           block.uid = parentUid;
         } else if (start || until) {
-          hasCrucialDate = true;
+          crucialDateUid = block.uid;
           if (start)
             block.title = block.title.replace(start.matchingStr, "").trim();
           if (until)
@@ -374,7 +376,7 @@ const filterTreeToGetEvents = (
       matchingTags,
       startUid,
       startDNP,
-      hasCrucialDate,
+      crucialDateUid,
     };
   }
 
@@ -390,14 +392,12 @@ const filterTreeToGetEvents = (
         let hasCrucialDateRef;
         eventsRefs.push(childRef.uid);
         if (childRef.tags && childRef.date) {
-          hasCrucialDateRef = true;
+          hasCrucialDateRef = childRef.uid;
         }
-        let refMatchingTags = [...matchingTags];
-        if (
-          matchingTags.some((tag) => tag.name === "TODO" || tag.name === "DONE")
-        ) {
-          refMatchingTags.splice(1, 0, ...childRef.tags);
-        } else refMatchingTags = childRef.tags.concat(matchingTags);
+        let refMatchingTags = concatMatchingTags(
+          [...matchingTags],
+          [...childRef.tags]
+        );
 
         if (!isRef || isIncludingRefs || hasCrucialDateRef)
           events.push(
@@ -412,7 +412,7 @@ const filterTreeToGetEvents = (
                 matchingTags: refMatchingTags,
                 isRef: true,
                 hasInfosInChildren: true,
-                hasCrucialDate: hasCrucialDateRef,
+                crucialDateUid: hasCrucialDateRef,
                 refSourceUid: childRef.uid,
                 level,
               },
@@ -423,6 +423,13 @@ const filterTreeToGetEvents = (
       });
     }
   }
+};
+
+const concatMatchingTags = (initialTags, tagsToConcat) => {
+  if (initialTags.some((tag) => tag.name === "TODO" || tag.name === "DONE")) {
+    initialTags.splice(1, 0, ...tagsToConcat);
+  } else initialTags = tagsToConcat.concat(initialTags);
+  return initialTags;
 };
 
 export const getMatchingTags = (mapOfTags, refUidArray) => {
@@ -488,7 +495,7 @@ export const parseEventObject = (
     matchingTags,
     isRef = false,
     hasInfosInChildren,
-    hasCrucialDate,
+    crucialDateUid,
     untilUid,
     startUid,
     refSourceUid,
@@ -553,7 +560,7 @@ export const parseEventObject = (
       isRef: isRef,
       hasTime,
       hasInfosInChildren,
-      hasCrucialDate,
+      crucialDateUid,
       startUid,
       untilUid,
       refSourceUid,
@@ -650,7 +657,10 @@ export const saveViewSetting = (setting, value, isInSidebar) => {
 
 export const moveDroppedEventBlock = async (event) => {
   if (event.extendedProps.isRef) {
-    let targetUid = event.extendedProps.refSourceUid || event.id;
+    let targetUid =
+      event.extendedProps.crucialDateUid ||
+      event.extendedProps.refSourceUid ||
+      event.id;
     let blockContent = getBlockContentByUid(targetUid);
     let matchingDates = blockContent.match(roamDateRegex);
     const newRoamDate = window.roamAlphaAPI.util.dateToPageTitle(event.start);
@@ -684,16 +694,15 @@ export const updateTimestampsInBlock = async (event, oldEvent) => {
     event.start.getHours(),
     event.start.getMinutes()
   );
-  // console.log("start timestamp", startTimestamp);
   let endTimestamp;
   let hasTimestamp = true;
   let initialRange, newRange, hasDuration;
   let blockContent = getBlockContentByUid(event.id);
 
-  if (oldEvent.allDay && !event.allDay) {
+  if (oldEvent?.allDay && !event?.allDay) {
     event.setExtendedProp("hasTime", true);
   }
-  if (event.end || oldEvent.end) {
+  if (event.end || oldEvent?.end) {
     if (event.end)
       endTimestamp = getTimestampFromHM(
         event.end.getHours(),
@@ -710,7 +719,7 @@ export const updateTimestampsInBlock = async (event, oldEvent) => {
       hasDuration = true;
     }
   }
-  if ((!event.end && !oldEvent.end) || hasDuration) {
+  if ((!event.end && !oldEvent?.end) || hasDuration) {
     initialRange = getNormalizedTimestamp(blockContent, strictTimestampRegex);
     if (initialRange) {
       initialRange = initialRange.matchingString.trim();
@@ -821,6 +830,7 @@ export const updateUntilDate = async (event, isToAddIfAbsent = true) => {
 };
 
 export const updateStartDate = async (event) => {
+  //event.extendedProps.crucialDateUid ||
   let blockContent = getBlockContentByUid(event.extendedProps.startUid);
   const startDate = event.start;
   const startDateStr = window.roamAlphaAPI.util.dateToPageTitle(

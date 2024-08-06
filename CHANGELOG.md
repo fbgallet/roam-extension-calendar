@@ -12,6 +12,7 @@
 ### Fixes
 
 - **important**: changing `#calendar` tag in the settings was not properly taken into account
+- resizing an event in week or day view was not properly updating the timestamp in the block (since v.3)
 - the filter bar no longer worked after clicking on "not tagged"
 - events consisting of a single block ref or embed are displayed as block ref or embed in the event popover
 
