@@ -4,10 +4,10 @@
 
 🆕 New in v.4:
 
-- Multi-day events comprehensive support, with range dates defined in direct children blocks
-- aliases for user tags
-- options to display substaks and sort events
-(See [changelog here for more details](https://github.com/fbgallet/roam-extension-calendar/blob/main/CHANGELOG.md))
+- **Multi-day events** full support, see 'Events with date attributes' section below
+- user tags have now aliases and can be easily added/removed
+- options to display substaks and sort events by alpanumeric order (default) or block order
+- a lot of small fixes: see [changelog here for more details on updates and fixes](https://github.com/fbgallet/roam-extension-calendar/blob/main/CHANGELOG.md)
 
 ![Full calendar gif demo 1](https://github.com/fbgallet/roam-extension-calendar/assets/74436347/81e22cb5-9d4c-45c9-9f6f-36160d7e7631)
 
@@ -39,6 +39,7 @@ By default, the events and tasks displayed in the calendar are the first childre
 In the calendar header, you have the following options:
 
 - switch `dnp` on to display all blocks in the whole DNP matching the current tag filter, switch it off to display only events under `#calendar` (and events with date attributes)
+
   ⚠️ Be aware that enabling this option requires processing significantly more data with each loading or refresh of the calendar, which may slightly slow down its display, especially if you have a lot of data in your DNPs !
 - switch `refs` on/off to display/hide all blocks in linked references of your DNP matching the current tag filter (referenced events defined by a date attribute are not affected). These events are distinguished by a dashed line along the bottom edge.
 - switch `we` on/off to display/hide week-end days.
