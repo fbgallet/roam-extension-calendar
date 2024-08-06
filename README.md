@@ -1,6 +1,6 @@
 # Full Calendar
 
-### A comprehensive calendar to get an overview of your tasks and activities spread over numerous Daily Notes Pages.
+### A comprehensive calendar to handle your tasks and have an overview of events or any tagged content in your Daily Note Pages.
 
 🆕 New in v.4:
 
