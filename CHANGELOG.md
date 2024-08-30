@@ -4,10 +4,11 @@
 
 - **multi-day events**, fully supported
 - better support of direct children informations (tags + dates)
-- user tags can now have aliases and be deleted
+- user tags can now have aliases (directly in the tag popup) and be deleted
 - temporary tags can be added to permanent user tags
 - a timestamp is automatically inserted when creating an event in a timegrid view
 - option to display subtasks as distinct events
+- option to set monday or sunday as first day of week
 - option to sort events in alphanumeric order or according to blocks order
 
 ### Fixes
