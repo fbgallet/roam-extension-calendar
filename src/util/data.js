@@ -56,42 +56,106 @@ export const getBlocksToDisplayFromDNP = async (
   isTimeGrid
 ) => {
   // console.log("mapOfTags :>> ", mapOfTags);
+  // let events = [];
+  // eventsRefs = [];
+  // possibleDuplicateEvents = [];
+  // for (
+  //   let currentDate = start;
+  //   currentDate <= end;
+  //   currentDate = getDistantDate(currentDate, 1)
+  // ) {
+  //   const dnpUid = window.roamAlphaAPI.util.dateToPageUid(currentDate);
+  //   const dnpTree = getTreeByUid(dnpUid);
+  //   let pageAndRefsTrees = [];
+  //   pageAndRefsTrees.push(
+  //     !dnpTree || (dnpTree && !dnpTree[0].children) ? [] : dnpTree[0].children
+  //   );
+  //   // if (isIncludingRefs) {
+  //   const refTrees = getLinkedReferencesTrees(
+  //     dnpUid,
+  //     getPageUidByPageName("roam/memo")
+  //   );
+  //   pageAndRefsTrees = pageAndRefsTrees.concat(refTrees);
+  //   for (let i = 0; i < pageAndRefsTrees.length; i++) {
+  //     const filteredEvents = filterTreeToGetEvents(
+  //       dnpUid,
+  //       currentDate,
+  //       pageAndRefsTrees[i],
+  //       mapOfTags,
+  //       onlyCalendarTag,
+  //       i > 0 ? true : false,
+  //       isTimeGrid,
+  //       isIncludingRefs
+  //     );
+  //     // console.log("filteredEvents :>> ", filteredEvents);
+  //     if (filteredEvents.length > 0) events = events.concat(filteredEvents);
+  //   }
+  // }
+
   let events = [];
-  eventsRefs = [];
-  possibleDuplicateEvents = [];
-  for (
-    let currentDate = start;
-    currentDate <= end;
-    currentDate = getDistantDate(currentDate, 1)
+  async function processEvents(
+    start,
+    end,
+    mapOfTags,
+    onlyCalendarTag,
+    isTimeGrid,
+    isIncludingRefs
   ) {
-    const dnpUid = window.roamAlphaAPI.util.dateToPageUid(currentDate);
-    const dnpTree = getTreeByUid(dnpUid);
-    let pageAndRefsTrees = [];
-    pageAndRefsTrees.push(
-      !dnpTree || (dnpTree && !dnpTree[0].children) ? [] : dnpTree[0].children
-    );
-    // if (isIncludingRefs) {
-    const refTrees = getLinkedReferencesTrees(
-      dnpUid,
-      getPageUidByPageName("roam/memo")
-    );
-    pageAndRefsTrees = pageAndRefsTrees.concat(refTrees);
-    for (let i = 0; i < pageAndRefsTrees.length; i++) {
-      const filteredEvents = filterTreeToGetEvents(
-        dnpUid,
-        currentDate,
-        pageAndRefsTrees[i],
-        mapOfTags,
-        onlyCalendarTag,
-        i > 0 ? true : false,
-        isTimeGrid,
-        isIncludingRefs
+    let eventsRefs = [];
+    let possibleDuplicateEvents = [];
+    const processDate = async (currentDate) => {
+      const dnpUid = window.roamAlphaAPI.util.dateToPageUid(currentDate);
+      const dnpTree = await getTreeByUid(dnpUid);
+      let pageAndRefsTrees = [];
+      pageAndRefsTrees.push(
+        !dnpTree || (dnpTree && !dnpTree[0].children) ? [] : dnpTree[0].children
       );
-      // console.log("filteredEvents :>> ", filteredEvents);
-      if (filteredEvents.length > 0) events = events.concat(filteredEvents);
+      const refTrees = await getLinkedReferencesTrees(
+        dnpUid,
+        getPageUidByPageName("roam/memo")
+      );
+      pageAndRefsTrees = pageAndRefsTrees.concat(refTrees);
+      const processTree = async (tree, index) => {
+        const filteredEvents = await filterTreeToGetEvents(
+          dnpUid,
+          currentDate,
+          tree,
+          mapOfTags,
+          onlyCalendarTag,
+          index > 0,
+          isTimeGrid,
+          isIncludingRefs
+        );
+        return filteredEvents;
+      };
+      const allFilteredEvents = await Promise.all(
+        pageAndRefsTrees.map(processTree)
+      );
+      return allFilteredEvents.flat();
+    };
+    const dates = [];
+    for (
+      let currentDate = start;
+      currentDate <= end;
+      currentDate = getDistantDate(currentDate, 1)
+    ) {
+      dates.push(currentDate);
     }
+    const allEvents = await Promise.all(dates.map(processDate));
+    events = allEvents.flat();
+    return events;
   }
-  // console.log("events from data.js :>> ", events);
+  // Utilisation
+  events = await processEvents(
+    start,
+    end,
+    mapOfTags,
+    onlyCalendarTag,
+    isTimeGrid,
+    isIncludingRefs
+  );
+
+  console.log("events from data.js :>> ", events);
 
   for (let i = 0; i < possibleDuplicateEvents.length; i++) {
     const duplicateEvent = events.findIndex(
@@ -105,7 +169,7 @@ export const getBlocksToDisplayFromDNP = async (
   return events;
 };
 
-const filterTreeToGetEvents = (
+const filterTreeToGetEvents = async (
   dnpUid,
   currentDate,
   tree,
@@ -119,10 +183,11 @@ const filterTreeToGetEvents = (
   const events = [];
   const dateString = dateToISOString(currentDate);
 
-  if (tree && tree.length) processTreeRecursively(tree, isRef ? true : false);
+  if (tree && tree.length)
+    await processTreeRecursively(tree, isRef ? true : false);
   return events;
 
-  function processTreeRecursively(
+  async function processTreeRecursively(
     tree,
     isCalendarTree,
     isChildOfEvent = false,

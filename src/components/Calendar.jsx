@@ -42,6 +42,7 @@ import {
   getTagFromName,
   refreshTagsUids,
 } from "../models/EventTag";
+import GoogleCal from "./GoogleCal";
 
 let events = [];
 let filteredEvents = [];
@@ -263,6 +264,9 @@ const Calendar = ({
         isIncludingRefs,
         periodView.current.includes("time")
       );
+      let end = performance.now();
+
+      console.log("Events loading time: ", end - begin);
       isDataToFilterAgain.current = true;
     }
     if (isDataToFilterAgain.current) {
@@ -365,6 +369,7 @@ const Calendar = ({
   };
 
   const parseGoogleCalendarEvent = (event) => {
+    console.log("event :>> ", event);
     return {
       id: event.id,
       title: event.title,
@@ -372,10 +377,10 @@ const Calendar = ({
       end: event.end,
       classNames: ["fc-event-gcal"],
       extendedProps: {
-        eventTags: [getTagFromName("Google calendar")],
+        // eventTags: [getTagFromName("Google calendar")],
         isRef: false,
       },
-      color: getTagColorFromName("Google calendar"),
+      color: "grey", //getTagColorFromName("Google calendar"),
       display: "block",
       editable: false,
       url: event.url,
@@ -402,6 +407,7 @@ const Calendar = ({
         focusedTime={focusedTime}
         periodView={periodView.current}
       />
+      {/* <GoogleCal /> */}
       <MultiSelectFilter
         tagsToDisplay={tagsToDisplay}
         setTagsToDisplay={setTagsToDisplay}
@@ -489,7 +495,7 @@ const Calendar = ({
           }
         }}
         // events={getEventsFromDNP}
-        //googleCalendarApiKey= // in .env
+        // googleCalendarApiKey={process.env.googleCalendarApiKey}
         eventSources={[
           getEventsFromDNP,
           // tagsToDisplay.find((tag) => tag.name === "Google calendar")
@@ -498,6 +504,10 @@ const Calendar = ({
           //       eventDataTransform: parseGoogleCalendarEvent,
           //     }
           //   : null,
+          {
+            googleCalendarId: "fbgallet@gmail.com",
+            eventDataTransform: parseGoogleCalendarEvent,
+          },
         ]}
         eventContent={(info, jsEvent) => renderEventContent(info, jsEvent)}
         eventClick={(info) => {
