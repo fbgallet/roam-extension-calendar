@@ -49,6 +49,7 @@ const panelConfig = {
         onChange: (evt) => {
           calendarTag = new EventTag({
             name: evt.target.value,
+            ...getStoredTagInfos(extensionStorage.get("calendarTag")),
             color: "transparent",
             isToUpdate: true,
           });
@@ -304,6 +305,7 @@ const updateKeywordsInRangeRegex = (list, type) => {
 
 const initializeMapOfTags = () => {
   if (userTags) updageUserTags(userTags);
+  console.log("mapOfTags :>> ", mapOfTags);
   mapOfTags.push(
     new EventTag({
       name: "TODO",
@@ -367,7 +369,18 @@ const initializeMapOfTags = () => {
   // );
   const userTags = extensionStorage.get("userTags");
   if (notNullOrCommaRegex.test(userTags)) updageUserTags(userTags);
-  mapOfTags.push(calendarTag);
+  const calendarTagName = extensionStorage.get("calendarTag");
+  if (notNullOrCommaRegex.test(calendarTagName)) {
+    calendarTag = new EventTag({
+      name: calendarTagName,
+      color: "transparent",
+      isPageCreationToForce: true,
+      ...getStoredTagInfos(calendarTagName),
+      pages: [calendarTagName],
+    });
+    mapOfTags.push(calendarTag);
+  }
+  // mapOfTags.push(calendarTag);
   console.log("mapOfTags :>> ", mapOfTags);
 };
 
@@ -453,11 +466,11 @@ export default {
     // console.log("storedTagsInfo :>> ", storedTagsInfo);
     if (!extensionStorage.get("calendarTag"))
       await extensionStorage.set("calendarTag", "calendar");
-    calendarTag = new EventTag({
-      name: extensionStorage.get("calendarTag"),
-      color: "transparent",
-      isPageCreationToForce: true,
-    });
+    // calendarTag = new EventTag({
+    //   name: extensionStorage.get("calendarTag"),
+    //   color: "transparent",
+    //   isPageCreationToForce: true,
+    // });
     // console.log("calendarTag :>> ", calendarTag);
     if (extensionStorage.get("importantTag") === null)
       await extensionStorage.set("importantTag", "important");

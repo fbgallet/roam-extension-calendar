@@ -257,6 +257,7 @@ const Calendar = ({
 
     if (isDataToReload.current) {
       refreshTagsUids();
+      const begin = performance.now();
       events = await getBlocksToDisplayFromDNP(
         info.start,
         info.end,
@@ -264,7 +265,7 @@ const Calendar = ({
         isIncludingRefs,
         periodView.current.includes("time")
       );
-      let end = performance.now();
+      const end = performance.now();
 
       console.log("Events loading time: ", end - begin);
       isDataToFilterAgain.current = true;
