@@ -42,7 +42,7 @@ import {
   getTagFromName,
   refreshTagsUids,
 } from "../models/EventTag";
-import GoogleCal from "./GoogleCal";
+// import GoogleCal from "./GoogleCal";
 
 let events = [];
 let filteredEvents = [];

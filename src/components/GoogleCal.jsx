@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { GoogleOAuthProvider } from "@react-oauth/google";
+// import { GoogleOAuthProvider } from "@react-oauth/google";
 import CalendarApp from "./CalendarApp";
 
 const CLIENT_ID =
   "743270704845-amll1jrommrq6h2t7lr14puv4jvuje6i.apps.googleusercontent.com";
-const API_KEY = process.env.googleCalendarApiKey;
+const API_KEY = null; //process.env.googleCalendarApiKey;
 function GoogleCal() {
   const [scriptsLoaded, setScriptsLoaded] = useState(false);
   useEffect(() => {
