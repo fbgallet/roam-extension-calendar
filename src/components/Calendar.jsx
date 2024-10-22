@@ -257,7 +257,7 @@ const Calendar = ({
 
     if (isDataToReload.current) {
       refreshTagsUids();
-      const begin = performance.now();
+      // const begin = performance.now();
       events = await getBlocksToDisplayFromDNP(
         info.start,
         info.end,
@@ -265,9 +265,8 @@ const Calendar = ({
         isIncludingRefs,
         periodView.current.includes("time")
       );
-      const end = performance.now();
-
-      console.log("Events loading time: ", end - begin);
+      // const end = performance.now();
+      // console.log("Events loading time: ", end - begin);
       isDataToFilterAgain.current = true;
     }
     if (isDataToFilterAgain.current) {
@@ -369,24 +368,24 @@ const Calendar = ({
     }
   };
 
-  const parseGoogleCalendarEvent = (event) => {
-    console.log("event :>> ", event);
-    return {
-      id: event.id,
-      title: event.title,
-      start: event.start,
-      end: event.end,
-      classNames: ["fc-event-gcal"],
-      extendedProps: {
-        // eventTags: [getTagFromName("Google calendar")],
-        isRef: false,
-      },
-      color: "grey", //getTagColorFromName("Google calendar"),
-      display: "block",
-      editable: false,
-      url: event.url,
-    };
-  };
+  // const parseGoogleCalendarEvent = (event) => {
+  //   console.log("event :>> ", event);
+  //   return {
+  //     id: event.id,
+  //     title: event.title,
+  //     start: event.start,
+  //     end: event.end,
+  //     classNames: ["fc-event-gcal"],
+  //     extendedProps: {
+  //       // eventTags: [getTagFromName("Google calendar")],
+  //       isRef: false,
+  //     },
+  //     color: "grey", //getTagColorFromName("Google calendar"),
+  //     display: "block",
+  //     editable: false,
+  //     url: event.url,
+  //   };
+  // };
 
   return (
     <div
@@ -499,16 +498,10 @@ const Calendar = ({
         // googleCalendarApiKey={process.env.googleCalendarApiKey}
         eventSources={[
           getEventsFromDNP,
-          // tagsToDisplay.find((tag) => tag.name === "Google calendar")
-          //   ? {
-          //       googleCalendarId: "fbgallet@gmail.com",
-          //       eventDataTransform: parseGoogleCalendarEvent,
-          //     }
-          //   : null,
-          {
-            googleCalendarId: "fbgallet@gmail.com",
-            eventDataTransform: parseGoogleCalendarEvent,
-          },
+          // {
+          //   googleCalendarId: "jean.suiloin@gmail.com",
+          //   eventDataTransform: parseGoogleCalendarEvent,
+          // },
         ]}
         eventContent={(info, jsEvent) => renderEventContent(info, jsEvent)}
         eventClick={(info) => {

@@ -183,9 +183,9 @@ const panelConfig = {
     },
     {
       id: "timeFormat",
-      name: "Time format output",
+      name: "Time format",
       description:
-        "How timestamps and ranges are displayed in the calendar (regardless of the input format)",
+        "How timestamps and ranges are displayed in the calendar & inserted in blocks (regardless of the input format)",
       action: {
         type: "select",
         items: ["14:00", "2:00pm", "2pm"],

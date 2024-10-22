@@ -55,43 +55,6 @@ export const getBlocksToDisplayFromDNP = async (
   isIncludingRefs,
   isTimeGrid
 ) => {
-  // console.log("mapOfTags :>> ", mapOfTags);
-  // let events = [];
-  // eventsRefs = [];
-  // possibleDuplicateEvents = [];
-  // for (
-  //   let currentDate = start;
-  //   currentDate <= end;
-  //   currentDate = getDistantDate(currentDate, 1)
-  // ) {
-  //   const dnpUid = window.roamAlphaAPI.util.dateToPageUid(currentDate);
-  //   const dnpTree = getTreeByUid(dnpUid);
-  //   let pageAndRefsTrees = [];
-  //   pageAndRefsTrees.push(
-  //     !dnpTree || (dnpTree && !dnpTree[0].children) ? [] : dnpTree[0].children
-  //   );
-  //   // if (isIncludingRefs) {
-  //   const refTrees = getLinkedReferencesTrees(
-  //     dnpUid,
-  //     getPageUidByPageName("roam/memo")
-  //   );
-  //   pageAndRefsTrees = pageAndRefsTrees.concat(refTrees);
-  //   for (let i = 0; i < pageAndRefsTrees.length; i++) {
-  //     const filteredEvents = filterTreeToGetEvents(
-  //       dnpUid,
-  //       currentDate,
-  //       pageAndRefsTrees[i],
-  //       mapOfTags,
-  //       onlyCalendarTag,
-  //       i > 0 ? true : false,
-  //       isTimeGrid,
-  //       isIncludingRefs
-  //     );
-  //     // console.log("filteredEvents :>> ", filteredEvents);
-  //     if (filteredEvents.length > 0) events = events.concat(filteredEvents);
-  //   }
-  // }
-
   let events = [];
   async function processEvents(
     start,
@@ -155,7 +118,7 @@ export const getBlocksToDisplayFromDNP = async (
     isIncludingRefs
   );
 
-  console.log("events from data.js :>> ", events);
+  console.log("Loaded events :>> ", events);
 
   for (let i = 0; i < possibleDuplicateEvents.length; i++) {
     const duplicateEvent = events.findIndex(
@@ -593,6 +556,7 @@ export const parseEventObject = (
     } else {
       let parsedTime = getNormalizedTimestamp(title, strictTimestampRegex);
       if (parsedTime) {
+        console.log("parsedTime :>> ", parsedTime);
         hasTime = true;
         range = { start: parsedTime.timestamp };
         title = title.replace(parsedTime.matchingString, "");

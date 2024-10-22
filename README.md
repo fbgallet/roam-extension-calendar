@@ -2,6 +2,10 @@
 
 ### A comprehensive calendar to handle your tasks and have an overview of events or any tagged content in your Daily Note Pages.
 
+🆕 New in v.5:
+
+- 12h-format support
+
 🆕 New in v.4:
 
 - **Multi-day events** full support, see 'Events with date attributes' section below
@@ -41,6 +45,7 @@ In the calendar header, you have the following options:
 - switch `dnp` on to display all blocks in the whole DNP matching the current tag filter, switch it off to display only events under `#calendar` (and events with date attributes)
 
   ⚠️ Be aware that enabling this option requires processing significantly more data with each loading or refresh of the calendar, which may slightly slow down its display, especially if you have a lot of data in your DNPs !
+
 - switch `refs` on/off to display/hide all blocks in linked references of your DNP matching the current tag filter (referenced events defined by a date attribute are not affected). These events are distinguished by a dashed line along the bottom edge.
 - switch `we` on/off to display/hide week-end days.
 
@@ -65,14 +70,14 @@ In the calendar header, you have the following options:
 
 ## Handle events with timestamp and duration
 
-If the block contain a timestamp, the corresponding event will automatically have a start time and, by default, one-hour duration. A timestamp has to be in 24h format, e.g. `14:00`, `14h`, `9:05`, `9:5`, `9h05`, etc. (only `:` and `h` are supported as separator between hours and minutes).
+If the block contain a timestamp, the corresponding event will automatically have a start time and, by default, one-hour duration. A timestamp can be in 24h or 12h format (🆕 new in v.5), e.g. `14:00`, `14h`, `9:05`, `9:5`, `9h05`, `2:00pm`, `2pm`, `9:05 PM`, etc. (only `:` and `h` are supported as separator between hours and minutes).
 
 To define a duration you can:
 
 - add another timestamp with `-` serator, to define a range. E.g.: `14:00 - 15:30`
 - add a duration in minutes or hours, in the following format: `90m`, `2h`.The duration has to be placed after the timestamp in the block.
 
-In the settings, you can change how timestamps are displayed in the calendar, including choosing a 12-hour display. However, currently, the input entry must be in 24-hour format.
+In the settings, you can change how timestamps are displayed in the calendar and inserted in blocks.
 
 ## Events with date attributes (🆕 new in v.4)
 
@@ -103,7 +108,6 @@ Here is an example of an event with date attributes and tags in direct children:
 ```
 
 ![Full Calendar Multi-day demo](https://github.com/user-attachments/assets/d292eb38-1e4b-4d1e-9a4a-406b87039192)
-
 
 ## Tags
 

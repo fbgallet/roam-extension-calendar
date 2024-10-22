@@ -10,6 +10,7 @@ import {
 } from "../util/roamApi";
 import { useRef, useState } from "react";
 import { getCalendarUidFromPage } from "../util/data";
+import { getTimestampFromHM } from "../util/dates";
 
 const NewEventDialog = ({
   newEventDialogIsOpen,
@@ -28,6 +29,12 @@ const NewEventDialog = ({
 
   const handleNew = async () => {
     const calendarBlockUid = await getCalendarUidFromPage(pageUid);
+    if (periodView.includes("time") && focusedTime) {
+      focusedTime = getTimestampFromHM(
+        parseInt(focusedTime.slice(0, 2)),
+        parseInt(focusedTime.slice(3, 5))
+      );
+    }
     const targetUid = await createChildBlock(
       calendarBlockUid,
       periodView.includes("time") && focusedTime ? focusedTime + " " : ""

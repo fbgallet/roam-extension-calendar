@@ -1,4 +1,5 @@
 import { DateTime } from "luxon";
+import { timeFormat } from "..";
 
 export const eventTimeFormats = {
   long: {
@@ -22,9 +23,9 @@ export const eventTimeFormats = {
 
 export const timestampRegex = /([0-9]{1,2})([:|h]([0-9]{1,2})?)?/;
 export const strictTimestampRegex =
-  /\b(\d{1,2})(:)(\d{1,2})(\s|\b)|\b(\d{1,2})(h)(\d{1,2})?(\s|\b)/;
+  /\b(\d{1,2}):(\d{1,2})(?:\s?|\b)((?:PM|pm|AM|am|))(?:\s|\b)|\b(\d{1,2})((?:PM|pm|AM|am))(?:\s|\b)|\b(\d{1,2})h(\d{1,2})?(\s|\b)/;
 export const rangeRegex =
-  /[0-9]{1,2}([:|h]([0-9]{1,2})?)? ?- ?[0-9]{1,2}([:|h]([0-9]{1,2})?)?/;
+  /[0-9]{1,2}([:|h]([0-9]{1,2})?)? ?(?:PM|pm|AM|am)? ?- ?[0-9]{1,2}([:|h]([0-9]{1,2})?)? ?(?:PM|pm|AM|am)?/;
 export const durationRegex = /\b(\d{1,3})([m|h])(\s|\b)/;
 
 export const getDistantDate = (date = null, shift = 1) => {
@@ -45,7 +46,6 @@ export const getDateFromDnpUid = (dnpUid) => {
 
 export const parseRange = (string) => {
   const matchingRange = string.match(rangeRegex);
-  // console.log("matchingRange :>> ", matchingRange);
   if (matchingRange) {
     const timestamps = matchingRange[0].split("-").map((t) => t.trim());
     return {
@@ -59,16 +59,29 @@ export const parseRange = (string) => {
   return null;
 };
 
-export const getNormalizedTimestamp = (timestamp, regex = timestampRegex) => {
-  const matchingTime = timestamp.match(regex);
+export const getNormalizedTimestamp = (str, regex = strictTimestampRegex) => {
+  const matchingTime = str.match(regex);
   if (matchingTime) {
     let shift = 0;
-    if (!matchingTime[1]) shift = 4;
-    // console.log("matchingTime :>> ", matchingTime);
+    if (!matchingTime[1]) {
+      shift = 3;
+      if (!matchingTime[4]) shift = 5;
+    }
+    if (
+      (matchingTime[3] && matchingTime[3].toLowerCase().includes("p")) ||
+      (matchingTime[5] && matchingTime[5].toLowerCase().includes("p"))
+    ) {
+      matchingTime[1 + shift] = (
+        parseInt(matchingTime[1 + shift]) + 12
+      ).toString();
+    }
+
     return {
       matchingString: matchingTime[0],
       timestamp: `${addZero(matchingTime[1 + shift])}:${
-        matchingTime[3 + shift] ? addZero(matchingTime[3 + shift]) : "00"
+        !isNaN(matchingTime[2 + shift])
+          ? addZero(matchingTime[2 + shift])
+          : "00"
       }`,
     };
   }
@@ -76,7 +89,20 @@ export const getNormalizedTimestamp = (timestamp, regex = timestampRegex) => {
 };
 
 export function getTimestampFromHM(h, m) {
-  return h + ":" + addZero(m);
+  if (h === 0 && m === 0) return "0:00";
+  let timestamp = h;
+  let period = "";
+  if (timeFormat !== "long") {
+    if (h > 11) {
+      period = "pm";
+      timestamp = h !== 12 ? h - 12 : h;
+    } else period = "am";
+  }
+  if (timeFormat !== "short" || m !== 0) {
+    timestamp += ":" + addZero(m);
+  }
+  timestamp += period;
+  return timestamp;
 }
 
 export const addZero = (i) => {
