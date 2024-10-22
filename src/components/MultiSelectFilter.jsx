@@ -224,6 +224,14 @@ const MultiSelectFilter = ({
     }, 600);
   };
 
+  const handleTagDrag = (e, tag) => {
+    e.dataTransfer.setData(
+      "text/plain",
+      JSON.stringify({ isTag: true, tagTitle: tag.pages[0] })
+    );
+    e.dataTransfer.effectAllowed = "copy";
+  };
+
   const handleCreateNewTag = (query) => {
     if (!query.trim()) return;
     const newTag = new EventTag({
@@ -296,6 +304,8 @@ const MultiSelectFilter = ({
                 : mapOfTags.find((tag) => tag.pages[0] === props.children);
             if (!tag) return;
             return {
+              draggable: true,
+              onDragStart: (e) => handleTagDrag(e, tag),
               style: {
                 backgroundColor: tag.color,
                 color: tag.color === "transparent" ? "revert" : null,

@@ -57,6 +57,7 @@ const Calendar = ({
   const [newEventDialogIsOpen, setNewEventDialogIsOpen] = useState(false);
   const [focusedPageUid, setFocusedPageUid] = useState(null);
   const [focusedPageTitle, setFocusedPageTitle] = useState(null);
+  const [tagToInsert, setTagToInsert] = useState(null);
   // const [events, setEvents] = useState([]);
   const [forceToReload, setForceToReload] = useState(false);
   const [position, setPosition] = useState({ x: null, y: null });
@@ -120,7 +121,7 @@ const Calendar = ({
     // console.log("Day selected");
   };
 
-  const handleSquareDayClick = async (info) => {
+  const handleSquareDayClick = async (info, tag = null) => {
     const targetDnpUid = window.roamAlphaAPI.util.dateToPageUid(info.date);
     const dnpTitle = window.roamAlphaAPI.util.dateToPageTitle(info.date);
     const previousSelectedDay = selectedDay.current;
@@ -132,7 +133,7 @@ const Calendar = ({
         window: { type: "outline", "block-uid": targetDnpUid },
       });
     } else {
-      if (previousSelectedDay === targetDnpUid) {
+      if (previousSelectedDay === targetDnpUid || tag) {
         createNewPageIfNotExisting(dnpTitle, targetDnpUid, true);
         isDataToReload.current = false;
         isDataToFilterAgain.current = false;
@@ -140,6 +141,7 @@ const Calendar = ({
         setPosition({ x: info.jsEvent.clientX, y: info.jsEvent.clientY - 75 });
         setFocusedPageUid(targetDnpUid);
         setFocusedPageTitle(dnpTitle);
+        setTagToInsert(tag);
         if (periodView.current.includes("time"))
           setFocusedTime(info.dateStr.slice(11, 16));
         setNewEventDialogIsOpen(true);
@@ -316,14 +318,48 @@ const Calendar = ({
   };
 
   const handleExternalDrop = async (e) => {
+    e.stopPropagation();
     e.preventDefault();
     let targetUid;
     const sourceUid = e.dataTransfer.getData("text");
-    const blockContent = getBlockContentByUid(sourceUid);
-    const blockRefs = getBlocksUidReferencedInThisBlock(sourceUid);
-    const targetDateString = e.target.parentNode.dataset["date"];
+
+    // get date & time from calendar DOM table !
+    let timeFromTimegrid;
+    let dateFromTimegrid;
+    if (e.target.dataset["time"]) {
+      const x = e.clientX;
+      const y = e.clientY;
+      const eltsToHide = [];
+      timeFromTimegrid = e.target.dataset["time"].slice(0, 5);
+      for (let i = 0; i < 3; i++) {
+        const elt = document.elementFromPoint(x, y);
+        eltsToHide.push({ elt, display: elt.style.display });
+        eltsToHide[i].elt.style.display = "none";
+      }
+      const column = document.elementFromPoint(x, y);
+      dateFromTimegrid = column.parentElement.dataset["date"];
+      eltsToHide.forEach((elt) => (elt.elt.style.display = elt.display));
+    }
+
+    const targetDateString =
+      e.target.parentNode.dataset["date"] || dateFromTimegrid;
     const targetDate = new Date(targetDateString);
     const date = dateToISOString(targetDate);
+    if (sourceUid.includes("isTag")) {
+      const draggedTag = JSON.parse(sourceUid);
+      handleSquareDayClick(
+        {
+          date: targetDate,
+          dateStr:
+            targetDateString + (timeFromTimegrid ? " " + timeFromTimegrid : ""),
+          jsEvent: e,
+        },
+        draggedTag.tagTitle
+      );
+      return;
+    }
+    const blockContent = getBlockContentByUid(sourceUid);
+    const blockRefs = getBlocksUidReferencedInThisBlock(sourceUid);
     const matchingTags = getMatchingTags(tagsToDisplay, blockRefs);
     let calendarBlockUid = await getCalendarUidFromPage(
       window.roamAlphaAPI.util.dateToPageUid(targetDate)
@@ -402,6 +438,7 @@ const Calendar = ({
         setNewEventDialogIsOpen={setNewEventDialogIsOpen}
         pageUid={focusedPageUid}
         pageTitle={focusedPageTitle}
+        tagToInsert={tagToInsert}
         position={position}
         addEvent={addEvent}
         focusedTime={focusedTime}

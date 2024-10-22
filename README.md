@@ -4,6 +4,7 @@
 
 🆕 New in v.5:
 
+- drag&drop event tags to create new event
 - 12h-format support
 
 🆕 New in v.4:
@@ -113,11 +114,12 @@ Here is an example of an event with date attributes and tags in direct children:
 
 - Default tags are TODO, DONE, important, do date, due date, doing.
 - You can specify the correspoding page title for each of them (except for TODO & DONE), and add aliases, in the settings or directly in the filter bar, by clicking on a tag.
-- You can add your own tags, in extension settings or directly in the filter input (type some page title and press on "Add: <your tag>"). With this latest method, it will be a temporary tag.Temporary tag will be removed from the tag list if you refresh your Roam graph, unless you set it as a permanent user tag by clicking on + icon in the tag popover (see next bullet point).
+- You can add your own tags, in extension settings or directly in the filter input (type some page title and press on "Add: <your tag>"). With this latest method, it will be a temporary tag. Temporary tag will be removed from the tag list if you refresh your Roam graph, unless you set it as a permanent user tag by clicking on + icon in the tag popover (see next bullet point).
 - By clicking on a tag, you can change it's color and its aliases. User tags can also be removed and temporary user tags be added to permanent user tags.
 - By double-clicking on a tag, it will be selected as the only filter tag.
 - By clicking on the right cross (or star), all tags will be unselected (or selected)
 - You can change the logic: by defaylt ('Or' logic) all the events containing at least one of the tags will be displayed. For more precision, if you want to display only events that contain all the selected tags (e.g. important AND due date), choose the 'And' logic.
+- (🆕 New in v.5) You can drag & drop a tag to the calendar grid to instantly create a new event including this tag.
 
 **The selected tags' state (colors and choosen tags as filters) is retained from one session to another, and separately for the main page and the sidebar concerning the choosen tags.**
 

@@ -17,6 +17,7 @@ const NewEventDialog = ({
   setNewEventDialogIsOpen,
   pageUid,
   pageTitle,
+  tagToInsert,
   position,
   addEvent,
   focusedTime,
@@ -35,10 +36,19 @@ const NewEventDialog = ({
         parseInt(focusedTime.slice(3, 5))
       );
     }
-    const targetUid = await createChildBlock(
-      calendarBlockUid,
-      periodView.includes("time") && focusedTime ? focusedTime + " " : ""
-    );
+    let content =
+      periodView.includes("time") && focusedTime ? focusedTime + " " : "";
+    if (tagToInsert) {
+      if (tagToInsert === "DONE" || tagToInsert === "TODO") {
+        tagToInsert = `{{[[${tagToInsert}]]}} `;
+        content = tagToInsert + content;
+      } else {
+        if (tagToInsert.includes(" ")) tagToInsert = "[[" + tagToInsert + "]]";
+        tagToInsert = "#" + tagToInsert + " ";
+        content += tagToInsert;
+      }
+    }
+    const targetUid = await createChildBlock(calendarBlockUid, content);
     // setTimeout(async () => {
     await window.roamAlphaAPI.ui.components.renderBlock({
       uid: targetUid,

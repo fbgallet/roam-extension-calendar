@@ -1,3 +1,16 @@
+## v.5 (October 22nd, 2024) Drag&drop tag
+
+### Updates
+
+- Drag&Drop an event tag to create a new event
+- 12-hour format full support
+
+### Fixes
+
+- more consistent loading of data from DNP (better support of large amount of data, but loading time is now a bit slower)
+- "not tagged" tage state was not persistent
+- cancel button in dialog to remove user tag was not working
+
 ## v.4 (August 6th, 2024) Multi-day events
 
 ### Updates
