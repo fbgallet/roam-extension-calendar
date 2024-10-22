@@ -19,10 +19,10 @@ const TagPopover = ({
   const handleAddPermanentTag = async () => {
     tag.isTemporary = false;
     await updateStoredTags(mapOfTags);
-    extensionStorage.set(
-      "userTags",
-      `${extensionStorage.get("userTags")}, ${tag.name}`
-    );
+    const userTagsStr = extensionStorage.get("userTags")
+      ? `${extensionStorage.get("userTags")}, ${tag.name}`
+      : tag.name;
+    extensionStorage.set("userTags", userTagsStr);
     setIsTemporaryTag(false);
   };
 
@@ -95,21 +95,21 @@ const TagPopover = ({
           <div onClick={() => setIsDeleteDialogOpen(true)}>
             <span>Remove from user tags</span>
             <Icon icon="trash" size="14" />
-            <DeleteDialog
-              title="Remove user tag"
-              message={
-                <p>
-                  Are you sure you want to remove <strong>{tag.name}</strong>{" "}
-                  from user tags ?
-                </p>
-              }
-              callback={handleDeleteTag}
-              isDeleteDialogOpen={isDeleteDialogOpen}
-              setIsDeleteDialogOpen={setIsDeleteDialogOpen}
-            />
           </div>
         )
       ) : null}
+      <DeleteDialog
+        title="Remove user tag"
+        message={
+          <p>
+            Are you sure you want to remove <strong>{tag.name}</strong> from
+            user tags ?
+          </p>
+        }
+        callback={handleDeleteTag}
+        isDeleteDialogOpen={isDeleteDialogOpen}
+        setIsDeleteDialogOpen={setIsDeleteDialogOpen}
+      />
     </div>
   );
 };

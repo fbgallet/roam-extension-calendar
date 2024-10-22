@@ -1,4 +1,5 @@
 import { Button, Dialog } from "@blueprintjs/core";
+import { useState } from "react";
 
 const DeleteDialog = ({
   title,
@@ -7,6 +8,10 @@ const DeleteDialog = ({
   isDeleteDialogOpen,
   setIsDeleteDialogOpen,
 }) => {
+  const handleClose = () => {
+    setIsDeleteDialogOpen(false);
+  };
+
   return (
     <>
       <Dialog
@@ -15,17 +20,23 @@ const DeleteDialog = ({
         icon="trash"
         isOpen={isDeleteDialogOpen}
         canOutsideClickClose={true}
-        onClose={() => setIsDeleteDialogOpen(false)}
+        onClose={() => handleClose()}
       >
         {message}
         <div>
-          <Button text="Cancel" onClick={() => setIsDeleteDialogOpen(false)} />
+          <Button
+            text="Cancel"
+            onClick={() => {
+              console.log("cancel click :>> ");
+              handleClose();
+            }}
+          />
           <Button
             intent="danger"
             text="Delete"
             onClick={() => {
               callback();
-              setIsDeleteDialogOpen(false);
+              handleClose();
             }}
           />
         </div>
