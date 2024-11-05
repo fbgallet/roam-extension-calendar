@@ -6,6 +6,7 @@
 
 - drag&drop event tags to create new event
 - 12h-format support
+- modifier key when dragging a block into the calendar is now consistent with native Roam behavior (Alt key to reference, no key to move)
 
 🆕 New in v.4:
 
@@ -61,10 +62,10 @@ In the calendar header, you have the following options:
 - You can `drag and drop` any event from one day to another.
 - Lengthen or shorten any event in month or year view to extend the event over several days. Date attributes will automaticaly be added or updated in the direct children.
 - Direct children of block event are taken into account. All mentionned tags will be added to the event and mentionned date will change the event span or display it on multiple days. See **'Events with date attributes'** section.
-- You can drag and drop a block from your graph into the calendar:
-  - simple `drag and drop` to copy: a copy of the original block will be inserted as child of the calendar tag and a corresponding event will be created
-  - press `Shift` to move: the original block will be moved as child of the calendar tag in the corresponding DNP
-  - press `Control` or `Command` to reference: a block reference to the the original block will be created
+- You can drag and drop a block from your graph into the calendar (updated in v.5):
+  - simple `drag and drop` to move: the original block will be moved as child of the calendar tag in the corresponding DNP
+  - press `Alt/Option` or `Control` to reference: a block reference to the the original block will be created
+  - press `Shift` to move: a copy of the original block will be inserted as child of the calendar tag and a corresponding event will be created
 - In timegrid views (week or day), events with a timestamp can be
   - `drag and drop` to move them to another time slot
   - lengthen or shorten by placing the cursor at the top or bottom of the event to drag its start time or end time to a new schedule.

@@ -2,7 +2,7 @@
 
 ### Updates
 
-- Drag&Drop an event tag to create a new event
+- Drag&Drop an event tag from the filter bar to create a new event
 - 12-hour format full support
 
 ### Fixes
@@ -10,6 +10,7 @@
 - more consistent loading of data from DNP (better support of large amount of data, but loading time is now a bit slower)
 - "not tagged" tage state was not persistent
 - cancel button in dialog to remove user tag was not working
+- modifier keys when dragging a block into the calender are now consistant with native Roam behavior
 
 ## v.4 (August 6th, 2024) Multi-day events
 

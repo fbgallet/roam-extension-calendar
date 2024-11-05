@@ -365,6 +365,10 @@ const Calendar = ({
       window.roamAlphaAPI.util.dateToPageUid(targetDate)
     );
     if (e.shiftKey) {
+      targetUid = await createChildBlock(calendarBlockUid, blockContent);
+    } else if (e.altKey || e.ctrlKey) {
+      targetUid = await createChildBlock(calendarBlockUid, `((${sourceUid}))`);
+    } else {
       targetUid = sourceUid;
       await window.roamAlphaAPI.moveBlock({
         location: {
@@ -373,10 +377,6 @@ const Calendar = ({
         },
         block: { uid: sourceUid },
       });
-    } else if (e.ctrlKey || e.metaKey) {
-      targetUid = await createChildBlock(calendarBlockUid, `((${sourceUid}))`);
-    } else {
-      targetUid = await createChildBlock(calendarBlockUid, blockContent);
     }
     events.push(
       parseEventObject({
