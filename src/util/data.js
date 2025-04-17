@@ -222,7 +222,7 @@ const filterTreeToGetEvents = async (
                     until,
                   }));
 
-              if (block.tree && !isTask) {
+              if (block.tree /*&& !isTask*/) {
                 childInfos = getInfosFromChildren(block.tree);
                 if (childInfos) {
                   if (!isRef && childInfos.start) continue;

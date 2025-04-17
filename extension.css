@@ -334,6 +334,14 @@
   overflow: hidden;
 }
 
+.fc-daygrid-day-top div {
+  line-height: 15px;
+}
+
+.fc-daygrid-day-events div {
+  line-height: 20px;
+}
+
 .fc-event .fc-event-main > span,
 .fc-event .fc-event-main > span > span > div > span,
 .fc-event .fc-event-main > span > span > div > span > span,

@@ -30,6 +30,7 @@ export let timeGrid = {
   day: true,
   week: true,
 };
+export let displayTime;
 export let rangeEndAttribute;
 export let eventsOrder;
 export let isSubtaskToDisplay;
@@ -191,6 +192,18 @@ const panelConfig = {
         items: ["14:00", "2:00pm", "2pm"],
         onChange: (sel) => {
           setTimeFormat(sel);
+        },
+      },
+    },
+    {
+      id: "displayTime",
+      name: "Display time in events",
+      description:
+        "Display begin/end time in events title in the timegrid view (redundant):",
+      action: {
+        type: "switch",
+        onChange: () => {
+          displayTime = !displayTime;
         },
       },
     },
@@ -494,6 +507,9 @@ export default {
     if (extensionStorage.get("timeFormat") === null)
       await extensionStorage.set("timeFormat", "14:00");
     setTimeFormat(extensionStorage.get("timeFormat"));
+    if (extensionStorage.get("displayTime") === null)
+      await extensionStorage.set("displayTime", false);
+    displayTime = extensionStorage.get("displayTime");
     if (extensionStorage.get("minTime") === null)
       await extensionStorage.set("minTime", "07:00");
     minTime = extensionStorage.get("minTime");

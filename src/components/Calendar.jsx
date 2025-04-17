@@ -28,6 +28,7 @@ import {
 import NewEventDialog from "./NewEventDialog";
 import { dateToISOString, eventTimeFormats, getDayOfYear } from "../util/dates";
 import {
+  displayTime,
   eventsOrder,
   extensionStorage,
   firstDay,
@@ -162,7 +163,12 @@ const Calendar = ({
       isChecked = true;
       title = title.replace("{{[[DONE]]}}", "");
     }
-    // console.log(info.event);
+    // console.log(info);
+    const dnpTitle = window.roamAlphaAPI.util.dateToPageTitle(info.event.start);
+    if (title.includes(`[[${dnpTitle}]]`)) {
+      title = title.replace(`[[${dnpTitle}]]`, "");
+    }
+    title = title.trim();
     return (
       <Event
         displayTitle={title}
@@ -392,6 +398,7 @@ const Calendar = ({
         matchingTags: matchingTags,
       })
     );
+    isDataToReload.current = true;
     setForceToReload((prev) => !prev);
   };
 
@@ -407,6 +414,8 @@ const Calendar = ({
     } else {
       await updateTimestampsInBlock(info.event);
     }
+    isDataToReload.current = true;
+    setForceToReload((prev) => !prev);
   };
 
   // const parseGoogleCalendarEvent = (event) => {
@@ -484,6 +493,11 @@ const Calendar = ({
         ref={calendarRef}
         // aspectRatio={1.35}
         // contentHeight={"auto"}
+        views={{
+          timeGrid: {
+            displayEventTime: displayTime || false,
+          },
+        }}
         customButtons={{
           refreshButton: {
             text: "↻",
@@ -494,6 +508,7 @@ const Calendar = ({
         expandRows={true}
         multiMonthMinWidth={440}
         // multiMonthMaxColumns={2}
+        dayMaxEvents={true}
         initialDate={initialDate || null}
         initialView={periodView.current}
         headerToolbar={{
@@ -517,13 +532,12 @@ const Calendar = ({
         eventTimeFormat={eventTimeFormats[timeFormat]}
         slotLabelFormat={eventTimeFormats[timeFormat]}
         slotMinTime={minTime}
-        slotMaxTime={maxTime}
+        slotMaxTime={maxTime === "00:00" ? "23:59" : max}
         navLinks={true}
         editable={true}
         selectable={true}
         droppable={true}
         // draggable={true}
-        dayMaxEvents={true}
         // initialEvents={getEventsFromDNP}
         datesSet={(info) => {
           if (periodView.current !== info.view.type) {
