@@ -64,8 +64,8 @@ export const getBlocksToDisplayFromDNP = async (
     isTimeGrid,
     isIncludingRefs
   ) {
-    let eventsRefs = [];
-    let possibleDuplicateEvents = [];
+    eventsRefs = [];
+    possibleDuplicateEvents = [];
     const processDate = async (currentDate) => {
       const dnpUid = window.roamAlphaAPI.util.dateToPageUid(currentDate);
       const dnpTree = await getTreeByUid(dnpUid);

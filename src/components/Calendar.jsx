@@ -343,7 +343,9 @@ const Calendar = ({
 
     const targetDateString =
       e.target.parentNode.dataset["date"] || dateFromTimegrid;
-    const targetDate = new Date(targetDateString);
+    const targetDate = new Date(
+      targetDateString + (timeFromTimegrid ? " " + timeFromTimegrid : "")
+    );
     const date = dateToISOString(targetDate);
     if (sourceUid.includes("isTag")) {
       const draggedTag = JSON.parse(sourceUid);
@@ -378,6 +380,10 @@ const Calendar = ({
         block: { uid: sourceUid },
       });
     }
+    if (timeFromTimegrid) {
+      await updateTimestampsInBlock({ id: targetUid, start: targetDate });
+      isDataToReload.current = true;
+    } else isDataToReload.current = false;
     events.push(
       parseEventObject({
         id: targetUid,
@@ -386,7 +392,6 @@ const Calendar = ({
         matchingTags: matchingTags,
       })
     );
-    isDataToReload.current = false;
     setForceToReload((prev) => !prev);
   };
 
