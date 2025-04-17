@@ -8,7 +8,7 @@
 ### Fixes
 
 - more consistent loading of data from DNP (better support of large amount of data, but loading time is now a bit slower)
-- "not tagged" tage state was not persistent
+- "not tagged" tag state was not persistent
 - cancel button in dialog to remove user tag was not working
 - modifier keys when dragging a block into the calender are now consistant with native Roam behavior
 
