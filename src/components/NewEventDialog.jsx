@@ -89,6 +89,12 @@ const NewEventDialog = ({
     await addEvent(eventUid, pageUid);
   };
 
+  const handleSync = async () => {
+    setIsBlockRendering(false);
+    setNewEventDialogIsOpen(false);
+    await addEvent(eventUid, pageUid, true);
+  };
+
   return (
     <div style={{ display: "none" }}>
       <Popover
@@ -138,6 +144,11 @@ const NewEventDialog = ({
                 onClick={
                   isBlockRendering ? () => handleConfirm() : () => handleNew()
                 }
+              />
+              <Button
+                intent="primary"
+                text={"Confirm & sync to GCal"}
+                onClick={() => handleSync()}
               />
             </div>
           </>

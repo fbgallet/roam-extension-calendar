@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import CalendarList from "./CalendarList";
 import EventsList from "./EventsList";
 import AddEventForm from "./AddEventForm";
+import { extensionStorage } from "..";
 const DISCOVERY_DOC =
   "https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest";
 const SCOPES = "https://www.googleapis.com/auth/calendar";
@@ -21,8 +22,9 @@ function CalendarApp({ apiKey, clientId }) {
         apiKey,
         discoveryDocs: [DISCOVERY_DOC],
       });
-      setTokenClient(
-        google.accounts.oauth2.initTokenClient({
+      let token = extensionStorage.get("googleCalToken");
+      if (!token) {
+        token = google.accounts.oauth2.initTokenClient({
           client_id: clientId,
           scope: SCOPES,
           callback: (tokenResponse) => {
@@ -34,8 +36,9 @@ function CalendarApp({ apiKey, clientId }) {
             setIsAuthorized(true);
             listCalendars();
           },
-        })
-      );
+        });
+      }
+      setTokenClient(token);
     };
     initializeGapiClient().catch((err) => {
       console.error("Erreur d'initialisation de l'API Google:", err);
@@ -67,32 +70,12 @@ function CalendarApp({ apiKey, clientId }) {
   };
   const listEvents = async (calendarId) => {
     try {
-      const now = new Date();
-      const response = await window.gapi.client.calendar.events.list({
-        calendarId: calendarId,
-        timeMin: now.toISOString(),
-        showDeleted: false,
-        singleEvents: true,
-        maxResults: 10,
-        orderBy: "startTime",
-      });
-      setEvents(response.result.items);
+      setEvents(await getGcalEvents(calendarId));
     } catch (err) {
       setError("Erreur lors de la récupération des événements");
     }
   };
-  const addEvent = async (event) => {
-    try {
-      await window.gapi.client.calendar.events.insert({
-        calendarId: selectedCalendarId,
-        resource: event,
-      });
-      setError("Événement ajouté avec succès!");
-      listEvents(selectedCalendarId);
-    } catch (err) {
-      setError("Erreur lors de l'ajout de l'événement");
-    }
-  };
+  const addEvent = async (event) => {};
   return (
     <div>
       {!isAuthorized ? (
@@ -103,6 +86,8 @@ function CalendarApp({ apiKey, clientId }) {
           <CalendarList
             calendars={calendars}
             onSelectCalendar={(id) => {
+              console.log("id :>> ", id);
+              extensionStorage.set("googleCalendarId", id);
               setSelectedCalendarId(id);
               listEvents(id);
             }}
@@ -116,3 +101,47 @@ function CalendarApp({ apiKey, clientId }) {
   );
 }
 export default CalendarApp;
+
+export const getGcalEvents = async (calendarId, min, max) => {
+  const now = new Date();
+  const response = await window.gapi.client.calendar.events.list({
+    calendarId: calendarId,
+    timeMin: min || now,
+    timeMax: max || now,
+    showDeleted: false,
+    singleEvents: true,
+    orderBy: "startTime",
+  });
+  console.log("response.result.items :>> ", response?.result?.items);
+  return response?.result?.items;
+};
+
+export const addGcalEvent = async (calendarId, event) => {
+  console.log("event :>> ", event);
+  const gCalEvent = {
+    summary: event.title,
+    // description: event.description,
+    start: {
+      date: event.start,
+      // dateTime: event.start, //+ ":00",
+      //timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    },
+    end: {
+      date: event.end,
+      // dateTime: event.end, // + ":00",
+      // timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    },
+  };
+  console.log("gCalEvent :>> ", gCalEvent);
+  try {
+    const newEvent = await window.gapi.client.calendar.events.insert({
+      calendarId: calendarId,
+      resource: gCalEvent,
+    });
+    console.log("newEvent :>> ", newEvent);
+    return newEvent;
+    // listEvents(calendarId);
+  } catch (err) {
+    console.log("Erreur lors de l'ajout de l'événement:", err);
+  }
+};

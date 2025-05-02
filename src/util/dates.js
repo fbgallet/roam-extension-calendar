@@ -33,10 +33,10 @@ export const getDistantDate = (date = null, shift = 1) => {
   return new Date(date.getTime() + shift * (24 * 60 * 60 * 1000));
 };
 
-export const dateToISOString = (date) => {
+export const dateToISOString = (date, withUTC) => {
   //   return date.toISOString().substr(0, 10);
   const dt = DateTime.fromJSDate(date);
-  return dt.toISODate();
+  return dt.toISODate() + (withUTC ? "T00:00:00Z" : "");
 };
 
 export const getDateFromDnpUid = (dnpUid) => {

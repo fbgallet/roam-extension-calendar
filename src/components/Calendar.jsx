@@ -43,7 +43,9 @@ import {
   getTagFromName,
   refreshTagsUids,
 } from "../models/EventTag";
-// import GoogleCal from "./GoogleCal";
+import GoogleCal from "./GoogleCal";
+import { addGcalEvent, getGcalEvents } from "./CalendarApp";
+// import { cl } from "@fullcalendar/core/internal-common";
 
 let events = [];
 let filteredEvents = [];
@@ -92,7 +94,7 @@ const Calendar = ({
       (initialSettings.view !== null ? initialSettings.view : "dayGridMonth")
   );
 
-  function updateSize() {
+  async function updateSize() {
     const calendarApi = calendarRef.current.getApi();
     calendarApi.updateSize();
     isDataToReload.current = true;
@@ -102,6 +104,27 @@ const Calendar = ({
     if (tooltip) tooltip.remove();
     tooltip = document.querySelector(".bp3-tooltip");
     if (tooltip) tooltip.remove();
+
+    // GCal refresh
+    // const gCalId = await extensionStorage.get("googleCalendarId");
+    // if (gCalId) {
+    //   const evts = await getGcalEvents(gCalId);
+    //   console.log("evts :>> ", evts);
+    //   evts.forEach((gCalEvt) => {
+    //     events.push(
+    //       parseEventObject({
+    //         id: gCalEvt.id,
+    //         title: gCalEvt.summary,
+    //         date: gCalEvt.start.dateTime || new Date(gCalEvt.start.date),
+    //         untilDate:
+    //           gCalEvt.endTimeUnspecified || !gCalEvt.end.dateTime
+    //             ? null
+    //             : gCalEvt.end.dateTime,
+    //         matchingTags: [],
+    //       })
+    //     );
+    //   });
+    // }
   }
 
   useEffect(() => {
@@ -184,14 +207,28 @@ const Calendar = ({
     );
   };
 
-  const addEvent = async (eventUid, pageUid) => {
+  const addEvent = async (eventUid, pageUid, isGcal) => {
     const eventContent = getBlockContentByUid(eventUid);
-    const date = dateToISOString(new Date(pageUid));
+    const currentDate = new Date(pageUid);
+    const dateStr = dateToISOString(currentDate);
+    let gCalEvent;
+    const gCalId = await extensionStorage.get("googleCalendarId");
+    if (isGcal && gCalId) {
+      gCalEvent = await addGcalEvent(gCalId, {
+        title: eventContent,
+        start: dateStr,
+        end: dateToISOString(
+          new Date(currentDate.getTime() + 24 * 60 * 60 * 1000)
+        ), //
+      });
+      console.log("gCalEvent :>> ", gCalEvent);
+      console.log("gCalEvent.result.id :>> ", gCalEvent?.result?.id);
+    }
     events.push(
       parseEventObject({
         id: eventUid,
         title: eventContent,
-        date,
+        date: dateStr,
         matchingTags: getMatchingTags(
           mapOfTags,
           getBlocksUidReferencedInThisBlock(eventUid)
@@ -275,6 +312,40 @@ const Calendar = ({
       );
       // const end = performance.now();
       // console.log("Events loading time: ", end - begin);
+      // GCal refresh
+
+      const gCalId = await extensionStorage.get("googleCalendarId");
+
+      if (gCalId) {
+        const gEvents = await getGcalEvents(
+          gCalId,
+          dateToISOString(info.start, true),
+          dateToISOString(info.end, true)
+        );
+        console.log("gEvents :>> ", gEvents);
+        gEvents &&
+          gEvents.length &&
+          gEvents.forEach((evt) => {
+            events.push({
+              id: evt.id,
+              title: evt.summary,
+              start: evt.start.dateTime || evt.start.date,
+              end: evt.end.dateTime || evt.end.date,
+              classNames: ["fc-event-gcal"],
+              extendedProps: {
+                eventTags: [getTagFromName("Google calendar")],
+                isRef: false,
+                gCalId: evt.id,
+                description: evt.description,
+              },
+              color: getTagColorFromName("Google calendar"),
+              display: "block",
+              editable: false,
+              url: evt.htmlLink,
+            });
+          });
+      }
+      console.log("events :>> ", events);
       isDataToFilterAgain.current = true;
     }
     if (isDataToFilterAgain.current) {
@@ -458,7 +529,7 @@ const Calendar = ({
         focusedTime={focusedTime}
         periodView={periodView.current}
       />
-      {/* <GoogleCal /> */}
+      <GoogleCal />
       <MultiSelectFilter
         tagsToDisplay={tagsToDisplay}
         setTagsToDisplay={setTagsToDisplay}

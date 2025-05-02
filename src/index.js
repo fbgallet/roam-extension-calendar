@@ -373,13 +373,13 @@ const initializeMapOfTags = () => {
         pages: getTrimedArrayFromList(tagPagesList),
       })
     );
-  // mapOfTags.push(
-  //   new EventTag({
-  //     name: "Google calendar",
-  //     color: Colors.GRAY5,
-  //     ...getStoredTagInfos("Google calendar"),
-  //   })
-  // );
+  mapOfTags.push(
+    new EventTag({
+      name: "Google calendar",
+      color: Colors.GRAY3,
+      ...getStoredTagInfos("Google calendar"),
+    })
+  );
   const userTags = extensionStorage.get("userTags");
   if (notNullOrCommaRegex.test(userTags)) updageUserTags(userTags);
   const calendarTagName = extensionStorage.get("calendarTag");

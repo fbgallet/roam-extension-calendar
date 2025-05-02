@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-// import { GoogleOAuthProvider } from "@react-oauth/google";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 import CalendarApp from "./CalendarApp";
 
 const CLIENT_ID =
