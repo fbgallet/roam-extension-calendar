@@ -1,4 +1,4 @@
-import { Button, Popover } from "@blueprintjs/core";
+import { Button, Popover, HTMLSelect } from "@blueprintjs/core";
 import {
   createChildBlock,
   deleteBlock,
@@ -8,9 +8,13 @@ import {
   isExistingNode,
   updateBlock,
 } from "../util/roamApi";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { getCalendarUidFromPage } from "../util/data";
 import { getTimestampFromHM } from "../util/dates";
+import {
+  isAuthenticated,
+  getConnectedCalendars,
+} from "../services/googleCalendarService";
 
 const NewEventDialog = ({
   newEventDialogIsOpen,
@@ -25,8 +29,30 @@ const NewEventDialog = ({
 }) => {
   const [isBlockRendering, setIsBlockRendering] = useState(false);
   const [eventUid, setEventUid] = useState(null);
+  const [selectedCalendarId, setSelectedCalendarId] = useState("");
+  const [connectedCalendars, setConnectedCalendars] = useState([]);
+  const [isGCalConnected, setIsGCalConnected] = useState(false);
   const renderRef = useRef(null);
   const popoverRef = useRef(null);
+
+  // Load connected calendars when dialog opens
+  useEffect(() => {
+    if (newEventDialogIsOpen) {
+      const authenticated = isAuthenticated();
+      setIsGCalConnected(authenticated);
+      if (authenticated) {
+        const calendars = getConnectedCalendars().filter(
+          (c) => c.syncEnabled && c.syncDirection !== "import"
+        );
+        setConnectedCalendars(calendars);
+        // Set default calendar
+        const defaultCal = calendars.find((c) => c.isDefault) || calendars[0];
+        if (defaultCal) {
+          setSelectedCalendarId(defaultCal.id);
+        }
+      }
+    }
+  }, [newEventDialogIsOpen]);
 
   const handleNew = async () => {
     const calendarBlockUid = await getCalendarUidFromPage(pageUid);
@@ -92,7 +118,7 @@ const NewEventDialog = ({
   const handleSync = async () => {
     setIsBlockRendering(false);
     setNewEventDialogIsOpen(false);
-    await addEvent(eventUid, pageUid, true);
+    await addEvent(eventUid, pageUid, true, selectedCalendarId || null);
   };
 
   return (
@@ -136,6 +162,21 @@ const NewEventDialog = ({
               className="fc-renderblock"
               ref={renderRef}
             ></div>
+            {isGCalConnected && connectedCalendars.length > 0 && (
+              <div className="fc-gcal-selector">
+                <HTMLSelect
+                  value={selectedCalendarId}
+                  onChange={(e) => setSelectedCalendarId(e.target.value)}
+                  minimal
+                >
+                  {connectedCalendars.map((cal) => (
+                    <option key={cal.id} value={cal.id}>
+                      {cal.name} {cal.isDefault ? "(default)" : ""}
+                    </option>
+                  ))}
+                </HTMLSelect>
+              </div>
+            )}
             <div>
               <Button text="Cancel" onClick={handleCancel} />
               <Button
@@ -145,11 +186,14 @@ const NewEventDialog = ({
                   isBlockRendering ? () => handleConfirm() : () => handleNew()
                 }
               />
-              <Button
-                intent="primary"
-                text={"Confirm & sync to GCal"}
-                onClick={() => handleSync()}
-              />
+              {isGCalConnected && connectedCalendars.length > 0 && (
+                <Button
+                  intent="primary"
+                  text={"Sync to GCal"}
+                  onClick={() => handleSync()}
+                  disabled={!isBlockRendering}
+                />
+              )}
             </div>
           </>
         }

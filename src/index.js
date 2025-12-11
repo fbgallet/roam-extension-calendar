@@ -18,6 +18,7 @@ import {
   defaultUntilDateRegex,
   notNullOrCommaRegex,
 } from "./util/regex";
+import { initGoogleCalendarService, getConnectedCalendars } from "./services/googleCalendarService";
 
 export let mapOfTags = [];
 export let extensionStorage;
@@ -455,6 +456,65 @@ const setTimeFormat = (example) => {
   }
 };
 
+// Initialize EventTags for connected Google Calendars
+// - Calendars with showAsSeparateTag: false are grouped under the main "Google Calendar" tag
+// - Calendars with showAsSeparateTag: true get their own EventTag with displayName as the tag name
+export const initializeGCalTags = () => {
+  const connectedCalendars = getConnectedCalendars();
+  if (!connectedCalendars || !connectedCalendars.length) return;
+
+  // Get the main "Google Calendar" tag
+  const mainGCalTag = getTagFromName("Google calendar");
+  if (!mainGCalTag) {
+    console.warn("Main 'Google calendar' tag not found");
+    return;
+  }
+
+  // Initialize arrays for the main tag
+  mainGCalTag.gCalCalendarIds = [];
+  mainGCalTag.disabledCalendarIds = [];
+
+  for (const calendarConfig of connectedCalendars) {
+    if (calendarConfig.showAsSeparateTag) {
+      // Calendar has its own separate tag
+      const tagName = calendarConfig.displayName || calendarConfig.name;
+      let existingTag = getTagFromName(tagName);
+
+      if (!existingTag) {
+        // Create new EventTag for this separate GCal calendar
+        const gcalTag = new EventTag({
+          name: tagName,
+          color: Colors.GRAY3, // Default color, will be updated from fc-tags-info
+          ...getStoredTagInfos(tagName),
+          isGCalTag: true,
+          gCalCalendarId: calendarConfig.id,
+          isToDisplay: true,
+          isToDisplayInSb: true,
+        });
+        mapOfTags.push(gcalTag);
+        console.log(`Created separate EventTag for GCal calendar: ${tagName}`);
+      } else {
+        // Update existing tag with GCal properties
+        existingTag.gCalCalendarId = calendarConfig.id;
+        existingTag.isGCalTag = true;
+        console.log(`Updated separate EventTag for GCal calendar: ${tagName}`);
+      }
+    } else {
+      // Calendar is grouped under main "Google Calendar" tag
+      mainGCalTag.gCalCalendarIds.push(calendarConfig.id);
+
+      // Track disabled calendars
+      if (!calendarConfig.syncEnabled) {
+        mainGCalTag.disabledCalendarIds.push(calendarConfig.id);
+      }
+
+      console.log(`Grouped calendar under main GCal tag: ${calendarConfig.name}`);
+    }
+  }
+
+  console.log(`Main GCal tag now has ${mainGCalTag.gCalCalendarIds.length} grouped calendars`);
+};
+
 // clean calendarTag data, solve conflict from v.4 or from quit just after setting change
 const cleanCalendarTagStore = (currentValue, storedValue) => {
   if (storedValue === currentValue) return; // it's OK
@@ -556,6 +616,21 @@ export default {
       connectObservers();
       addListeners();
     }, 500);
+
+    // Initialize Google Calendar service (attempt silent auth if previously connected)
+    initGoogleCalendarService()
+      .then((authenticated) => {
+        if (authenticated) {
+          console.log("Google Calendar: Restored previous session");
+          // Initialize EventTags for connected calendars
+          initializeGCalTags();
+        } else {
+          console.log("Google Calendar: Not authenticated (connect via Google Calendar tag)");
+        }
+      })
+      .catch((error) => {
+        console.error("Google Calendar initialization error:", error);
+      });
 
     console.log("Full Calendar extension loaded.");
     //return;

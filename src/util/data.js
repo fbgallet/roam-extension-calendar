@@ -784,10 +784,25 @@ export const filterEvents = (
   filterLogic,
   isInSidebar
 ) => {
+  // Helper to check if a GCal event is from a disabled calendar
+  const isFromDisabledCalendar = (evt) => {
+    const gCalCalendarId = evt.extendedProps?.gCalCalendarId;
+    if (!gCalCalendarId) return false;
+
+    // Check if the event's calendar is in the disabled list of the main GCal tag
+    const mainGCalTag = tagsToDisplay.find((t) => t.name === "Google calendar");
+    if (mainGCalTag?.disabledCalendarIds?.includes(gCalCalendarId)) {
+      return true;
+    }
+    return false;
+  };
+
   const eventsToDisplay =
     filterLogic === "Or"
       ? events.filter(
           (evt) =>
+            // Filter out events from disabled GCal calendars
+            !isFromDisabledCalendar(evt) &&
             !(
               evt.extendedProps?.eventTags[0].name === "DONE" &&
               !tagsToDisplay.some((tag) => tag.name === "DONE")
@@ -797,6 +812,8 @@ export const filterEvents = (
             )
         )
       : events.filter((evt) =>
+          // Filter out events from disabled GCal calendars
+          !isFromDisabledCalendar(evt) &&
           tagsToDisplay.every((tag) =>
             evt.extendedProps?.eventTags?.some((t) => t.name === tag.name)
           )

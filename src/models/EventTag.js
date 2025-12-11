@@ -15,6 +15,13 @@ export class EventTag {
     isTemporary = false,
     isPageCreationToForce = false,
     isToUpdate = false,
+    // Google Calendar specific properties
+    gCalCalendarId = null,
+    isGCalTag = false,
+    // For main "Google Calendar" tag: list of grouped calendar IDs
+    gCalCalendarIds = [],
+    // For main "Google Calendar" tag: calendars disabled by user in popover
+    disabledCalendarIds = [],
   }) {
     this.name = name;
     this.pages = pages.length ? pages : [name];
@@ -25,6 +32,12 @@ export class EventTag {
     this.isUserDefined = isUserDefined;
     this.isTemporary = isTemporary;
     this.isToUpdate = isToUpdate;
+    // Google Calendar properties
+    this.gCalCalendarId = gCalCalendarId;
+    this.isGCalTag = isGCalTag;
+    // For main "Google Calendar" tag
+    this.gCalCalendarIds = gCalCalendarIds;
+    this.disabledCalendarIds = disabledCalendarIds;
   }
   setColor(color) {
     this.color = color;
@@ -74,4 +87,18 @@ export function refreshTagsUids() {
   mapOfTags.forEach((tag) => {
     if (tag.uids.some((uid) => uid === null)) tag.updateUids();
   });
+}
+
+/**
+ * Find a tag by its associated Google Calendar ID
+ */
+export function getTagByGCalCalendarId(calendarId) {
+  return mapOfTags.find((tag) => tag.gCalCalendarId === calendarId);
+}
+
+/**
+ * Get all tags that are associated with Google Calendar
+ */
+export function getGCalTags() {
+  return mapOfTags.filter((tag) => tag.isGCalTag);
 }

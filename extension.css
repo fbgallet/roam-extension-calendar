@@ -776,3 +776,485 @@
     margin-top: -1px;
   }
 }
+
+/*****************************/
+/* GOOGLE CALENDAR EVENTS   */
+/*****************************/
+
+/* GCal event visual distinction */
+.fc-event-gcal {
+  border-left: 3px solid rgba(255, 255, 255, 0.5) !important;
+}
+
+/* GCal event details popover */
+.fc-gcal-event-details {
+  min-width: 250px;
+  max-width: 350px;
+  padding: 5px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.fc-gcal-event-details h4 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.fc-gcal-time,
+.fc-gcal-location,
+.fc-gcal-attendees,
+.fc-gcal-recurrence {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: #5c7080;
+}
+
+.fc-gcal-time .bp3-icon,
+.fc-gcal-location .bp3-icon,
+.fc-gcal-attendees .bp3-icon,
+.fc-gcal-recurrence .bp3-icon {
+  opacity: 0.7;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.fc-gcal-description {
+  margin: 10px 0;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+  font-size: 12px;
+  max-height: 120px;
+  overflow-y: auto;
+  line-height: 1.4;
+}
+
+.fc-gcal-description p {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.fc-gcal-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 12px;
+  flex-wrap: wrap;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Make buttons smaller */
+.fc-gcal-actions .bp3-button {
+  font-size: 11px;
+  padding: 2px 8px;
+  min-height: 22px;
+}
+
+.fc-gcal-actions .bp3-button .bp3-icon {
+  margin-right: 4px;
+}
+
+.fc-gcal-tag {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.fc-gcal-tag .bp3-tag {
+  font-size: 10px;
+}
+
+/* GCal config dialog */
+.fc-gcal-config-dialog {
+  min-width: 400px;
+}
+
+.fc-gcal-calendar-list {
+  margin: 15px 0;
+}
+
+.fc-gcal-calendar-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 4px;
+}
+
+.fc-gcal-calendar-item:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.fc-gcal-calendar-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fc-gcal-calendar-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.fc-gcal-calendar-name {
+  font-weight: 500;
+}
+
+.fc-gcal-calendar-tags {
+  font-size: 12px;
+  color: #5c7080;
+  margin-left: 22px;
+}
+
+/* GCal selector in new event dialog */
+.fc-gcal-selector {
+  margin-bottom: 10px;
+}
+
+.fc-gcal-selector .bp3-html-select {
+  width: 100%;
+}
+
+.fc-gcal-selector .bp3-html-select select {
+  font-size: 12px;
+}
+
+/* Conflict Dialog */
+.fc-conflict-dialog .bp3-dialog-body {
+  padding: 0;
+}
+
+.fc-conflict-content {
+  padding: 15px;
+}
+
+.fc-conflict-content .bp3-callout {
+  margin-bottom: 15px;
+}
+
+.fc-conflict-versions {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.fc-conflict-version {
+  flex: 1;
+  padding: 12px;
+}
+
+.fc-conflict-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.fc-conflict-header h4 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.fc-conflict-details {
+  margin-bottom: 12px;
+}
+
+.fc-conflict-label {
+  font-size: 11px;
+  color: #5c7080;
+  margin: 0 0 2px 0;
+  text-transform: uppercase;
+}
+
+.fc-conflict-value {
+  font-size: 13px;
+  margin: 0 0 8px 0;
+}
+
+.fc-conflict-description {
+  max-height: 60px;
+  overflow-y: auto;
+  padding: 4px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 3px;
+}
+
+.fc-conflict-actions {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.fc-conflict-remaining {
+  text-align: center;
+  font-size: 12px;
+  color: #5c7080;
+  margin-top: 10px;
+}
+
+/* Sync status indicator in tooltip/popover */
+.fc-sync-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #4285f4;
+  margin-bottom: 6px;
+  padding: 4px 0;
+}
+
+.fc-sync-status .bp3-icon {
+  opacity: 0.8;
+}
+
+.fc-event-popover .fc-sync-status {
+  padding: 4px 8px;
+  background: rgba(66, 133, 244, 0.1);
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+/* ================================= */
+/* Google Calendar Icon in Events    */
+/* ================================= */
+
+.fc-gcal-icon-inline {
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  vertical-align: middle;
+  opacity: 0.85;
+}
+
+.fc-gcal-icon-small {
+  width: 14px;
+  height: 14px;
+  vertical-align: middle;
+  opacity: 0.9;
+}
+
+.fc-gcal-calendar-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #5c7080;
+  margin: 4px 0;
+}
+
+.fc-gcal-calendar-source {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #5c7080;
+  margin: 8px 0;
+  padding: 6px 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* ================================= */
+/* Main Google Calendar Tag Popover  */
+/* ================================= */
+
+.fc-gcal-popover {
+  min-width: 280px;
+}
+
+.fc-gcal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.fc-gcal-status {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+}
+
+.fc-gcal-status-small {
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  color: #5c7080;
+  margin: 6px 0;
+}
+
+.fc-gcal-not-connected {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.fc-gcal-no-calendars {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 4px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: #5c7080;
+}
+
+/* Grouped calendars list in main popover */
+.fc-gcal-grouped-calendars {
+  max-height: 200px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+}
+
+.fc-gcal-grouped-item {
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 4px;
+  margin-bottom: 6px;
+}
+
+.fc-gcal-grouped-item:last-child {
+  margin-bottom: 0;
+}
+
+.fc-gcal-grouped-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.fc-gcal-grouped-header .bp3-control {
+  margin-bottom: 0;
+}
+
+.fc-gcal-grouped-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.fc-gcal-grouped-name:hover {
+  color: #106ba3;
+}
+
+.fc-gcal-grouped-aliases {
+  font-size: 11px;
+  color: #5c7080;
+  padding-left: 24px;
+  margin-top: 2px;
+}
+
+.fc-gcal-grouped-details {
+  padding: 8px 0 4px 24px;
+}
+
+.fc-gcal-alias-label {
+  font-size: 11px;
+  color: #5c7080;
+  margin-bottom: 4px;
+}
+
+.fc-gcal-grouped-details .bp3-input-group {
+  margin-top: 2px;
+}
+
+/* ================================= */
+/* Separate GCal Tag Popover         */
+/* ================================= */
+
+.fc-gcal-separate-popover {
+  min-width: 250px;
+}
+
+.fc-gcal-separate-popover .fc-gcal-header {
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+}
+
+.fc-gcal-separate-popover .fc-gcal-calendar-name {
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+/* ================================= */
+/* GCal Config Dialog Card Updates   */
+/* ================================= */
+
+.fc-gcal-calendar-card {
+  padding: 12px;
+}
+
+.fc-gcal-calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.fc-gcal-calendar-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.fc-gcal-calendar-title .bp3-tag {
+  font-size: 10px;
+}
+
+.fc-gcal-calendar-tags {
+  font-size: 12px;
+  color: #5c7080;
+  margin-top: 6px;
+}
+
+.fc-gcal-calendar-details {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.fc-gcal-label {
+  font-size: 11px;
+  color: #5c7080;
+  margin-right: 4px;
+}
+
+.fc-gcal-calendars-summary {
+  margin: 10px 0;
+  font-size: 12px;
+}
+
+.fc-gcal-tags-hint {
+  margin-left: 8px;
+  color: #5c7080;
+  font-size: 11px;
+}
+
+.fc-gcal-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 6px;
+}
