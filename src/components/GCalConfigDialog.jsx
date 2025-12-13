@@ -22,8 +22,6 @@ import {
   addConnectedCalendar,
   updateConnectedCalendar,
   removeConnectedCalendar,
-  getAutoSyncSetting,
-  setAutoSyncSetting,
   getSyncInterval,
   setSyncInterval,
   DEFAULT_CALENDAR_CONFIG,
@@ -37,7 +35,6 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
   const [error, setError] = useState("");
   const [availableCalendars, setAvailableCalendars] = useState([]);
   const [connectedCalendars, setConnectedCalendars] = useState([]);
-  const [autoSync, setAutoSync] = useState("never");
   const [syncInterval, setSyncIntervalState] = useState(null);
   const [showAddCalendar, setShowAddCalendar] = useState(false);
 
@@ -70,7 +67,6 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
       const connected = getConnectedCalendars();
       setConnectedCalendars(connected);
 
-      setAutoSync(getAutoSyncSetting());
       setSyncIntervalState(getSyncInterval());
 
       if (authenticated) {
@@ -156,11 +152,6 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
     setConnectedCalendars(updated);
     // Reinitialize tags to reflect the changes immediately
     initializeGCalTags();
-  };
-
-  const handleAutoSyncChange = (value) => {
-    setAutoSync(value);
-    setAutoSyncSetting(value);
   };
 
   const handleSyncIntervalChange = (value) => {
@@ -289,21 +280,6 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
               Sync Settings
             </h4>
             <Card>
-              <FormGroup
-                label="Auto-sync new events"
-                helperText="Automatically sync new events created in FC to Google Calendar"
-              >
-                <HTMLSelect
-                  value={autoSync}
-                  onChange={(e) => handleAutoSyncChange(e.target.value)}
-                  options={[
-                    { value: "never", label: "Never (manual only)" },
-                    { value: "ask", label: "Ask each time" },
-                    { value: "always", label: "Always sync" },
-                  ]}
-                />
-              </FormGroup>
-
               <FormGroup
                 label="Check for updates"
                 helperText="How often to check Google Calendar for updates"

@@ -20,6 +20,8 @@ import {
   getParentBlock,
   getTreeByUid,
   updateBlock,
+  addTagToBlock,
+  removeGCalTagsFromBlock,
 } from "../util/roamApi";
 import {
   colorToDisplay,
@@ -266,6 +268,11 @@ const Event = ({
   const handleUnsync = async () => {
     try {
       await deleteSyncMetadata(event.id);
+
+      // Remove GCal trigger tags from Roam block
+      const connectedCalendars = getConnectedCalendars();
+      await removeGCalTagsFromBlock(event.id, connectedCalendars);
+
       // Update event to remove sync status
       updateEvent(event, {
         extendedProps: {
@@ -291,6 +298,11 @@ const Event = ({
         console.log("Deleted event from Google Calendar:", metadata.gCalId);
       }
       await deleteSyncMetadata(event.id);
+
+      // Remove GCal trigger tags from Roam block
+      const connectedCalendars = getConnectedCalendars();
+      await removeGCalTagsFromBlock(event.id, connectedCalendars);
+
       // Update event to remove sync status
       updateEvent(event, {
         extendedProps: {
@@ -344,6 +356,13 @@ const Event = ({
           roamUpdated: Date.now(),
         })
       );
+
+      // Add trigger tag to Roam block if not already present
+      const tagToAdd =
+        targetCalendar.triggerTags?.[0] ||
+        targetCalendar.displayName ||
+        "Google Calendar";
+      await addTagToBlock(event.id, tagToAdd);
 
       // Update event with sync info
       updateEvent(event, {
@@ -592,6 +611,14 @@ const Event = ({
             <>
               <div ref={popoverRef}></div>
               <div className="fc-roam-event-actions">
+                {eventTagList && eventTagList[0].name !== calendarTag.name ? (
+                  <TagList
+                    list={eventTagList}
+                    setEventTagList={setEventTagList}
+                    isInteractive={true}
+                    event={event}
+                  />
+                ) : null}
                 {isSyncedToGCal ? (
                   // Synced event - show sync status with menu
                   <Popover
@@ -668,14 +695,6 @@ const Event = ({
                     </Popover>
                   )
                 )}
-                {eventTagList && eventTagList[0].name !== calendarTag.name ? (
-                  <TagList
-                    list={eventTagList}
-                    setEventTagList={setEventTagList}
-                    isInteractive={true}
-                    event={event}
-                  />
-                ) : null}
                 <Icon
                   icon="trash"
                   size="12"

@@ -361,13 +361,23 @@ export const findCalendarForEvent = (fcEvent, connectedCalendars) => {
         return calendar;
       }
 
-      // Check trigger tags (aliases)
-      if (
-        calendar.triggerTags?.some(
-          (trigger) => trigger.toLowerCase() === tagName
-        )
-      ) {
-        return calendar;
+      // Check trigger tags (aliases) - check both tag name and tag pages (which include aliases)
+      if (calendar.triggerTags && calendar.triggerTags.length > 0) {
+        // Check if tag name matches any trigger tag
+        if (calendar.triggerTags.some((trigger) => trigger.toLowerCase() === tagName)) {
+          return calendar;
+        }
+
+        // Also check if any of the tag's pages (aliases) match trigger tags
+        // This handles cases where #gcal gets resolved to "Google calendar" tag
+        // but the tag object has pages: ["Google calendar", "gcal"]
+        if (eventTag.pages && Array.isArray(eventTag.pages)) {
+          for (const page of eventTag.pages) {
+            if (calendar.triggerTags.some((trigger) => trigger.toLowerCase() === page.toLowerCase())) {
+              return calendar;
+            }
+          }
+        }
       }
     }
   }

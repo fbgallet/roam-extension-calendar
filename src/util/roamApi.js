@@ -240,3 +240,69 @@ export const dnpUidToPageTitle = (dnpUid) => {
 
   return window.roamAlphaAPI.util.dateToPageTitle(date);
 };
+
+/**
+ * Add a tag to a block if not already present
+ * @param {string} uid - Block UID
+ * @param {string} tagName - Tag name to add (without # or [[]])
+ */
+export const addTagToBlock = async (uid, tagName) => {
+  const content = getBlockContentByUid(uid);
+  if (!content && content !== "") return;
+
+  // Check if tag already exists (case-insensitive)
+  const tagPatterns = [
+    new RegExp(`#\\[\\[${tagName}\\]\\]`, "i"),
+    new RegExp(`\\[\\[${tagName}\\]\\]`, "i"),
+    new RegExp(`#${tagName}(?![\\w-])`, "i"),
+  ];
+
+  const hasTag = tagPatterns.some((pattern) => pattern.test(content));
+
+  if (!hasTag) {
+    // Append tag at end of block
+    await updateBlock(uid, `${content} #[[${tagName}]]`);
+  }
+};
+
+/**
+ * Remove all GCal-related tags from a block
+ * @param {string} uid - Block UID
+ * @param {Array} connectedCalendars - Array of connected calendar configs
+ */
+export const removeGCalTagsFromBlock = async (uid, connectedCalendars) => {
+  let content = getBlockContentByUid(uid);
+  if (!content) return;
+
+  // Collect all tags to remove
+  const tagsToRemove = new Set();
+  tagsToRemove.add("Google Calendar");
+
+  for (const cal of connectedCalendars) {
+    if (cal.displayName) tagsToRemove.add(cal.displayName);
+    if (cal.triggerTags) {
+      cal.triggerTags.forEach((tag) => tagsToRemove.add(tag));
+    }
+  }
+
+  let contentChanged = false;
+  const originalContent = content;
+
+  // Remove each tag format
+  for (const tag of tagsToRemove) {
+    // Escape special regex characters in tag name
+    const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    // Remove #[[tag]], [[tag]], and #tag formats
+    content = content.replace(new RegExp(`#\\[\\[${escapedTag}\\]\\]`, "gi"), "");
+    content = content.replace(new RegExp(`\\[\\[${escapedTag}\\]\\]`, "gi"), "");
+    content = content.replace(new RegExp(`#${escapedTag}(?![\\w-])`, "gi"), "");
+  }
+
+  // Clean up extra spaces
+  content = content.replace(/\s+/g, " ").trim();
+
+  if (content !== originalContent) {
+    await updateBlock(uid, content);
+  }
+};

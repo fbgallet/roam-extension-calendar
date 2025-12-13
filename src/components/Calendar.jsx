@@ -48,9 +48,9 @@ import {
   updateEvent as updateGCalEvent,
   getAccessToken,
 } from "../services/googleCalendarService";
-import { gcalEventToFCEvent, fcEventToGCalEvent, mergeGCalDataToFCEvent } from "../util/gcalMapping";
+import { gcalEventToFCEvent, fcEventToGCalEvent, mergeGCalDataToFCEvent, findCalendarForEvent } from "../util/gcalMapping";
 import { saveSyncMetadata, createSyncMetadata, getSyncMetadata, updateSyncMetadata, getRoamUidByGCalId, determineSyncStatus, SyncStatus } from "../models/SyncMetadata";
-import { applyGCalToRoamUpdate } from "../services/syncService";
+import { applyGCalToRoamUpdate, syncEventToGCal } from "../services/syncService";
 import { enrichEventsWithTaskData } from "../services/taskService";
 
 let events = [];
@@ -383,6 +383,60 @@ const Calendar = ({
             gCalId: metadata.gCalId,
             gCalCalendarId: metadata.gCalCalendarId,
           };
+        }
+      }
+
+      // Auto-sync Roam events with GCal trigger tags that aren't synced yet
+      if (isAuthenticated()) {
+        const connectedCalendars = getConnectedCalendars();
+        console.log("[Auto-sync] Connected calendars:", connectedCalendars);
+        console.log("[Auto-sync] Checking", events.length, "events for auto-sync");
+        let syncedCount = 0;
+
+        for (const evt of events) {
+          // Skip if already synced
+          if (evt.extendedProps?.gCalId) {
+            console.log("[Auto-sync] Skipping already synced event:", evt.title);
+            continue;
+          }
+
+          // Debug: log event tags
+          console.log("[Auto-sync] Event:", evt.title, "- Tags:", evt.extendedProps?.eventTags);
+
+          // Check if event has a GCal trigger tag
+          const targetCalendar = findCalendarForEvent(evt, connectedCalendars);
+
+          if (targetCalendar) {
+            // This event has a trigger tag but isn't synced - sync it now
+            console.log("[Auto-sync] ✓ Found target calendar for event:", evt.title, "→", targetCalendar.name);
+
+            try {
+              const result = await syncEventToGCal(evt.id, evt, targetCalendar.id);
+
+              if (result.success) {
+                // Update event with sync info for proper deduplication
+                evt.extendedProps = {
+                  ...evt.extendedProps,
+                  gCalId: result.gCalId,
+                  gCalCalendarId: targetCalendar.id,
+                };
+                syncedCount++;
+                console.log("[Auto-sync] ✓ Successfully synced:", evt.title);
+              } else {
+                console.log("[Auto-sync] ✗ Sync failed (no success):", evt.title, result);
+              }
+            } catch (error) {
+              console.error("[Auto-sync] ✗ Error syncing event:", evt.title, error);
+            }
+          } else {
+            console.log("[Auto-sync] No target calendar found for event:", evt.title);
+          }
+        }
+
+        if (syncedCount > 0) {
+          console.log(`[Auto-sync] ✓ Completed: synced ${syncedCount} event(s) to Google Calendar`);
+        } else {
+          console.log("[Auto-sync] No events needed syncing");
         }
       }
 

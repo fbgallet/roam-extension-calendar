@@ -203,12 +203,14 @@
   align-self: center;
 }
 
-.fc-tag-popover > div:nth-child(3) {
+.fc-tag-popover > div:nth-child(3):not(.fc-color-picker-container) {
   align-self: flex-end;
   cursor: pointer;
   opacity: 0.5;
 }
-.fc-tag-popover > div:nth-child(3) > span:first-child {
+.fc-tag-popover
+  > div:nth-child(3):not(.fc-color-picker-container)
+  > span:first-child {
   opacity: 0;
 }
 /* .fc-tag-popover > div:nth-child(3):has(.bp3-icon:hover), */
@@ -230,6 +232,7 @@
   flex-direction: row;
   gap: 5px;
   opacity: 1;
+  width: 100%;
 }
 
 /******* controls *******/
@@ -1131,7 +1134,7 @@
 .fc-gcal-popover {
   min-width: 280px;
 }
-.fc-tag-popover.fc-gcal-popover > * {
+.fc-tag-popover.fc-gcal-popover > .fc-color-picker-container * {
   opacity: 1;
 }
 

@@ -1,4 +1,4 @@
-import { Icon, EditableText, Button, Checkbox, InputGroup } from "@blueprintjs/core";
+import { Icon, EditableText, Button, Switch, InputGroup } from "@blueprintjs/core";
 import { useState, useEffect } from "react";
 import ColorPicker from "./ColorPicker";
 import { extensionStorage, mapOfTags } from "..";
@@ -76,7 +76,6 @@ const TagPopover = ({
   // Handle calendar enable/disable toggle in main GCal popover
   const handleCalendarToggle = (calendarId, enabled) => {
     updateConnectedCalendar(calendarId, { syncEnabled: enabled });
-    setConnectedCalendars(getConnectedCalendars());
 
     // Update the tag's disabledCalendarIds
     if (enabled) {
@@ -89,7 +88,9 @@ const TagPopover = ({
       }
     }
 
+    // Close popover and trigger refresh
     isDataToReload.current = true;
+    setPopoverToOpen("");
     setTagsToDisplay((prev) => [...prev]);
   };
 
@@ -100,7 +101,8 @@ const TagPopover = ({
       .map((t) => t.trim().toLowerCase())
       .filter((t) => t.length > 0);
     updateConnectedCalendar(calendarId, { triggerTags: aliases });
-    setConnectedCalendars(getConnectedCalendars());
+    // Force a new array reference to trigger re-render
+    setConnectedCalendars([...getConnectedCalendars()]);
   };
 
   // Main Google Calendar tag popover
@@ -163,7 +165,7 @@ const TagPopover = ({
           <div className="fc-gcal-grouped-calendars">
             {groupedCalendars.map((cal) => (
               <GroupedCalendarItem
-                key={cal.id}
+                key={`${cal.id}-${cal.syncEnabled}`}
                 calendar={cal}
                 onToggle={(enabled) => handleCalendarToggle(cal.id, enabled)}
                 onAliasUpdate={(aliases) =>
@@ -355,11 +357,19 @@ const GroupedCalendarItem = ({ calendar, onToggle, onAliasUpdate }) => {
   );
   const [isExpanded, setIsExpanded] = useState(false);
 
+  // Derive enabled state directly from prop - no local state needed
+  const isEnabled = calendar.syncEnabled !== false;
+
+  // Only sync alias string when triggerTags changes
+  useEffect(() => {
+    setAliasStr((calendar.triggerTags || []).join(", "));
+  }, [calendar.triggerTags]);
+
   return (
     <div className="fc-gcal-grouped-item">
       <div className="fc-gcal-grouped-header">
-        <Checkbox
-          checked={calendar.syncEnabled !== false}
+        <Switch
+          checked={isEnabled}
           onChange={(e) => onToggle(e.target.checked)}
           style={{ marginBottom: 0 }}
         />

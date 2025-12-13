@@ -1,3 +1,11 @@
+## v.6 (December, 2025) --UPCOMING--
+
+### New feature
+
+- Google Calendar two-way sync
+
+### Fixes
+
 ## v.5 (October 22nd, 2024) Drag&drop tag
 
 ### Updates
