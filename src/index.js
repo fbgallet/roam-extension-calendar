@@ -481,23 +481,37 @@ export const initializeGCalTags = () => {
       let existingTag = getTagFromName(tagName);
 
       if (!existingTag) {
-        // Create new EventTag for this separate GCal calendar
+        // Create new EventTag for this separate GCal calendar with trigger tags as pages
+        const pages = [tagName];
+        if (calendarConfig.triggerTags && calendarConfig.triggerTags.length > 0) {
+          pages.push(...calendarConfig.triggerTags);
+        }
+
         const gcalTag = new EventTag({
           name: tagName,
           color: Colors.GRAY3, // Default color, will be updated from fc-tags-info
           ...getStoredTagInfos(tagName),
+          pages: pages,
           isGCalTag: true,
           gCalCalendarId: calendarConfig.id,
           isToDisplay: true,
           isToDisplayInSb: true,
         });
         mapOfTags.push(gcalTag);
-        console.log(`Created separate EventTag for GCal calendar: ${tagName}`);
+        console.log(`Created separate EventTag for GCal calendar: ${tagName} with pages:`, pages);
       } else {
-        // Update existing tag with GCal properties
+        // Update existing tag with GCal properties and add trigger tags as pages
         existingTag.gCalCalendarId = calendarConfig.id;
         existingTag.isGCalTag = true;
-        console.log(`Updated separate EventTag for GCal calendar: ${tagName}`);
+
+        // Add trigger tags to pages if not already present
+        if (calendarConfig.triggerTags && calendarConfig.triggerTags.length > 0) {
+          const currentPages = existingTag.pages || [existingTag.name];
+          const newPages = [...new Set([...currentPages, ...calendarConfig.triggerTags])];
+          existingTag.updatePages(newPages);
+        }
+
+        console.log(`Updated separate EventTag for GCal calendar: ${tagName} with pages:`, existingTag.pages);
       }
     } else {
       // Calendar is grouped under main "Google Calendar" tag
@@ -506,6 +520,14 @@ export const initializeGCalTags = () => {
       // Track disabled calendars
       if (!calendarConfig.syncEnabled) {
         mainGCalTag.disabledCalendarIds.push(calendarConfig.id);
+      }
+
+      // Add trigger tags as pages/aliases to the main "Google calendar" tag
+      if (calendarConfig.triggerTags && calendarConfig.triggerTags.length > 0) {
+        const currentPages = mainGCalTag.pages || ["Google calendar"];
+        const newPages = [...new Set([...currentPages, ...calendarConfig.triggerTags])];
+        mainGCalTag.updatePages(newPages);
+        console.log(`Added trigger tags to main GCal tag. Pages:`, mainGCalTag.pages);
       }
 
       console.log(`Grouped calendar under main GCal tag: ${calendarConfig.name}`);

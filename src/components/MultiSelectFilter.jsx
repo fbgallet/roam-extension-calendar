@@ -16,6 +16,7 @@ import { unmountApp } from "./App";
 import { saveViewSetting } from "../util/data";
 import { EventTag } from "../models/EventTag";
 import TagPopover from "./TagPopover";
+import { isAuthenticated } from "../services/googleCalendarService";
 
 const MultiSelectFilter = ({
   tagsToDisplay,
@@ -149,6 +150,7 @@ const MultiSelectFilter = ({
     if (!tag.pages || !tag.pages.length) return;
     const title = tag.name === calendarTag.name ? "• not tagged" : tag.pages[0];
     const aliases = tag.pages.length > 1 ? tag.pages.slice(1).join(", ") : "";
+
     return (
       <Popover
         autoFocus={false}
@@ -303,6 +305,14 @@ const MultiSelectFilter = ({
                 ? calendarTag
                 : mapOfTags.find((tag) => tag.pages[0] === props.children);
             if (!tag) return;
+
+            // Add connection status styling to Google Calendar tags
+            const isGCalTag = tag.name === "Google calendar" || tag.isGCalTag;
+            const connected = isGCalTag ? isAuthenticated() : true;
+            const gCalClassName = isGCalTag
+              ? (connected ? "fc-gcal-tag-connected" : "fc-gcal-tag-disconnected")
+              : "";
+
             return {
               draggable: true,
               onDragStart: (e) => handleTagDrag(e, tag),
@@ -311,7 +321,10 @@ const MultiSelectFilter = ({
                 color: tag.color === "transparent" ? "revert" : null,
               },
               interactive: true,
-              className: tag.color === "transparent" ? "fc-tag-notag" : null,
+              className: [
+                tag.color === "transparent" ? "fc-tag-notag" : null,
+                gCalClassName
+              ].filter(Boolean).join(" "),
               onClick: (e) => handleClickOnTag(e, tag),
               onDoubleClick: handleDoubleClickOnTag,
             };

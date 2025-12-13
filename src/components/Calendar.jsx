@@ -51,6 +51,7 @@ import {
 import { gcalEventToFCEvent, fcEventToGCalEvent, mergeGCalDataToFCEvent } from "../util/gcalMapping";
 import { saveSyncMetadata, createSyncMetadata, getSyncMetadata, updateSyncMetadata, getRoamUidByGCalId, determineSyncStatus, SyncStatus } from "../models/SyncMetadata";
 import { applyGCalToRoamUpdate } from "../services/syncService";
+import { enrichEventsWithTaskData } from "../services/taskService";
 
 let events = [];
 let filteredEvents = [];
@@ -394,13 +395,15 @@ const Calendar = ({
           if (calendarConfig.syncDirection === "export") continue; // Export-only calendars don't import events
 
           try {
-            const gCalEvents = await getGCalEvents(
+            let gCalEvents = await getGCalEvents(
               calendarConfig.id,
               info.start,
               info.end
             );
 
+            // Enrich Google Tasks with their actual notes/description
             if (gCalEvents && gCalEvents.length) {
+              gCalEvents = await enrichEventsWithTaskData(gCalEvents, info.start, info.end);
               console.log(`GCal events from ${calendarConfig.name}:`, gCalEvents);
 
               for (const gcalEvent of gCalEvents) {

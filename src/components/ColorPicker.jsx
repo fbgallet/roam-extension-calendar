@@ -61,7 +61,10 @@ function ColorPicker({ tag, setTagsToDisplay, isDataToReload }) {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "row", gap: "5px" }}>
+    <div
+      class="fc-color-picker-container"
+      style={{ display: "flex", flexDirection: "row", gap: "5px" }}
+    >
       <Select
         items={COLORS_LIST}
         itemRenderer={renderColor}

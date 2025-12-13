@@ -8,6 +8,36 @@ import { getTagFromName } from "../models/EventTag";
 import { SyncStatus } from "../models/SyncMetadata";
 import { dateToISOString } from "./dates";
 
+// ============================================
+// Google Tasks Detection Utilities
+// ============================================
+
+/**
+ * Pattern to detect Google Tasks in calendar event descriptions
+ * Tasks created in Google Calendar have a URL like: https://tasks.google.com/task/{taskId}
+ */
+const TASKS_URL_PATTERN = /https:\/\/tasks\.google\.com\/task\/([a-zA-Z0-9_-]+)/;
+
+/**
+ * Check if a Google Calendar event is actually a Google Task
+ * Tasks appear in Calendar with a generic description containing a tasks.google.com link
+ * @param {object} gcalEvent - Google Calendar event object
+ * @returns {boolean} True if the event is a Google Task
+ */
+export const isGCalTask = (gcalEvent) => {
+  return TASKS_URL_PATTERN.test(gcalEvent.description || "");
+};
+
+/**
+ * Extract the Google Task ID from a calendar event's description
+ * @param {object} gcalEvent - Google Calendar event object
+ * @returns {string|null} Task ID if found, null otherwise
+ */
+export const extractTaskIdFromEvent = (gcalEvent) => {
+  const match = (gcalEvent.description || "").match(TASKS_URL_PATTERN);
+  return match ? match[1] : null;
+};
+
 /**
  * Convert a Google Calendar event to a FullCalendar event
  * @param {object} gcalEvent - Google Calendar event object
@@ -30,6 +60,20 @@ export const gcalEventToFCEvent = (gcalEvent, calendarConfig) => {
     eventTag = getTagFromName("Google calendar");
   }
 
+  // Build event tags array
+  const eventTags = eventTag ? [eventTag] : [];
+
+  // For Google Tasks, add TODO or DONE tag based on task status
+  const taskData = gcalEvent._taskData;
+  if (taskData) {
+    const statusTag = taskData.status === "completed"
+      ? getTagFromName("DONE")
+      : getTagFromName("TODO");
+    if (statusTag) {
+      eventTags.push(statusTag);
+    }
+  }
+
   // Determine color from tag (not from calendar config)
   const eventColor = eventTag?.color || "#4285f4";
 
@@ -41,7 +85,7 @@ export const gcalEventToFCEvent = (gcalEvent, calendarConfig) => {
     allDay: isAllDay,
     classNames: ["fc-event-gcal"],
     extendedProps: {
-      eventTags: eventTag ? [eventTag] : [],
+      eventTags,
       isRef: false,
       hasTime: !isAllDay,
       // GCal-specific metadata
@@ -54,6 +98,8 @@ export const gcalEventToFCEvent = (gcalEvent, calendarConfig) => {
       location: gcalEvent.location || "",
       syncStatus: SyncStatus.GCAL_ONLY,
       isGCalEvent: true,
+      // Google Task data (if this event is a task enriched by taskService)
+      _taskData: gcalEvent._taskData || null,
       // Original GCal data for reference
       gCalEventData: {
         htmlLink: gcalEvent.htmlLink,
@@ -182,7 +228,7 @@ export const fcEventToGCalEvent = (fcEvent, calendarId, roamUid = null) => {
 
 /**
  * Clean a Roam block title for Google Calendar
- * Removes Roam-specific syntax
+ * Removes Roam-specific syntax but preserves TODO/DONE as [[TODO]]/[[DONE]]
  */
 export const cleanTitleForGCal = (title) => {
   if (!title) return "";
@@ -192,12 +238,13 @@ export const cleanTitleForGCal = (title) => {
   // Remove bullet points at the beginning (• or -)
   cleaned = cleaned.replace(/^[•\-]\s*/, "");
 
-  // Remove TODO/DONE syntax
-  cleaned = cleaned.replace(/\{\{\[\[TODO\]\]\}\}/g, "");
-  cleaned = cleaned.replace(/\{\{\[\[DONE\]\]\}\}/g, "");
+  // Convert {{[[TODO]]}} and {{[[DONE]]}} to [[TODO]] and [[DONE]] for GCal
+  // This allows bidirectional sync of task status
+  cleaned = cleaned.replace(/\{\{\[\[TODO\]\]\}\}/g, "[[TODO]]");
+  cleaned = cleaned.replace(/\{\{\[\[DONE\]\]\}\}/g, "[[DONE]]");
 
-  // Remove page references [[Page Name]]
-  cleaned = cleaned.replace(/\[\[([^\]]+)\]\]/g, "$1");
+  // Remove page references [[Page Name]] EXCEPT [[TODO]] and [[DONE]]
+  cleaned = cleaned.replace(/\[\[(?!TODO\]\]|DONE\]\])([^\]]+)\]\]/g, "$1");
 
   // Remove block references ((block-uid))
   cleaned = cleaned.replace(/\(\([a-zA-Z0-9_-]+\)\)/g, "");
@@ -212,7 +259,7 @@ export const cleanTitleForGCal = (title) => {
   // Remove block embeds {{embed: ((uid))}}
   cleaned = cleaned.replace(/\{\{embed:\s*\(\([a-zA-Z0-9_-]+\)\)\}\}/g, "");
 
-  // Remove other Roam syntax
+  // Remove other Roam syntax (but not [[TODO]]/[[DONE]])
   cleaned = cleaned.replace(/\{\{[^}]+\}\}/g, "");
 
   // Clean up extra whitespace
@@ -336,8 +383,23 @@ export const hasSyncTriggerTag = (fcEvent, connectedCalendars) => {
 };
 
 /**
+ * Convert [[TODO]] or [[DONE]] in GCal title to Roam {{[[TODO]]}} or {{[[DONE]]}} format
+ * @param {string} title - GCal event title
+ * @returns {string} Title with converted TODO/DONE syntax
+ */
+export const convertGCalTodoToRoam = (title) => {
+  if (!title) return title;
+  let converted = title;
+  // Convert [[TODO]] to {{[[TODO]]}} and [[DONE]] to {{[[DONE]]}}
+  converted = converted.replace(/\[\[TODO\]\]/g, "{{[[TODO]]}}");
+  converted = converted.replace(/\[\[DONE\]\]/g, "{{[[DONE]]}}");
+  return converted;
+};
+
+/**
  * Extract Roam block content from GCal event
  * Used when importing a GCal event to Roam
+ * Converts [[TODO]]/[[DONE]] in GCal back to {{[[TODO]]}}/{{[[DONE]]}} in Roam
  */
 export const gcalEventToRoamContent = (gcalEvent, calendarConfig) => {
   let content = "";
@@ -360,11 +422,13 @@ export const gcalEventToRoamContent = (gcalEvent, calendarConfig) => {
     }
   }
 
-  // Add title
-  content += gcalEvent.summary || "(No title)";
+  // Get title and convert [[TODO]]/[[DONE]] to Roam format
+  let title = gcalEvent.summary || "(No title)";
+  title = convertGCalTodoToRoam(title);
+  content += title;
 
   // Add trigger tag
-  const primaryTag = calendarConfig.triggerTags[0];
+  const primaryTag = calendarConfig.triggerTags?.[0];
   if (primaryTag) {
     content += primaryTag.includes(" ") ? ` #[[${primaryTag}]]` : ` #${primaryTag}`;
   }
@@ -373,6 +437,10 @@ export const gcalEventToRoamContent = (gcalEvent, calendarConfig) => {
 };
 
 export default {
+  // Task detection
+  isGCalTask,
+  extractTaskIdFromEvent,
+  // Event mapping
   gcalEventToFCEvent,
   fcEventToGCalEvent,
   cleanTitleForGCal,
@@ -383,4 +451,5 @@ export default {
   findCalendarForEvent,
   hasSyncTriggerTag,
   gcalEventToRoamContent,
+  convertGCalTodoToRoam,
 };

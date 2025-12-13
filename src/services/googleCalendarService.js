@@ -7,9 +7,12 @@ import { extensionStorage } from "..";
 
 const CLIENT_ID =
   "743270704845-jvqg91e6bk03jbnu1qcdnrh9r3ohgact.apps.googleusercontent.com";
-const DISCOVERY_DOC =
-  "https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest";
-const SCOPES = "https://www.googleapis.com/auth/calendar";
+const DISCOVERY_DOCS = [
+  "https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest",
+  "https://www.googleapis.com/discovery/v1/apis/tasks/v1/rest",
+];
+const SCOPES =
+  "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/tasks";
 const BACKEND_URL =
   "https://site--roam-calendar-auth-backend--2bhrm4wg9nqn.code.run";
 
@@ -81,7 +84,7 @@ const initGapiClient = async () => {
   });
 
   await window.gapi.client.init({
-    discoveryDocs: [DISCOVERY_DOC],
+    discoveryDocs: DISCOVERY_DOCS,
   });
 
   gapiInitialized = true;
@@ -666,6 +669,168 @@ export const getEvent = async (calendarId, eventId) => {
 };
 
 // ============================================
+// Google Tasks API Methods
+// ============================================
+
+/**
+ * List all task lists for the user
+ * @returns {array} Array of task list objects
+ */
+export const listTaskLists = async () => {
+  try {
+    await getAccessToken();
+    const response = await window.gapi.client.tasks.tasklists.list({
+      maxResults: 100,
+    });
+    return response.result.items || [];
+  } catch (error) {
+    console.error("Error listing task lists:", error);
+    throw error;
+  }
+};
+
+/**
+ * Get tasks from a specific task list
+ * @param {string} taskListId - Task list ID (use "@default" for default list)
+ * @param {object} options - Query options
+ * @param {Date|string} options.dueMin - Minimum due date
+ * @param {Date|string} options.dueMax - Maximum due date
+ * @param {boolean} options.showCompleted - Include completed tasks
+ * @param {boolean} options.showHidden - Include hidden tasks
+ * @returns {array} Array of task objects
+ */
+export const getTasks = async (taskListId, options = {}) => {
+  try {
+    await getAccessToken();
+
+    const params = {
+      tasklist: taskListId,
+      maxResults: 100,
+      showCompleted: options.showCompleted ?? true,
+      showHidden: options.showHidden ?? false,
+    };
+
+    // Note: Tasks API uses RFC 3339 format for dates
+    if (options.dueMin) {
+      params.dueMin =
+        options.dueMin instanceof Date
+          ? options.dueMin.toISOString()
+          : options.dueMin;
+    }
+    if (options.dueMax) {
+      params.dueMax =
+        options.dueMax instanceof Date
+          ? options.dueMax.toISOString()
+          : options.dueMax;
+    }
+
+    const response = await window.gapi.client.tasks.tasks.list(params);
+    return response.result.items || [];
+  } catch (error) {
+    console.error("Error fetching tasks:", error);
+    throw error;
+  }
+};
+
+/**
+ * Get a single task by ID
+ * @param {string} taskListId - Task list ID
+ * @param {string} taskId - Task ID
+ * @returns {object} Task object
+ */
+export const getTask = async (taskListId, taskId) => {
+  try {
+    await getAccessToken();
+
+    const response = await window.gapi.client.tasks.tasks.get({
+      tasklist: taskListId,
+      task: taskId,
+    });
+
+    return response.result;
+  } catch (error) {
+    console.error("Error getting task:", error);
+    throw error;
+  }
+};
+
+/**
+ * Update a task's status (complete/incomplete)
+ * @param {string} taskListId - Task list ID
+ * @param {string} taskId - Task ID
+ * @param {object} updates - Task updates (e.g., { status: "completed" })
+ * @returns {object} Updated task object
+ */
+export const updateTask = async (taskListId, taskId, updates) => {
+  try {
+    await getAccessToken();
+
+    // First get the current task to preserve other fields
+    const currentTask = await getTask(taskListId, taskId);
+
+    const updatedTask = {
+      ...currentTask,
+      ...updates,
+    };
+
+    // If marking as completed, set the completed timestamp
+    if (updates.status === "completed" && !updatedTask.completed) {
+      updatedTask.completed = new Date().toISOString();
+    }
+    // If marking as incomplete, remove the completed timestamp
+    if (updates.status === "needsAction") {
+      delete updatedTask.completed;
+    }
+
+    const response = await window.gapi.client.tasks.tasks.update({
+      tasklist: taskListId,
+      task: taskId,
+      resource: updatedTask,
+    });
+
+    return response.result;
+  } catch (error) {
+    console.error("Error updating task:", error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch all tasks from all task lists within a date range
+ * @param {Date} timeMin - Start of date range
+ * @param {Date} timeMax - End of date range
+ * @returns {array} Array of all tasks with their taskListId
+ */
+export const fetchAllTasks = async (timeMin, timeMax) => {
+  try {
+    const taskLists = await listTaskLists();
+    const allTasks = [];
+
+    for (const taskList of taskLists) {
+      const tasks = await getTasks(taskList.id, {
+        dueMin: timeMin,
+        dueMax: timeMax,
+        showCompleted: true,
+      });
+
+      // Add taskListId to each task for reference
+      for (const task of tasks) {
+        allTasks.push({
+          ...task,
+          taskListId: taskList.id,
+          taskListTitle: taskList.title,
+        });
+      }
+    }
+
+    return allTasks;
+  } catch (error) {
+    console.error("Error fetching all tasks:", error);
+    return [];
+  }
+};
+
+// ============================================
 // Connected Calendars Management
 // ============================================
 
@@ -810,6 +975,13 @@ export default {
   updateEvent,
   deleteEvent,
   getEvent,
+  // Google Tasks API
+  listTaskLists,
+  getTasks,
+  getTask,
+  updateTask,
+  fetchAllTasks,
+  // Connected Calendars
   getConnectedCalendars,
   saveConnectedCalendars,
   addConnectedCalendar,

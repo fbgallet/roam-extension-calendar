@@ -45,6 +45,8 @@ import {
   mergeGCalDataToFCEvent,
 } from "../util/gcalMapping";
 
+import { enrichEventsWithTaskData } from "./taskService";
+
 import {
   getBlockContentByUid,
   updateBlock,
@@ -140,6 +142,7 @@ export const deleteEventFromGCal = async (roamUid) => {
 
 /**
  * Fetch events from Google Calendar for a date range
+ * Automatically enriches Google Tasks with their actual notes/description
  * @param {string} calendarId - Calendar ID
  * @param {Date} startDate - Start of range
  * @param {Date} endDate - End of range
@@ -153,11 +156,16 @@ export const fetchGCalEventsForRange = async (
   calendarConfig
 ) => {
   try {
-    const gcalEvents = await getEvents(calendarId, startDate, endDate);
+    let gcalEvents = await getEvents(calendarId, startDate, endDate);
 
-    return gcalEvents
-      .filter((event) => event.status !== "cancelled")
-      .map((gcalEvent) => gcalEventToFCEvent(gcalEvent, calendarConfig));
+    // Filter out cancelled events
+    gcalEvents = gcalEvents.filter((event) => event.status !== "cancelled");
+
+    // Enrich any Google Tasks with their actual notes/description
+    // This replaces the placeholder description with the real task data
+    gcalEvents = await enrichEventsWithTaskData(gcalEvents, startDate, endDate);
+
+    return gcalEvents.map((gcalEvent) => gcalEventToFCEvent(gcalEvent, calendarConfig));
   } catch (error) {
     console.error("Error fetching GCal events:", error);
     return [];

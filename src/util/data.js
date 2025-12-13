@@ -6,6 +6,8 @@ import {
   mapOfTags,
   rangeEndAttribute,
 } from "..";
+import { getConnectedCalendars, isAuthenticated } from "../services/googleCalendarService";
+import { getTagFromName } from "../models/EventTag";
 import {
   addDaysToDate,
   dateToISOString,
@@ -602,8 +604,55 @@ export const parseEventObject = (
 };
 
 export const colorToDisplay = (tags) => {
-  if (tags[0].name === "TODO" && tags.length > 1) return tags[1].color;
-  else return tags[0].color;
+  if (!tags || !tags.length) return null;
+
+  // Get the tag to use for color (skip TODO if there's a second tag)
+  let colorTag = tags[0];
+  let startIndex = 0;
+  if (tags[0].name === "TODO" && tags.length > 1) {
+    colorTag = tags[1];
+    startIndex = 1;
+  }
+
+  // Check if any tag is a GCal trigger tag - if so, use the calendar's associated tag color
+  if (isAuthenticated()) {
+    const connectedCalendars = getConnectedCalendars();
+    for (let i = startIndex; i < tags.length; i++) {
+      const tag = tags[i];
+      const tagName = tag.name?.toLowerCase();
+
+      for (const calendar of connectedCalendars) {
+        if (!calendar.syncEnabled) continue;
+
+        // Check if this tag is a trigger tag for this calendar
+        const isTriggerTag = calendar.triggerTags?.some(
+          (trigger) => trigger.toLowerCase() === tagName
+        );
+
+        if (isTriggerTag) {
+          // Case 1: Calendar has showAsSeparateTag with displayName - use displayName tag's color
+          if (calendar.showAsSeparateTag && calendar.displayName) {
+            const displayNameTag = getTagFromName(calendar.displayName);
+            if (displayNameTag?.color) {
+              return displayNameTag.color;
+            }
+          }
+
+          // Case 2: Calendar without showAsSeparateTag - use "Google calendar" tag's color
+          const googleCalendarTag = getTagFromName("Google calendar");
+          if (googleCalendarTag?.color) {
+            return googleCalendarTag.color;
+          }
+
+          // Fallback: if Google calendar tag not found, return a default color
+          console.warn("[colorToDisplay] Google calendar tag not found in mapOfTags, using default gray color");
+          return "#9E9E9E"; // Material Gray 500 - default Google Calendar color
+        }
+      }
+    }
+  }
+
+  return colorTag.color;
 };
 
 export const updateEventColor = (eventTags, tagsToDisplay) => {
