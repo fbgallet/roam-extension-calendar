@@ -52,6 +52,10 @@ import { gcalEventToFCEvent, fcEventToGCalEvent, mergeGCalDataToFCEvent, findCal
 import { saveSyncMetadata, createSyncMetadata, getSyncMetadata, updateSyncMetadata, getRoamUidByGCalId, determineSyncStatus, SyncStatus } from "../models/SyncMetadata";
 import { applyGCalToRoamUpdate, syncEventToGCal } from "../services/syncService";
 import { enrichEventsWithTaskData } from "../services/taskService";
+import { getTasksEnabled, getConnectedTaskLists, getTasks } from "../services/googleCalendarService";
+import { fetchTasksForRange, importTaskToRoam, getExistingRoamBlockForTask } from "../services/googleTasksService";
+import { taskToFCEvent } from "../util/taskMapping";
+import { getRoamUidByGTaskId, getTaskSyncMetadata } from "../models/TaskSyncMetadata";
 
 let events = [];
 let filteredEvents = [];
@@ -516,6 +520,51 @@ const Calendar = ({
             }
           } catch (error) {
             console.error(`Failed to fetch events from ${calendarConfig.name}:`, error);
+          }
+        }
+
+        // Load tasks from Google Tasks (if enabled)
+        if (getTasksEnabled()) {
+          const connectedTaskLists = getConnectedTaskLists();
+          console.log("[Tasks] Loading tasks from", connectedTaskLists.filter(l => l.syncEnabled).length, "enabled task lists");
+
+          for (const listConfig of connectedTaskLists) {
+            if (!listConfig.syncEnabled) continue;
+
+            try {
+              const tasks = await getTasks(listConfig.id, {
+                dueMin: info.start,
+                dueMax: info.end,
+                showCompleted: true,
+              });
+
+              if (tasks && tasks.length) {
+                console.log(`[Tasks] Found ${tasks.length} tasks from "${listConfig.name}"`);
+
+                for (const task of tasks) {
+                  // Only process tasks with due dates
+                  if (!task.due) continue;
+
+                  // Check if this task is already imported to Roam
+                  const existingRoamUid = getRoamUidByGTaskId(task.id);
+
+                  if (existingRoamUid) {
+                    // Task exists in Roam - check if it's already in events array
+                    const existingEventIndex = events.findIndex(evt => evt.id === existingRoamUid);
+                    if (existingEventIndex === -1) {
+                      // Task exists in Roam but not in current view - add FC event linked to Roam block
+                      events.push(taskToFCEvent(task, listConfig, existingRoamUid));
+                    }
+                  } else {
+                    // Task NOT imported to Roam - show as Google Task event (like GCal events)
+                    // Use gtask-{id} format to distinguish from Roam blocks
+                    events.push(taskToFCEvent(task, listConfig, null));
+                  }
+                }
+              }
+            } catch (error) {
+              console.error(`[Tasks] Failed to fetch tasks from "${listConfig.name}":`, error);
+            }
           }
         }
       }

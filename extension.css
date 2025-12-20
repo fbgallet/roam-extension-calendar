@@ -1424,3 +1424,146 @@
   border: 1px solid rgba(255, 255, 255, 0.8);
   box-shadow: 0 0 2px rgba(0, 0, 0, 0.2);
 }
+
+/* ================================= */
+/* Config Dialog Table Layout        */
+/* ================================= */
+
+.fc-config-table-wrapper {
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.fc-config-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.fc-config-table th {
+  padding: 8px 10px;
+  text-align: left;
+  font-weight: 500;
+  font-size: 11px;
+  color: #5c7080;
+  text-transform: uppercase;
+  background: rgba(0, 0, 0, 0.04);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.fc-config-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  vertical-align: middle;
+}
+
+.fc-config-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.fc-config-table tbody tr:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.fc-config-table .fc-row-disabled {
+  opacity: 0.5;
+}
+
+.fc-config-table .fc-row-disabled:hover {
+  opacity: 0.7;
+}
+
+.fc-config-table .fc-cell-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 160px;
+}
+
+.fc-config-table .fc-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.fc-config-table .fc-name-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fc-config-table .fc-tags-input {
+  width: 100%;
+}
+
+.fc-config-table .fc-tags-input .bp3-input {
+  font-size: 12px;
+  padding: 2px 8px;
+  height: 26px;
+}
+
+.fc-config-table .fc-sync-select {
+  min-width: 80px;
+}
+
+.fc-config-table .fc-sync-select select {
+  font-size: 12px;
+  padding: 2px 24px 2px 8px;
+  height: 26px;
+}
+
+.fc-config-table .bp3-switch {
+  margin-bottom: 0;
+}
+
+.fc-config-table .bp3-control.bp3-switch {
+  padding-left: 36px;
+}
+
+/* Connection status card */
+.fc-gcal-connection-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.fc-gcal-loading {
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+}
+
+/* Available calendars list in old dialog - kept for backward compat */
+.fc-gcal-available-calendars {
+  max-height: 200px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+}
+
+.fc-gcal-available-calendar-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.fc-gcal-available-calendar-item:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* Google Tasks event styling */
+.fc-event-gtask {
+  border-left: 3px solid rgba(19, 124, 189, 0.6) !important;
+}
+
+.fc-event-gtask.fc-event-done {
+  opacity: 0.6;
+}
+
+.fc-event-gtask .fc-event-content {
+  font-style: normal;
+}

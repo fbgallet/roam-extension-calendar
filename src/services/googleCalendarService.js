@@ -32,11 +32,16 @@ export const STORAGE_KEYS = {
   CONNECTED_CALENDARS: "gcal-connected-calendars",
   AUTO_SYNC: "gcal-auto-sync",
   SYNC_INTERVAL: "gcal-sync-interval",
+  USE_ORIGINAL_COLORS: "gcal-use-original-colors",
+  // Google Tasks storage keys
+  TASKS_ENABLED: "gtasks-enabled",
+  CONNECTED_TASK_LISTS: "gtasks-connected-lists",
 };
 
 /**
  * Default calendar configuration
- * Note: color is NOT stored here - it's managed in fc-tags-info for the associated tag
+ * Note: tag color is managed in fc-tags-info for the associated tag
+ * backgroundColor stores the original Google Calendar color for optional use
  */
 export const DEFAULT_CALENDAR_CONFIG = {
   id: "",
@@ -47,6 +52,20 @@ export const DEFAULT_CALENDAR_CONFIG = {
   isDefault: true,
   syncEnabled: true,
   syncDirection: "both",
+  lastSyncTime: 0,
+  backgroundColor: null,       // Original Google Calendar color (hex)
+};
+
+/**
+ * Default task list configuration
+ */
+export const DEFAULT_TASK_LIST_CONFIG = {
+  id: "",
+  name: "",                    // Original Google Task List name
+  displayName: "",             // Custom display name (used as tag name if showAsSeparateTag)
+  triggerTags: [],             // First one defaults to list name, rest are aliases
+  showAsSeparateTag: false,    // If true, appears as separate tag in MultiSelect
+  syncEnabled: true,
   lastSyncTime: 0,
 };
 
@@ -561,9 +580,9 @@ export const getEvents = async (calendarId, timeMin, timeMax, options = {}) => {
       singleEvents: true,
       orderBy: "startTime",
       maxResults: options.maxResults || 250,
-      // Request all relevant fields including description
+      // Request all relevant fields including description and colorId
       fields:
-        "items(id,summary,description,location,start,end,htmlLink,etag,updated,creator,organizer,attendees,recurrence,recurringEventId,status)",
+        "items(id,summary,description,location,start,end,htmlLink,etag,updated,creator,organizer,attendees,recurrence,recurringEventId,status,colorId)",
     };
 
     // For incremental sync
@@ -961,6 +980,125 @@ export const setSyncInterval = (minutes) => {
   extensionStorage.set(STORAGE_KEYS.SYNC_INTERVAL, minutes);
 };
 
+/**
+ * Get whether to use original Google Calendar colors
+ */
+export const getUseOriginalColors = () => {
+  return extensionStorage.get(STORAGE_KEYS.USE_ORIGINAL_COLORS) ?? false;
+};
+
+/**
+ * Set whether to use original Google Calendar colors
+ */
+export const setUseOriginalColors = (enabled) => {
+  extensionStorage.set(STORAGE_KEYS.USE_ORIGINAL_COLORS, enabled);
+};
+
+// ============================================
+// Connected Task Lists Management
+// ============================================
+
+/**
+ * Check if Google Tasks integration is enabled
+ */
+export const getTasksEnabled = () => {
+  return extensionStorage.get(STORAGE_KEYS.TASKS_ENABLED) ?? false;
+};
+
+/**
+ * Enable or disable Google Tasks integration
+ */
+export const setTasksEnabled = (enabled) => {
+  extensionStorage.set(STORAGE_KEYS.TASKS_ENABLED, enabled);
+};
+
+/**
+ * Get connected task lists configuration
+ */
+export const getConnectedTaskLists = () => {
+  const taskLists = extensionStorage.get(STORAGE_KEYS.CONNECTED_TASK_LISTS);
+  if (!taskLists) return [];
+
+  const parsedLists = JSON.parse(taskLists);
+
+  // Ensure all task lists have the default properties
+  return parsedLists.map(list => ({
+    ...DEFAULT_TASK_LIST_CONFIG,
+    ...list,
+    showAsSeparateTag: list.showAsSeparateTag ?? false,
+  }));
+};
+
+/**
+ * Save connected task lists configuration
+ */
+export const saveConnectedTaskLists = (taskLists) => {
+  extensionStorage.set(
+    STORAGE_KEYS.CONNECTED_TASK_LISTS,
+    JSON.stringify(taskLists)
+  );
+};
+
+/**
+ * Update a connected task list configuration
+ */
+export const updateConnectedTaskList = (taskListId, updates) => {
+  const taskLists = getConnectedTaskLists();
+  const index = taskLists.findIndex(list => list.id === taskListId);
+  if (index !== -1) {
+    taskLists[index] = { ...taskLists[index], ...updates };
+    saveConnectedTaskLists(taskLists);
+  }
+  return taskLists;
+};
+
+/**
+ * Initialize task list configs from available Google Task Lists
+ * Creates default config for each list that doesn't have one
+ */
+export const initializeTaskListConfigs = (availableLists) => {
+  const existingConfigs = getConnectedTaskLists();
+  const existingIds = new Set(existingConfigs.map(c => c.id));
+
+  const newConfigs = [...existingConfigs];
+
+  for (const list of availableLists) {
+    if (!existingIds.has(list.id)) {
+      newConfigs.push({
+        ...DEFAULT_TASK_LIST_CONFIG,
+        id: list.id,
+        name: list.title,
+        displayName: list.title,
+        triggerTags: [list.title.toLowerCase()],
+        syncEnabled: false, // Disabled by default - user must enable
+      });
+    }
+  }
+
+  // Remove configs for lists that no longer exist
+  const availableIds = new Set(availableLists.map(l => l.id));
+  const filteredConfigs = newConfigs.filter(c => availableIds.has(c.id));
+
+  saveConnectedTaskLists(filteredConfigs);
+  return filteredConfigs;
+};
+
+/**
+ * Find task list by trigger tag or displayName
+ */
+export const findTaskListByTag = (tagName) => {
+  const taskLists = getConnectedTaskLists();
+  const lowerTagName = tagName.toLowerCase();
+  return taskLists.find((list) => {
+    // Check displayName (primary tag for separate tags)
+    if (list.displayName && list.displayName.toLowerCase() === lowerTagName) {
+      return true;
+    }
+    // Check trigger tags
+    return list.triggerTags.some((tag) => tag.toLowerCase() === lowerTagName);
+  });
+};
+
 export default {
   initGoogleCalendarService,
   isAuthenticated,
@@ -993,6 +1131,18 @@ export default {
   setAutoSyncSetting,
   getSyncInterval,
   setSyncInterval,
+  getUseOriginalColors,
+  setUseOriginalColors,
+  // Connected Task Lists
+  getTasksEnabled,
+  setTasksEnabled,
+  getConnectedTaskLists,
+  saveConnectedTaskLists,
+  updateConnectedTaskList,
+  initializeTaskListConfigs,
+  findTaskListByTag,
+  // Constants
   STORAGE_KEYS,
   DEFAULT_CALENDAR_CONFIG,
+  DEFAULT_TASK_LIST_CONFIG,
 };

@@ -10,6 +10,7 @@ import {
   getConnectedCalendars,
   onAuthStateChange,
   updateConnectedCalendar,
+  getUseOriginalColors,
 } from "../services/googleCalendarService";
 
 const TagPopover = ({
@@ -25,6 +26,7 @@ const TagPopover = ({
   const [isGCalDialogOpen, setIsGCalDialogOpen] = useState(false);
   const [gCalConnected, setGCalConnected] = useState(false);
   const [connectedCalendars, setConnectedCalendars] = useState([]);
+  const [useOriginalColors, setUseOriginalColors] = useState(false);
 
   // Check if this is the main Google Calendar tag
   const isGoogleCalendarTag = tag.name === "Google calendar";
@@ -36,6 +38,7 @@ const TagPopover = ({
     if (isGoogleCalendarTag || isSeparateGCalTag) {
       setGCalConnected(isAuthenticated());
       setConnectedCalendars(getConnectedCalendars());
+      setUseOriginalColors(getUseOriginalColors());
 
       // Listen for auth state changes
       const unsubscribe = onAuthStateChange((authenticated) => {
@@ -181,14 +184,21 @@ const TagPopover = ({
           onClose={() => {
             setIsGCalDialogOpen(false);
             setConnectedCalendars(getConnectedCalendars());
+            setUseOriginalColors(getUseOriginalColors());
           }}
         />
 
-        <ColorPicker
-          tag={tag}
-          setTagsToDisplay={setTagsToDisplay}
-          isDataToReload={isDataToReload}
-        />
+        {useOriginalColors ? (
+          <div style={{ marginBottom: "10px", fontSize: "12px", color: "#888" }}>
+            <strong>Note:</strong> Using original Google Calendar colors (configured in settings)
+          </div>
+        ) : (
+          <ColorPicker
+            tag={tag}
+            setTagsToDisplay={setTagsToDisplay}
+            isDataToReload={isDataToReload}
+          />
+        )}
       </div>
     );
   }
@@ -262,14 +272,32 @@ const TagPopover = ({
           onClose={() => {
             setIsGCalDialogOpen(false);
             setConnectedCalendars(getConnectedCalendars());
+            setUseOriginalColors(getUseOriginalColors());
           }}
         />
 
-        <ColorPicker
-          tag={tag}
-          setTagsToDisplay={setTagsToDisplay}
-          isDataToReload={isDataToReload}
-        />
+        {useOriginalColors ? (
+          <div style={{ marginBottom: "10px", fontSize: "12px", color: "#888" }}>
+            <strong>Original calendar color:</strong>
+            {calendarConfig?.backgroundColor && (
+              <div style={{
+                display: "inline-block",
+                width: "16px",
+                height: "16px",
+                backgroundColor: calendarConfig.backgroundColor,
+                marginLeft: "8px",
+                border: "1px solid #ccc",
+                verticalAlign: "middle"
+              }}></div>
+            )}
+          </div>
+        ) : (
+          <ColorPicker
+            tag={tag}
+            setTagsToDisplay={setTagsToDisplay}
+            isDataToReload={isDataToReload}
+          />
+        )}
       </div>
     );
   }

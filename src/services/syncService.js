@@ -55,8 +55,11 @@ import {
   getParentBlock,
   deleteBlockIfNoChild,
   isExistingNode,
+  getTreeByUid,
 } from "../util/roamApi";
 import { getCalendarUidFromPage } from "../util/data";
+import { startDateRegex, untilDateRegex, roamDateRegex } from "../util/regex";
+import { rangeEndAttribute } from "../index";
 
 /**
  * Sync result object
@@ -303,6 +306,26 @@ export const applyImport = async (gcalEvent, calendarConfig) => {
     const newBlockUid = await createChildBlock(dnpUid, content);
 
     if (newBlockUid) {
+      // Check if this is a multi-day event and create end date child block
+      const gcalEndDate = gcalEvent.end?.dateTime || gcalEvent.end?.date;
+      if (gcalEndDate && rangeEndAttribute) {
+        const isAllDayEvent = !gcalEvent.start.dateTime;
+        let endDateObj = new Date(gcalEndDate);
+
+        // For all-day events, GCal end date is exclusive (next day)
+        if (isAllDayEvent) {
+          endDateObj = new Date(endDateObj.getTime() - 24 * 60 * 60 * 1000);
+        }
+
+        // Check if it's actually a multi-day event
+        if (startDate.toDateString() !== endDateObj.toDateString()) {
+          const endDateStr = window.roamAlphaAPI.util.dateToPageTitle(endDateObj);
+          const endBlockContent = `${rangeEndAttribute}:: [[${endDateStr}]]`;
+          await createChildBlock(newBlockUid, endBlockContent, "first");
+          console.log(`[GCal Import] Created end date child block: ${endBlockContent}`);
+        }
+      }
+
       await saveSyncMetadata(
         newBlockUid,
         createSyncMetadata({
@@ -319,6 +342,74 @@ export const applyImport = async (gcalEvent, calendarConfig) => {
   } catch (error) {
     console.error("Error importing GCal event:", error);
     return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Find child blocks containing date information (start:: or end::/until::)
+ * @param {string} parentUid - Parent block UID
+ * @returns {object} Object with startBlock and endBlock info
+ */
+const findDateChildBlocks = (parentUid) => {
+  const tree = getTreeByUid(parentUid);
+  if (!tree || !tree[0] || !tree[0].children) {
+    return { startBlock: null, endBlock: null };
+  }
+
+  let startBlock = null;
+  let endBlock = null;
+
+  for (const child of tree[0].children) {
+    const content = child.string || "";
+
+    // Check for start date pattern (start:: [[Date]])
+    if (startDateRegex) {
+      startDateRegex.lastIndex = 0;
+      if (startDateRegex.test(content)) {
+        startBlock = { uid: child.uid, content };
+      }
+    }
+
+    // Check for end/until date pattern (end:: [[Date]] or until:: [[Date]])
+    if (untilDateRegex) {
+      untilDateRegex.lastIndex = 0;
+      if (untilDateRegex.test(content)) {
+        endBlock = { uid: child.uid, content };
+      }
+    }
+
+    // Also check for roamDateRegex to find any date references in children
+    // This handles cases where dates are in children but without start::/end:: prefix
+    roamDateRegex.lastIndex = 0;
+    if (roamDateRegex.test(content) && !startBlock && !endBlock) {
+      // If we find a date but no specific start/end marker, check if it looks like an end date
+      // by checking if the rangeEndAttribute is present
+      if (rangeEndAttribute && content.toLowerCase().includes(rangeEndAttribute.toLowerCase())) {
+        endBlock = { uid: child.uid, content };
+      }
+    }
+  }
+
+  return { startBlock, endBlock };
+};
+
+/**
+ * Update a child block's date reference
+ * @param {string} blockUid - Block UID to update
+ * @param {string} currentContent - Current block content
+ * @param {Date} newDate - New date to set
+ */
+const updateChildBlockDate = async (blockUid, currentContent, newDate) => {
+  const newRoamDate = window.roamAlphaAPI.util.dateToPageTitle(newDate);
+  roamDateRegex.lastIndex = 0;
+  const matchingDates = currentContent.match(roamDateRegex);
+
+  if (matchingDates && matchingDates.length) {
+    // Replace the existing date with the new one
+    const currentDateStr = matchingDates[0].replace("[[", "").replace("]]", "");
+    const newContent = currentContent.replace(currentDateStr, newRoamDate);
+    await updateBlock(blockUid, newContent);
+    console.log(`[GCal→Roam] Updated child block date: ${currentDateStr} → ${newRoamDate}`);
   }
 };
 
@@ -340,10 +431,63 @@ export const applyGCalToRoamUpdate = async (roamUid, gcalEvent, calendarConfig) 
 
     // Check if the date changed and move the block if needed
     const gcalStartDate = gcalEvent.start.dateTime || gcalEvent.start.date;
+    const gcalEndDate = gcalEvent.end?.dateTime || gcalEvent.end?.date;
     const newEventDate = new Date(gcalStartDate);
     const newDnpUid = window.roamAlphaAPI.util.dateToPageUid(newEventDate);
 
-    // Get current parent to determine if block needs to move
+    // =========================================================================
+    // Handle child blocks with start:: and end:: dates (multi-day events)
+    // =========================================================================
+    const { startBlock, endBlock } = findDateChildBlocks(roamUid);
+
+    // Check if this is a multi-day event in GCal
+    const isAllDayEvent = !gcalEvent.start.dateTime;
+    let gcalStartDateObj = new Date(gcalStartDate);
+    let gcalEndDateObj = gcalEndDate ? new Date(gcalEndDate) : null;
+
+    // For all-day events, GCal end date is exclusive (next day), so we need to subtract 1 day
+    // to get the actual last day of the event
+    if (isAllDayEvent && gcalEndDateObj) {
+      gcalEndDateObj = new Date(gcalEndDateObj.getTime() - 24 * 60 * 60 * 1000);
+    }
+
+    const isMultiDayEvent =
+      gcalEndDateObj &&
+      gcalStartDateObj.toDateString() !== gcalEndDateObj.toDateString();
+
+    console.log("[GCal→Roam] Event dates:", {
+      start: gcalStartDateObj.toDateString(),
+      end: gcalEndDateObj?.toDateString(),
+      isMultiDay: isMultiDayEvent,
+      hasStartBlock: !!startBlock,
+      hasEndBlock: !!endBlock,
+    });
+
+    // Update start child block if it exists
+    if (startBlock) {
+      await updateChildBlockDate(startBlock.uid, startBlock.content, gcalStartDateObj);
+    }
+
+    // Update end/until child block if it exists
+    if (endBlock) {
+      if (isMultiDayEvent && gcalEndDateObj) {
+        await updateChildBlockDate(endBlock.uid, endBlock.content, gcalEndDateObj);
+      } else if (!isMultiDayEvent) {
+        // Event is no longer multi-day, should we remove the end block?
+        // For now, just update it to match the start date or leave it
+        console.log("[GCal→Roam] Event is no longer multi-day, end block may be stale");
+      }
+    } else if (isMultiDayEvent && gcalEndDateObj && rangeEndAttribute) {
+      // No end block exists but the event is multi-day - create one
+      const endDateStr = window.roamAlphaAPI.util.dateToPageTitle(gcalEndDateObj);
+      const endBlockContent = `${rangeEndAttribute}:: [[${endDateStr}]]`;
+      await createChildBlock(roamUid, endBlockContent, "first");
+      console.log(`[GCal→Roam] Created end date child block: ${endBlockContent}`);
+    }
+
+    // =========================================================================
+    // Handle block location (move to correct DNP if start date changed)
+    // =========================================================================
     const currentParentUid = getParentBlock(roamUid);
     if (currentParentUid) {
       // Get the DNP UID that contains the current parent

@@ -10,7 +10,6 @@ import {
   InputGroup,
   Spinner,
   Switch,
-  Tag,
 } from "@blueprintjs/core";
 import { useState, useEffect } from "react";
 import {
@@ -18,25 +17,44 @@ import {
   signOut,
   isAuthenticated,
   listCalendars,
+  listTaskLists,
   getConnectedCalendars,
-  addConnectedCalendar,
+  saveConnectedCalendars,
   updateConnectedCalendar,
-  removeConnectedCalendar,
   getSyncInterval,
   setSyncInterval,
+  getTasksEnabled,
+  setTasksEnabled,
+  getConnectedTaskLists,
+  updateConnectedTaskList,
+  initializeTaskListConfigs,
+  getUseOriginalColors,
+  setUseOriginalColors,
   DEFAULT_CALENDAR_CONFIG,
+  DEFAULT_TASK_LIST_CONFIG,
   onAuthStateChange,
 } from "../services/googleCalendarService";
-import { initializeGCalTags } from "../index";
+import { initializeGCalTags, initializeGTaskTags, mapOfTags } from "../index";
+import { getTagFromName } from "../models/EventTag";
+import { updateStoredTags } from "../util/data";
 
 const GCalConfigDialog = ({ isOpen, onClose }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Calendars
   const [availableCalendars, setAvailableCalendars] = useState([]);
-  const [connectedCalendars, setConnectedCalendars] = useState([]);
+  const [calendarConfigs, setCalendarConfigs] = useState([]);
+
+  // Task Lists
+  const [tasksEnabled, setTasksEnabledState] = useState(false);
+  const [availableTaskLists, setAvailableTaskLists] = useState([]);
+  const [taskListConfigs, setTaskListConfigs] = useState([]);
+
+  // Sync settings
   const [syncInterval, setSyncIntervalState] = useState(null);
-  const [showAddCalendar, setShowAddCalendar] = useState(false);
+  const [useOriginalColors, setUseOriginalColorsState] = useState(false);
 
   // Load initial state
   useEffect(() => {
@@ -51,6 +69,7 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
       setIsConnected(authenticated);
       if (authenticated) {
         fetchAvailableCalendars();
+        fetchAvailableTaskLists();
       }
     });
     return unsubscribe;
@@ -64,13 +83,21 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
       const authenticated = isAuthenticated();
       setIsConnected(authenticated);
 
-      const connected = getConnectedCalendars();
-      setConnectedCalendars(connected);
+      // Load calendar configs
+      const calConfigs = getConnectedCalendars();
+      setCalendarConfigs(calConfigs);
+
+      // Load task list configs
+      setTasksEnabledState(getTasksEnabled());
+      const taskConfigs = getConnectedTaskLists();
+      setTaskListConfigs(taskConfigs);
 
       setSyncIntervalState(getSyncInterval());
+      setUseOriginalColorsState(getUseOriginalColors());
 
       if (authenticated) {
         await fetchAvailableCalendars();
+        await fetchAvailableTaskLists();
       }
     } catch (err) {
       setError("Failed to load configuration");
@@ -84,9 +111,56 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
     try {
       const calendars = await listCalendars();
       setAvailableCalendars(calendars);
+
+      // Initialize configs for any new calendars
+      const existingConfigs = getConnectedCalendars();
+      const existingIds = new Set(existingConfigs.map((c) => c.id));
+
+      const newConfigs = [...existingConfigs];
+      for (const cal of calendars) {
+        if (!existingIds.has(cal.id)) {
+          newConfigs.push({
+            ...DEFAULT_CALENDAR_CONFIG,
+            id: cal.id,
+            name: cal.summary,
+            displayName: cal.summary,
+            triggerTags: [],
+            syncEnabled: false, // Disabled by default
+            isDefault: newConfigs.length === 0,
+            backgroundColor: cal.backgroundColor || null,
+          });
+        } else {
+          // Update backgroundColor for existing calendars
+          const existingIndex = newConfigs.findIndex((c) => c.id === cal.id);
+          if (existingIndex !== -1) {
+            newConfigs[existingIndex].backgroundColor = cal.backgroundColor || null;
+          }
+        }
+      }
+
+      // Remove configs for calendars that no longer exist
+      const availableIds = new Set(calendars.map((c) => c.id));
+      const filteredConfigs = newConfigs.filter((c) => availableIds.has(c.id));
+
+      saveConnectedCalendars(filteredConfigs);
+      setCalendarConfigs(filteredConfigs);
     } catch (err) {
       console.error("Failed to fetch calendars:", err);
       setError("Failed to fetch calendars from Google");
+    }
+  };
+
+  const fetchAvailableTaskLists = async () => {
+    try {
+      const taskLists = await listTaskLists();
+      setAvailableTaskLists(taskLists);
+
+      // Initialize task list configs
+      const updatedConfigs = initializeTaskListConfigs(taskLists);
+      setTaskListConfigs(updatedConfigs);
+    } catch (err) {
+      console.error("Failed to fetch task lists:", err);
+      // Don't show error for task lists - they may not have permission yet
     }
   };
 
@@ -98,8 +172,9 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
       await authenticate();
       setIsConnected(true);
       await fetchAvailableCalendars();
+      await fetchAvailableTaskLists();
     } catch (err) {
-      setError("Failed to connect to Google Calendar");
+      setError("Failed to connect to Google");
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -114,6 +189,7 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
       await signOut();
       setIsConnected(false);
       setAvailableCalendars([]);
+      setAvailableTaskLists([]);
     } catch (err) {
       setError("Failed to disconnect");
       console.error(err);
@@ -122,36 +198,34 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleAddCalendar = (googleCalendar) => {
-    const newCalendar = {
-      ...DEFAULT_CALENDAR_CONFIG,
-      id: googleCalendar.id,
-      name: googleCalendar.summary,
-      displayName: googleCalendar.summary, // Default displayName to calendar name
-      triggerTags: [], // No alias tags by default
-      showAsSeparateTag: false, // Grouped under main "Google Calendar" tag by default
-      isDefault: connectedCalendars.length === 0,
-    };
-
-    const updated = addConnectedCalendar(newCalendar);
-    setConnectedCalendars(updated);
-    setShowAddCalendar(false);
-    // Reinitialize tags to reflect the new calendar
+  const handleCalendarConfigChange = (calendarId, updates) => {
+    // Handle default calendar - only one can be default
+    if (updates.isDefault === true) {
+      const updatedConfigs = calendarConfigs.map((cal) => ({
+        ...cal,
+        isDefault: cal.id === calendarId,
+      }));
+      saveConnectedCalendars(updatedConfigs);
+      setCalendarConfigs(updatedConfigs);
+    } else {
+      const updated = updateConnectedCalendar(calendarId, updates);
+      setCalendarConfigs(updated);
+    }
     initializeGCalTags();
   };
 
-  const handleRemoveCalendar = (calendarId) => {
-    const updated = removeConnectedCalendar(calendarId);
-    setConnectedCalendars(updated);
-    // Reinitialize tags to remove the deleted calendar
-    initializeGCalTags();
+  const handleTasksEnabledChange = (enabled) => {
+    setTasksEnabledState(enabled);
+    setTasksEnabled(enabled);
+    if (enabled) {
+      initializeGTaskTags();
+    }
   };
 
-  const handleUpdateCalendar = (calendarId, updates) => {
-    const updated = updateConnectedCalendar(calendarId, updates);
-    setConnectedCalendars(updated);
-    // Reinitialize tags to reflect the changes immediately
-    initializeGCalTags();
+  const handleTaskListConfigChange = (taskListId, updates) => {
+    const updated = updateConnectedTaskList(taskListId, updates);
+    setTaskListConfigs(updated);
+    initializeGTaskTags();
   };
 
   const handleSyncIntervalChange = (value) => {
@@ -160,19 +234,59 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
     setSyncInterval(interval);
   };
 
-  // Get calendars that are not yet connected
-  const unconnectedCalendars = availableCalendars.filter(
-    (cal) => !connectedCalendars.some((cc) => cc.id === cal.id)
-  );
+  const handleUseOriginalColorsChange = (enabled) => {
+    setUseOriginalColorsState(enabled);
+    setUseOriginalColors(enabled);
+
+    // When enabled, update GCal-related tag colors to use the original calendar colors
+    if (enabled) {
+      const calendars = getConnectedCalendars();
+      let tagsUpdated = false;
+
+      for (const calendarConfig of calendars) {
+        if (!calendarConfig.syncEnabled || !calendarConfig.backgroundColor) continue;
+
+        if (calendarConfig.showAsSeparateTag) {
+          // Update the separate tag's color
+          const tagName = calendarConfig.displayName || calendarConfig.name;
+          const tag = getTagFromName(tagName);
+          if (tag) {
+            tag.setColor(calendarConfig.backgroundColor);
+            tagsUpdated = true;
+          }
+        } else {
+          // Update the main "Google calendar" tag's color
+          // Use the first enabled calendar's color as the default
+          const mainGCalTag = getTagFromName("Google calendar");
+          if (mainGCalTag && !mainGCalTag._originalColorSet) {
+            mainGCalTag.setColor(calendarConfig.backgroundColor);
+            mainGCalTag._originalColorSet = true; // Only set once (first enabled calendar)
+            tagsUpdated = true;
+          }
+        }
+      }
+
+      // Reset the flag for next time
+      const mainGCalTag = getTagFromName("Google calendar");
+      if (mainGCalTag) {
+        delete mainGCalTag._originalColorSet;
+      }
+
+      // Persist tag colors if any were updated
+      if (tagsUpdated) {
+        updateStoredTags(mapOfTags);
+      }
+    }
+  };
 
   return (
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title="Google Calendar Configuration"
-      icon="calendar"
+      title="Google Integration"
+      icon="cloud"
       className="fc-gcal-config-dialog"
-      style={{ width: "550px" }}
+      style={{ width: "750px" }}
     >
       <div className={Classes.DIALOG_BODY}>
         {isLoading && (
@@ -188,7 +302,7 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
         )}
 
         {/* Connection Status */}
-        <Card style={{ marginBottom: "15px" }}>
+        <Card style={{ marginBottom: "20px" }}>
           <div className="fc-gcal-connection-status">
             <div>
               <Icon
@@ -213,76 +327,54 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
 
         {isConnected && (
           <>
-            {/* Connected Calendars */}
-            <h4 style={{ marginBottom: "10px" }}>Connected Calendars</h4>
+            {/* CALENDARS SECTION */}
+            <h4 style={{ marginBottom: "12px" }}>Calendars</h4>
+            <CalendarsTable
+              calendars={availableCalendars}
+              configs={calendarConfigs}
+              onConfigChange={handleCalendarConfigChange}
+            />
 
-            {connectedCalendars.length === 0 ? (
-              <Callout intent="primary" icon="info-sign" style={{ marginBottom: "15px" }}>
-                No calendars connected yet. Add a calendar to start syncing.
-              </Callout>
-            ) : (
-              <div className="fc-gcal-calendar-list">
-                {connectedCalendars.map((cal) => (
-                  <ConnectedCalendarCard
-                    key={cal.id}
-                    calendar={cal}
-                    onUpdate={(updates) => handleUpdateCalendar(cal.id, updates)}
-                    onRemove={() => handleRemoveCalendar(cal.id)}
-                  />
-                ))}
+            {/* TASK LISTS SECTION */}
+            <div style={{ marginTop: "30px" }}>
+              <div style={{ display: "flex", alignItems: "center", marginBottom: "12px" }}>
+                <h4 style={{ margin: 0 }}>Task Lists</h4>
+                <Switch
+                  checked={tasksEnabled}
+                  onChange={(e) => handleTasksEnabledChange(e.target.checked)}
+                  style={{ marginLeft: "15px", marginBottom: 0 }}
+                  label="Enable Tasks"
+                />
               </div>
-            )}
 
-            {/* Add Calendar Button/Dropdown */}
-            {unconnectedCalendars.length > 0 && (
-              <div style={{ marginBottom: "15px" }}>
-                {showAddCalendar ? (
-                  <Card>
-                    <h5>Select a calendar to add:</h5>
-                    <div className="fc-gcal-available-calendars">
-                      {unconnectedCalendars.map((cal) => (
-                        <div
-                          key={cal.id}
-                          className="fc-gcal-available-calendar-item"
-                          onClick={() => handleAddCalendar(cal)}
-                        >
-                          <span
-                            className="fc-gcal-color-dot"
-                            style={{ backgroundColor: cal.backgroundColor }}
-                          />
-                          {cal.summary}
-                        </div>
-                      ))}
-                    </div>
-                    <Button
-                      minimal
-                      icon="cross"
-                      onClick={() => setShowAddCalendar(false)}
-                      style={{ marginTop: "10px" }}
-                    >
-                      Cancel
-                    </Button>
-                  </Card>
-                ) : (
-                  <Button
-                    icon="add"
-                    onClick={() => setShowAddCalendar(true)}
-                    outlined
-                  >
-                    Add Calendar
-                  </Button>
-                )}
+              <div
+                style={{
+                  opacity: tasksEnabled ? 1 : 0.4,
+                  pointerEvents: tasksEnabled ? "auto" : "none",
+                }}
+              >
+                <Callout intent="warning" icon="warning-sign" style={{ marginBottom: "15px" }}>
+                  <strong>Note:</strong> Recurring tasks are not supported by the Google Tasks API.
+                  Only the initial task instance will be displayed.
+                  For recurring items, use recurring events in Google Calendar instead.
+                </Callout>
+                <TaskListsTable
+                  taskLists={availableTaskLists}
+                  configs={taskListConfigs}
+                  onConfigChange={handleTaskListConfigChange}
+                />
               </div>
-            )}
+            </div>
 
-            {/* Sync Settings */}
-            <h4 style={{ marginBottom: "10px", marginTop: "20px" }}>
+            {/* SYNC SETTINGS */}
+            <h4 style={{ marginBottom: "10px", marginTop: "30px" }}>
               Sync Settings
             </h4>
             <Card>
               <FormGroup
                 label="Check for updates"
-                helperText="How often to check Google Calendar for updates"
+                helperText="How often to check Google for updates"
+                inline
               >
                 <HTMLSelect
                   value={syncInterval === null ? "manual" : syncInterval.toString()}
@@ -293,6 +385,18 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
                     { value: "15", label: "Every 15 minutes" },
                     { value: "30", label: "Every 30 minutes" },
                   ]}
+                />
+              </FormGroup>
+              <FormGroup
+                label="Use original Google Calendar colors"
+                helperText="Display events with their original Google Calendar colors instead of tag colors. Change view or date to see updated colors."
+                inline
+                style={{ marginTop: "15px" }}
+              >
+                <Switch
+                  checked={useOriginalColors}
+                  onChange={(e) => handleUseOriginalColorsChange(e.target.checked)}
+                  style={{ marginBottom: 0 }}
                 />
               </FormGroup>
             </Card>
@@ -310,160 +414,233 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
 };
 
 /**
- * Card component for a single connected calendar
+ * Table component for calendars configuration
  */
-const ConnectedCalendarCard = ({ calendar, onUpdate, onRemove }) => {
-  const [tagsStr, setTagsStr] = useState((calendar.triggerTags || []).join(", "));
-  const [displayName, setDisplayName] = useState(calendar.displayName || calendar.name);
-  const [isExpanded, setIsExpanded] = useState(false);
+const CalendarsTable = ({ calendars, configs, onConfigChange }) => {
+  // Merge calendars with their configs
+  const rows = calendars.map((cal) => {
+    const config = configs.find((c) => c.id === cal.id) || {
+      ...DEFAULT_CALENDAR_CONFIG,
+      id: cal.id,
+      name: cal.summary,
+    };
+    return { ...cal, config };
+  });
 
-  const handleTagsChange = (value) => {
-    setTagsStr(value);
-  };
+  if (rows.length === 0) {
+    return (
+      <Callout intent="primary" icon="info-sign">
+        No calendars found. Make sure you have calendars in your Google account.
+      </Callout>
+    );
+  }
+
+  return (
+    <div className="fc-config-table-wrapper">
+      <table className="fc-config-table">
+        <thead>
+          <tr>
+            <th style={{ width: "55px" }}>Enable</th>
+            <th style={{ width: "160px" }}>Name</th>
+            <th style={{ width: "140px" }}>Tags</th>
+            <th style={{ width: "75px" }}>Separate</th>
+            <th style={{ width: "55px" }}>Default</th>
+            <th style={{ width: "110px" }}>Sync</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <CalendarRow
+              key={row.id}
+              calendar={row}
+              config={row.config}
+              onConfigChange={onConfigChange}
+            />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+/**
+ * Single row in the calendars table
+ */
+const CalendarRow = ({ calendar, config, onConfigChange }) => {
+  const [tagsStr, setTagsStr] = useState((config.triggerTags || []).join(", "));
 
   const handleTagsConfirm = () => {
     const tags = tagsStr
       .split(",")
       .map((t) => t.trim().toLowerCase())
       .filter((t) => t.length > 0);
-    onUpdate({ triggerTags: tags });
-  };
-
-  const handleDisplayNameConfirm = () => {
-    if (displayName.trim()) {
-      onUpdate({ displayName: displayName.trim() });
-    }
-  };
-
-  const handleShowAsSeparateTagChange = (checked) => {
-    onUpdate({ showAsSeparateTag: checked });
+    onConfigChange(calendar.id, { triggerTags: tags });
   };
 
   return (
-    <Card className="fc-gcal-calendar-card" style={{ marginBottom: "10px" }}>
-      <div className="fc-gcal-calendar-header">
-        <div className="fc-gcal-calendar-title">
-          <Icon icon="calendar" size={12} style={{ marginRight: "6px", opacity: 0.6 }} />
-          <strong>{calendar.name}</strong>
-          {calendar.isDefault && (
-            <Tag minimal intent="primary" style={{ marginLeft: "8px" }}>
-              Default
-            </Tag>
-          )}
-          {calendar.showAsSeparateTag && (
-            <Tag minimal intent="success" style={{ marginLeft: "4px" }}>
-              Separate Tag
-            </Tag>
-          )}
-        </div>
-        <div>
-          <Button
-            minimal
-            small
-            icon={isExpanded ? "chevron-up" : "chevron-down"}
-            onClick={() => setIsExpanded(!isExpanded)}
+    <tr className={config.syncEnabled ? "" : "fc-row-disabled"}>
+      <td>
+        <Switch
+          checked={config.syncEnabled}
+          onChange={(e) => onConfigChange(calendar.id, { syncEnabled: e.target.checked })}
+          style={{ marginBottom: 0 }}
+        />
+      </td>
+      <td>
+        <div className="fc-cell-name">
+          <span
+            className="fc-color-dot"
+            style={{ backgroundColor: calendar.backgroundColor }}
           />
-          <Button
-            minimal
-            small
-            icon="trash"
-            intent="danger"
-            onClick={onRemove}
-          />
+          <span className="fc-name-text" title={calendar.summary}>
+            {calendar.summary}
+          </span>
         </div>
-      </div>
+      </td>
+      <td>
+        <InputGroup
+          small
+          value={tagsStr}
+          onChange={(e) => setTagsStr(e.target.value)}
+          onBlur={handleTagsConfirm}
+          placeholder="tag1, tag2"
+          disabled={!config.syncEnabled}
+          className="fc-tags-input"
+        />
+      </td>
+      <td>
+        <Switch
+          checked={config.showAsSeparateTag || false}
+          onChange={(e) => onConfigChange(calendar.id, { showAsSeparateTag: e.target.checked })}
+          disabled={!config.syncEnabled}
+          style={{ marginBottom: 0 }}
+        />
+      </td>
+      <td>
+        <Switch
+          checked={config.isDefault || false}
+          onChange={(e) => onConfigChange(calendar.id, { isDefault: e.target.checked })}
+          disabled={!config.syncEnabled}
+          style={{ marginBottom: 0 }}
+        />
+      </td>
+      <td>
+        <HTMLSelect
+          small
+          value={config.syncDirection || "both"}
+          onChange={(e) => onConfigChange(calendar.id, { syncDirection: e.target.value })}
+          disabled={!config.syncEnabled}
+          options={[
+            { value: "both", label: "Both" },
+            { value: "import", label: "Import" },
+            { value: "export", label: "Export" },
+          ]}
+          className="fc-sync-select"
+        />
+      </td>
+    </tr>
+  );
+};
 
-      {/* Show current tag info in collapsed state */}
-      {!isExpanded && (calendar.triggerTags?.length > 0 || calendar.showAsSeparateTag) && (
-        <div className="fc-gcal-calendar-tags">
-          {calendar.showAsSeparateTag && (
-            <>
-              <span className="fc-gcal-label">Tag: </span>
-              <Tag minimal intent="success" style={{ marginRight: "4px" }}>
-                #{calendar.displayName || calendar.name}
-              </Tag>
-            </>
-          )}
-          {calendar.triggerTags?.length > 0 && (
-            <>
-              <span className="fc-gcal-label">{calendar.showAsSeparateTag ? "Aliases: " : "Trigger aliases: "}</span>
-              {calendar.triggerTags.map((tag) => (
-                <Tag key={tag} minimal style={{ marginRight: "4px" }}>
-                  #{tag}
-                </Tag>
-              ))}
-            </>
-          )}
-        </div>
-      )}
+/**
+ * Table component for task lists configuration
+ */
+const TaskListsTable = ({ taskLists, configs, onConfigChange }) => {
+  // Merge task lists with their configs
+  const rows = taskLists.map((list) => {
+    const config = configs.find((c) => c.id === list.id) || {
+      ...DEFAULT_TASK_LIST_CONFIG,
+      id: list.id,
+      name: list.title,
+    };
+    return { ...list, config };
+  });
 
-      {isExpanded && (
-        <div className="fc-gcal-calendar-details">
-          {/* Show as Separate Tag toggle */}
-          <Switch
-            checked={calendar.showAsSeparateTag || false}
-            label="Show as separate Tag in filter"
-            onChange={(e) => handleShowAsSeparateTagChange(e.target.checked)}
-            style={{ marginBottom: "10px" }}
-          />
+  if (rows.length === 0) {
+    return (
+      <Callout intent="primary" icon="info-sign">
+        No task lists found. Make sure you have task lists in Google Tasks.
+      </Callout>
+    );
+  }
 
-          {/* Display Name - only shown when showAsSeparateTag is enabled */}
-          {calendar.showAsSeparateTag && (
-            <FormGroup
-              label="Display name (Tag name)"
-              helperText="This name will be used as the main tag for this calendar"
-            >
-              <InputGroup
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                onBlur={handleDisplayNameConfirm}
-                placeholder={calendar.name}
-              />
-            </FormGroup>
-          )}
-
-          <FormGroup
-            label="Trigger tag aliases"
-            helperText={
-              calendar.showAsSeparateTag
-                ? "Additional tags that also route events to this calendar (comma-separated)"
-                : "Tags that identify events for this calendar (comma-separated)"
-            }
-          >
-            <InputGroup
-              value={tagsStr}
-              onChange={(e) => handleTagsChange(e.target.value)}
-              onBlur={handleTagsConfirm}
-              placeholder="work, meetings"
+  return (
+    <div className="fc-config-table-wrapper">
+      <table className="fc-config-table">
+        <thead>
+          <tr>
+            <th style={{ width: "55px" }}>Enable</th>
+            <th style={{ width: "180px" }}>Name</th>
+            <th style={{ width: "180px" }}>Tags</th>
+            <th style={{ width: "75px" }}>Separate</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <TaskListRow
+              key={row.id}
+              taskList={row}
+              config={row.config}
+              onConfigChange={onConfigChange}
             />
-          </FormGroup>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
 
-          <FormGroup label="Sync Direction">
-            <HTMLSelect
-              value={calendar.syncDirection}
-              onChange={(e) => onUpdate({ syncDirection: e.target.value })}
-              options={[
-                { value: "both", label: "Both directions" },
-                { value: "import", label: "Import only (GCal → Roam)" },
-                { value: "export", label: "Export only (Roam → GCal)" },
-              ]}
-            />
-          </FormGroup>
+/**
+ * Single row in the task lists table
+ */
+const TaskListRow = ({ taskList, config, onConfigChange }) => {
+  const [tagsStr, setTagsStr] = useState((config.triggerTags || []).join(", "));
 
-          <Switch
-            checked={calendar.isDefault}
-            label="Default calendar"
-            onChange={(e) => onUpdate({ isDefault: e.target.checked })}
-          />
+  const handleTagsConfirm = () => {
+    const tags = tagsStr
+      .split(",")
+      .map((t) => t.trim().toLowerCase())
+      .filter((t) => t.length > 0);
+    onConfigChange(taskList.id, { triggerTags: tags });
+  };
 
-          <Switch
-            checked={calendar.syncEnabled}
-            label="Sync enabled"
-            onChange={(e) => onUpdate({ syncEnabled: e.target.checked })}
-          />
+  return (
+    <tr className={config.syncEnabled ? "" : "fc-row-disabled"}>
+      <td>
+        <Switch
+          checked={config.syncEnabled}
+          onChange={(e) => onConfigChange(taskList.id, { syncEnabled: e.target.checked })}
+          style={{ marginBottom: 0 }}
+        />
+      </td>
+      <td>
+        <div className="fc-cell-name">
+          <Icon icon="tick" size={12} style={{ marginRight: "6px", opacity: 0.5 }} />
+          <span className="fc-name-text" title={taskList.title}>
+            {taskList.title}
+          </span>
         </div>
-      )}
-    </Card>
+      </td>
+      <td>
+        <InputGroup
+          small
+          value={tagsStr}
+          onChange={(e) => setTagsStr(e.target.value)}
+          onBlur={handleTagsConfirm}
+          placeholder={taskList.title.toLowerCase()}
+          disabled={!config.syncEnabled}
+          className="fc-tags-input"
+        />
+      </td>
+      <td>
+        <Switch
+          checked={config.showAsSeparateTag || false}
+          onChange={(e) => onConfigChange(taskList.id, { showAsSeparateTag: e.target.checked })}
+          disabled={!config.syncEnabled}
+          style={{ marginBottom: 0 }}
+        />
+      </td>
+    </tr>
   );
 };
 

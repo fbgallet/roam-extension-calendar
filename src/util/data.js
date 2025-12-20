@@ -6,7 +6,7 @@ import {
   mapOfTags,
   rangeEndAttribute,
 } from "..";
-import { getConnectedCalendars, isAuthenticated } from "../services/googleCalendarService";
+import { getConnectedCalendars, isAuthenticated, getUseOriginalColors } from "../services/googleCalendarService";
 import { getTagFromName } from "../models/EventTag";
 import {
   addDaysToDate,
@@ -603,7 +603,7 @@ export const parseEventObject = (
   };
 };
 
-export const colorToDisplay = (tags) => {
+export const colorToDisplay = (tags, originalGCalColor = null) => {
   if (!tags || !tags.length) return null;
 
   // Get the tag to use for color (skip TODO if there's a second tag)
@@ -630,6 +630,15 @@ export const colorToDisplay = (tags) => {
         );
 
         if (isTriggerTag) {
+          // If useOriginalColors is enabled and we have an original color, use it
+          if (getUseOriginalColors() && originalGCalColor) {
+            return originalGCalColor;
+          }
+          // If useOriginalColors is enabled, try calendar's backgroundColor
+          if (getUseOriginalColors() && calendar.backgroundColor) {
+            return calendar.backgroundColor;
+          }
+
           // Case 1: Calendar has showAsSeparateTag with displayName - use displayName tag's color
           if (calendar.showAsSeparateTag && calendar.displayName) {
             const displayNameTag = getTagFromName(calendar.displayName);
@@ -869,6 +878,12 @@ export const filterEvents = (
         );
 
   return eventsToDisplay.map((evt) => {
+    // For GCal events with useOriginalColors enabled, preserve the original color
+    const isGCalEvent = evt.extendedProps?.isGCalEvent || evt.id?.startsWith?.("gcal-");
+    if (isGCalEvent && getUseOriginalColors()) {
+      // Keep the original GCal color that was set in gcalEventToFCEvent
+      return evt;
+    }
     // if (evt.extendedProps.eventTags.length > 1)
     evt.color =
       updateEventColor(evt.extendedProps.eventTags, tagsToDisplay) || evt.color;

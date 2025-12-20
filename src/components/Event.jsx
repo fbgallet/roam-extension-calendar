@@ -39,12 +39,15 @@ import DeleteDialog from "./DeleteDialog";
 import { getTimestampFromHM, getFormatedRange } from "../util/dates";
 import {
   getConnectedCalendars,
+  getConnectedTaskLists,
   isAuthenticated,
   updateEvent as updateGCalEvent,
   deleteEvent as deleteGCalEvent,
   createEvent as createGCalEvent,
   updateTask,
 } from "../services/googleCalendarService";
+import { syncTaskCompletionToGoogle, importTaskToRoam } from "../services/googleTasksService";
+import { getTaskSyncMetadata } from "../models/TaskSyncMetadata";
 import {
   saveSyncMetadata,
   createSyncMetadata,
@@ -57,6 +60,8 @@ import { clearTasksCache } from "../services/taskService";
 
 // Google Calendar icon for unimported GCal events
 import googleCalendarIcon from "../services/gcal-logo-64-white.png";
+// Google Tasks icon for unimported task events
+import GoogleTasksIconSvg from "../services/google-task-logo.svg";
 
 const Event = ({
   displayTitle,
@@ -82,12 +87,16 @@ const Event = ({
   // Don't check tag names, as Roam events with trigger tags will have "Google calendar" tag
   const isGCalEvent = event.extendedProps?.isGCalEvent === true;
 
+  // Check if this is a Google Task event (not imported to Roam)
+  const isGTaskEvent = event.extendedProps?.isGTaskEvent === true;
+
   // Check if this Roam event is synced to GCal
   const isSyncedToGCal =
     !isGCalEvent &&
+    !isGTaskEvent &&
     (event.extendedProps?.gCalId || getSyncMetadata(event.id)?.gCalId);
 
-  // Check if this is a Google Task (has _taskData from enrichment)
+  // Check if this is a Google Task (has _taskData from enrichment - old pattern for calendar-based tasks)
   const isGoogleTask = !!event.extendedProps?._taskData;
   const taskData = event.extendedProps?._taskData;
   const [taskCompleted, setTaskCompleted] = useState(
@@ -102,7 +111,7 @@ const Event = ({
     }
   }, [taskData?.status]);
 
-  // Handler to toggle task completion status
+  // Handler to toggle task completion status (for calendar-based tasks)
   const handleTaskToggle = async (e) => {
     e.stopPropagation();
     if (!taskData || isUpdatingTask) return;
@@ -126,6 +135,40 @@ const Event = ({
     }
   };
 
+  // Handler to toggle non-imported Google Task completion status
+  const handleGTaskEventToggle = async (e) => {
+    e.stopPropagation();
+    if (isUpdatingTask) return;
+
+    const gTaskData = event.extendedProps?.gTaskData;
+    const taskListId = event.extendedProps?.gTaskListId;
+    if (!gTaskData || !taskListId) return;
+
+    setIsUpdatingTask(true);
+    const currentStatus = gTaskData.status;
+    const newStatus = currentStatus === "completed" ? "needsAction" : "completed";
+
+    try {
+      await updateTask(taskListId, gTaskData.id, {
+        status: newStatus,
+      });
+
+      // Update the event's gTaskData in place
+      event.extendedProps.gTaskData.status = newStatus;
+
+      // Clear the tasks cache so next fetch gets fresh data
+      clearTasksCache();
+      console.log(`[Tasks] Non-imported task "${event.title}" marked as ${newStatus}`);
+
+      // Force a re-render by toggling the state
+      setTaskCompleted(newStatus === "completed");
+    } catch (error) {
+      console.error("[Tasks] Failed to update task status:", error);
+    } finally {
+      setIsUpdatingTask(false);
+    }
+  };
+
   const handleDeleteEvent = async () => {
     const currentCalendarUid = getParentBlock(event.id);
     await deleteBlock(event.id);
@@ -138,6 +181,27 @@ const Event = ({
 
   const handleImportToRoam = async () => {
     try {
+      // Handle Google Task import
+      if (isGTaskEvent) {
+        const task = event.extendedProps.gTaskData;
+        const taskListId = event.extendedProps.gTaskListId;
+        const connectedTaskLists = getConnectedTaskLists();
+        const listConfig = connectedTaskLists.find((l) => l.id === taskListId);
+
+        if (!task || !listConfig) {
+          console.error("Missing task data or list config for import");
+          return;
+        }
+
+        const newBlockUid = await importTaskToRoam(task, listConfig);
+        if (newBlockUid) {
+          setPopoverIsOpen(false);
+          console.log("Imported Google Task to Roam:", newBlockUid);
+        }
+        return;
+      }
+
+      // Handle Google Calendar event import
       const eventStart = new Date(event.start);
       const dnpUid = window.roamAlphaAPI.util.dateToPageUid(eventStart);
 
@@ -391,8 +455,8 @@ const Event = ({
   };
 
   const handleClose = async () => {
-    // Skip Roam-specific close handling for GCal events
-    if (isGCalEvent) return;
+    // Skip Roam-specific close handling for GCal/GTask events
+    if (isGCalEvent || isGTaskEvent) return;
 
     const updatedContent = event.extendedProps.hasInfosInChildren
       ? getFlattenedContentOfParentAndFirstChildren(event.id)
@@ -476,20 +540,20 @@ const Event = ({
             icon="small-cross"
             onClick={() => setPopoverIsOpen((prev) => !prev)}
           />
-          {isGCalEvent ? (
-            // Google Calendar event details
+          {isGCalEvent || isGTaskEvent ? (
+            // Google Calendar/Task event details
             <div className="fc-gcal-event-details">
               <div className="fc-gcal-title-row">
-                {isGoogleTask && (
+                {(isGoogleTask || isGTaskEvent) && (
                   <Checkbox
-                    checked={taskCompleted}
+                    checked={taskCompleted || (isGTaskEvent && event.extendedProps?.gTaskData?.status === "completed")}
                     disabled={isUpdatingTask}
-                    onChange={handleTaskToggle}
+                    onChange={isGTaskEvent ? handleGTaskEventToggle : handleTaskToggle}
                     className="fc-task-checkbox"
                   />
                 )}
                 <h4 className={taskCompleted ? "fc-task-completed" : ""}>
-                  {event.title}
+                  {event.title.replace(/\{\{\[\[(TODO|DONE)\]\]\}\}\s*/g, "")}
                 </h4>
               </div>
               {isGoogleTask && (
@@ -500,6 +564,18 @@ const Event = ({
                     <span className="fc-task-list-name">
                       {" "}
                       ({taskData.taskListTitle})
+                    </span>
+                  )}
+                </div>
+              )}
+              {isGTaskEvent && (
+                <div className="fc-gcal-task-indicator">
+                  <Icon icon="tick" size={12} />
+                  <span>Google Task</span>
+                  {event.extendedProps?.gTaskData && (
+                    <span className="fc-task-list-name">
+                      {" "}
+                      ({event.extendedProps.gTaskData.taskListTitle || "Task List"})
                     </span>
                   )}
                 </div>
@@ -569,7 +645,7 @@ const Event = ({
                   <span>Recurring event</span>
                 </div>
               )}
-              {/* Show original calendar name */}
+              {/* Show original calendar/task list name */}
               {event.extendedProps?.gCalCalendarName && (
                 <div className="fc-gcal-calendar-source">
                   <Icon icon="calendar" size={12} />
@@ -602,7 +678,7 @@ const Event = ({
               </div>
               <div className="fc-gcal-tag">
                 <Tag minimal>
-                  {eventTagList?.[0]?.name || "Google Calendar"}
+                  {eventTagList?.[0]?.name || (isGTaskEvent ? "Google Tasks" : "Google Calendar")}
                 </Tag>
               </div>
             </div>
@@ -715,8 +791,8 @@ const Event = ({
       onClose={handleClose}
       usePortal={true}
       onOpening={(e) => {
-        // Skip Roam block rendering for GCal events
-        if (isGCalEvent) return;
+        // Skip Roam block rendering for GCal/GTask events
+        if (isGCalEvent || isGTaskEvent) return;
 
         window.roamAlphaAPI.ui.components.renderBlock({
           uid: event.id,
@@ -740,7 +816,7 @@ const Event = ({
           setPopoverIsOpen((prev) => !prev);
         }}
       >
-        {hasCheckbox && (
+        {hasCheckbox && !isGCalEvent && !isGTaskEvent && (
           <Checkbox
             checked={isChecked}
             // onClick={(e) => {}}
@@ -748,6 +824,8 @@ const Event = ({
               if (e.nativeEvent.shiftKey) return;
               e.stopPropagation();
               let updatedTitle, updatedClassNames, updatedTags;
+              const newCompletedState = !isChecked;
+
               if (isChecked) {
                 updatedTitle = event.title.replace(
                   "{{[[DONE]]}}",
@@ -792,15 +870,35 @@ const Event = ({
                   isRef: event.extendedProps.isRef,
                 },
               });
+
+              // Sync to Google Tasks if this is a synced task
+              const taskMetadata = getTaskSyncMetadata(event.id);
+              if (taskMetadata) {
+                try {
+                  await syncTaskCompletionToGoogle(event.id, newCompletedState);
+                  console.log(`[Tasks] Synced TODO/DONE toggle to Google Tasks: ${newCompletedState ? "completed" : "needsAction"}`);
+                } catch (error) {
+                  console.error("[Tasks] Failed to sync TODO/DONE to Google Tasks:", error);
+                }
+              }
             }}
           />
         )}
-        {/* Inline checkbox for Google Tasks */}
+        {/* Inline checkbox for Google Tasks (calendar-based) */}
         {isGoogleTask && (
           <Checkbox
             checked={taskCompleted}
             disabled={isUpdatingTask}
             onChange={handleTaskToggle}
+            className="fc-task-checkbox-inline"
+          />
+        )}
+        {/* Inline checkbox for non-imported Google Task events */}
+        {isGTaskEvent && (
+          <Checkbox
+            checked={event.extendedProps?.gTaskData?.status === "completed"}
+            disabled={isUpdatingTask}
+            onChange={handleGTaskEventToggle}
             className="fc-task-checkbox-inline"
           />
         )}
@@ -835,6 +933,15 @@ const Event = ({
                   <span>{event.extendedProps.gCalCalendarName}</span>
                 </div>
               )}
+              {isGTaskEvent && event.extendedProps?.gTaskListName && (
+                <div className="fc-gcal-calendar-hint">
+                  <GoogleTasksIconSvg
+                    className="fc-gcal-icon-small"
+                    style={{ width: '16px', height: '16px' }}
+                  />
+                  <span>{event.extendedProps.gTaskListName}</span>
+                </div>
+              )}
               {isSyncedToGCal && (
                 <div className="fc-sync-status">
                   <Icon icon="automatic-updates" size={12} />
@@ -854,6 +961,12 @@ const Event = ({
                 src={googleCalendarIcon}
                 alt=""
                 className="fc-gcal-icon-inline"
+              />
+            )}
+            {isGTaskEvent && (
+              <GoogleTasksIconSvg
+                className="fc-gcal-icon-inline"
+                style={{ width: '12px', height: '12px', marginRight: '4px' }}
               />
             )}
             {isSyncedToGCal && (

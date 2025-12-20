@@ -9,6 +9,7 @@ import {
   addListeners,
   connectObservers,
   disconnectObserver,
+  displayGCalConfigDialog,
   handleRightClickOnCalendarBtn,
   removeListeners,
 } from "./util/roamDom";
@@ -18,7 +19,12 @@ import {
   defaultUntilDateRegex,
   notNullOrCommaRegex,
 } from "./util/regex";
-import { initGoogleCalendarService, getConnectedCalendars } from "./services/googleCalendarService";
+import {
+  initGoogleCalendarService,
+  getConnectedCalendars,
+  getTasksEnabled,
+  getConnectedTaskLists,
+} from "./services/googleCalendarService";
 
 export let mapOfTags = [];
 export let extensionStorage;
@@ -41,6 +47,20 @@ const defaultEndKeywords = "until,to,end";
 const panelConfig = {
   tabTitle: "Calendar",
   settings: [
+    {
+      id: "gcalSettings",
+      //  className:   "ext-settings-panel-button-setting",
+      name: "Google Calendar integration",
+      description:
+        "Synchronize events from multiple Google Calendars and Google Tasks",
+      action: {
+        type: "button",
+        onClick: (evt) => {
+          displayGCalConfigDialog();
+        },
+        content: "Configure Google Calendar",
+      },
+    },
     {
       id: "calendarTag",
       name: "Calendar tag",
@@ -483,7 +503,10 @@ export const initializeGCalTags = () => {
       if (!existingTag) {
         // Create new EventTag for this separate GCal calendar with trigger tags as pages
         const pages = [tagName];
-        if (calendarConfig.triggerTags && calendarConfig.triggerTags.length > 0) {
+        if (
+          calendarConfig.triggerTags &&
+          calendarConfig.triggerTags.length > 0
+        ) {
           pages.push(...calendarConfig.triggerTags);
         }
 
@@ -498,20 +521,31 @@ export const initializeGCalTags = () => {
           isToDisplayInSb: true,
         });
         mapOfTags.push(gcalTag);
-        console.log(`Created separate EventTag for GCal calendar: ${tagName} with pages:`, pages);
+        console.log(
+          `Created separate EventTag for GCal calendar: ${tagName} with pages:`,
+          pages
+        );
       } else {
         // Update existing tag with GCal properties and add trigger tags as pages
         existingTag.gCalCalendarId = calendarConfig.id;
         existingTag.isGCalTag = true;
 
         // Add trigger tags to pages if not already present
-        if (calendarConfig.triggerTags && calendarConfig.triggerTags.length > 0) {
+        if (
+          calendarConfig.triggerTags &&
+          calendarConfig.triggerTags.length > 0
+        ) {
           const currentPages = existingTag.pages || [existingTag.name];
-          const newPages = [...new Set([...currentPages, ...calendarConfig.triggerTags])];
+          const newPages = [
+            ...new Set([...currentPages, ...calendarConfig.triggerTags]),
+          ];
           existingTag.updatePages(newPages);
         }
 
-        console.log(`Updated separate EventTag for GCal calendar: ${tagName} with pages:`, existingTag.pages);
+        console.log(
+          `Updated separate EventTag for GCal calendar: ${tagName} with pages:`,
+          existingTag.pages
+        );
       }
     } else {
       // Calendar is grouped under main "Google Calendar" tag
@@ -525,16 +559,131 @@ export const initializeGCalTags = () => {
       // Add trigger tags as pages/aliases to the main "Google calendar" tag
       if (calendarConfig.triggerTags && calendarConfig.triggerTags.length > 0) {
         const currentPages = mainGCalTag.pages || ["Google calendar"];
-        const newPages = [...new Set([...currentPages, ...calendarConfig.triggerTags])];
+        const newPages = [
+          ...new Set([...currentPages, ...calendarConfig.triggerTags]),
+        ];
         mainGCalTag.updatePages(newPages);
-        console.log(`Added trigger tags to main GCal tag. Pages:`, mainGCalTag.pages);
+        console.log(
+          `Added trigger tags to main GCal tag. Pages:`,
+          mainGCalTag.pages
+        );
       }
 
-      console.log(`Grouped calendar under main GCal tag: ${calendarConfig.name}`);
+      console.log(
+        `Grouped calendar under main GCal tag: ${calendarConfig.name}`
+      );
     }
   }
 
-  console.log(`Main GCal tag now has ${mainGCalTag.gCalCalendarIds.length} grouped calendars`);
+  console.log(
+    `Main GCal tag now has ${mainGCalTag.gCalCalendarIds.length} grouped calendars`
+  );
+};
+
+// Initialize EventTags for connected Google Task Lists
+// - Task lists with showAsSeparateTag: false are grouped under the main "Google Tasks" tag
+// - Task lists with showAsSeparateTag: true get their own EventTag with displayName as the tag name
+export const initializeGTaskTags = () => {
+  if (!getTasksEnabled()) {
+    console.log("Google Tasks: Integration disabled");
+    return;
+  }
+
+  const connectedTaskLists = getConnectedTaskLists();
+  if (!connectedTaskLists || !connectedTaskLists.length) {
+    console.log("Google Tasks: No task lists configured");
+    return;
+  }
+
+  // Check if main "Google Tasks" tag exists, create if not
+  let mainGTaskTag = getTagFromName("Google Tasks");
+  if (!mainGTaskTag) {
+    mainGTaskTag = new EventTag({
+      name: "Google Tasks",
+      color: Colors.BLUE3,
+      ...getStoredTagInfos("Google Tasks"),
+      isGTaskTag: true,
+      gTaskListIds: [],
+      disabledTaskListIds: [],
+    });
+    mapOfTags.push(mainGTaskTag);
+    console.log("Created main 'Google Tasks' tag");
+  }
+
+  // Initialize arrays for the main tag
+  mainGTaskTag.gTaskListIds = [];
+  mainGTaskTag.disabledTaskListIds = [];
+  mainGTaskTag.isGTaskTag = true;
+
+  for (const listConfig of connectedTaskLists) {
+    if (listConfig.showAsSeparateTag) {
+      // Task list has its own separate tag
+      const tagName = listConfig.displayName || listConfig.name;
+      let existingTag = getTagFromName(tagName);
+
+      if (!existingTag) {
+        // Create new EventTag for this separate task list with trigger tags as pages
+        const pages = [tagName];
+        if (listConfig.triggerTags && listConfig.triggerTags.length > 0) {
+          pages.push(...listConfig.triggerTags);
+        }
+
+        const gtaskTag = new EventTag({
+          name: tagName,
+          color: Colors.BLUE3,
+          ...getStoredTagInfos(tagName),
+          pages: pages,
+          isGTaskTag: true,
+          gTaskListId: listConfig.id,
+          isToDisplay: true,
+          isToDisplayInSb: true,
+        });
+        mapOfTags.push(gtaskTag);
+        console.log(
+          `Created separate EventTag for task list: ${tagName} with pages:`,
+          pages
+        );
+      } else {
+        // Update existing tag with GTask properties
+        existingTag.gTaskListId = listConfig.id;
+        existingTag.isGTaskTag = true;
+
+        // Add trigger tags to pages if not already present
+        if (listConfig.triggerTags && listConfig.triggerTags.length > 0) {
+          const currentPages = existingTag.pages || [existingTag.name];
+          const newPages = [
+            ...new Set([...currentPages, ...listConfig.triggerTags]),
+          ];
+          existingTag.updatePages(newPages);
+        }
+
+        console.log(`Updated separate EventTag for task list: ${tagName}`);
+      }
+    } else {
+      // Task list is grouped under main "Google Tasks" tag
+      mainGTaskTag.gTaskListIds.push(listConfig.id);
+
+      // Track disabled task lists
+      if (!listConfig.syncEnabled) {
+        mainGTaskTag.disabledTaskListIds.push(listConfig.id);
+      }
+
+      // Add trigger tags as pages/aliases to the main "Google Tasks" tag
+      if (listConfig.triggerTags && listConfig.triggerTags.length > 0) {
+        const currentPages = mainGTaskTag.pages || ["Google Tasks"];
+        const newPages = [
+          ...new Set([...currentPages, ...listConfig.triggerTags]),
+        ];
+        mainGTaskTag.updatePages(newPages);
+      }
+
+      console.log(`Grouped task list under main GTask tag: ${listConfig.name}`);
+    }
+  }
+
+  console.log(
+    `Main GTask tag now has ${mainGTaskTag.gTaskListIds.length} grouped task lists`
+  );
 };
 
 // clean calendarTag data, solve conflict from v.4 or from quit just after setting change
@@ -646,8 +795,12 @@ export default {
           console.log("Google Calendar: Restored previous session");
           // Initialize EventTags for connected calendars
           initializeGCalTags();
+          // Initialize EventTags for connected task lists (if Tasks enabled)
+          initializeGTaskTags();
         } else {
-          console.log("Google Calendar: Not authenticated (connect via Google Calendar tag)");
+          console.log(
+            "Google Calendar: Not authenticated (connect via Google Calendar tag)"
+          );
         }
       })
       .catch((error) => {

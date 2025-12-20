@@ -22,6 +22,13 @@ export class EventTag {
     gCalCalendarIds = [],
     // For main "Google Calendar" tag: calendars disabled by user in popover
     disabledCalendarIds = [],
+    // Google Tasks specific properties
+    gTaskListId = null,
+    isGTaskTag = false,
+    // For main "Google Tasks" tag: list of grouped task list IDs
+    gTaskListIds = [],
+    // For main "Google Tasks" tag: task lists disabled by user in popover
+    disabledTaskListIds = [],
   }) {
     this.name = name;
     this.pages = pages.length ? pages : [name];
@@ -38,6 +45,12 @@ export class EventTag {
     // For main "Google Calendar" tag
     this.gCalCalendarIds = gCalCalendarIds;
     this.disabledCalendarIds = disabledCalendarIds;
+    // Google Tasks properties
+    this.gTaskListId = gTaskListId;
+    this.isGTaskTag = isGTaskTag;
+    // For main "Google Tasks" tag
+    this.gTaskListIds = gTaskListIds;
+    this.disabledTaskListIds = disabledTaskListIds;
   }
   setColor(color) {
     this.color = color;
@@ -101,4 +114,18 @@ export function getTagByGCalCalendarId(calendarId) {
  */
 export function getGCalTags() {
   return mapOfTags.filter((tag) => tag.isGCalTag);
+}
+
+/**
+ * Find a tag by its associated Google Task List ID
+ */
+export function getTagByGTaskListId(taskListId) {
+  return mapOfTags.find((tag) => tag.gTaskListId === taskListId);
+}
+
+/**
+ * Get all tags that are associated with Google Tasks
+ */
+export function getGTaskTags() {
+  return mapOfTags.filter((tag) => tag.isGTaskTag);
 }

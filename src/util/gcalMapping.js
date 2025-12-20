@@ -7,6 +7,23 @@
 import { getTagFromName } from "../models/EventTag";
 import { SyncStatus } from "../models/SyncMetadata";
 import { dateToISOString } from "./dates";
+import { getUseOriginalColors } from "../services/googleCalendarService";
+
+// Google Calendar event colorId to hex color mapping
+// See: https://developers.google.com/calendar/api/v3/reference/colors
+const GCAL_EVENT_COLORS = {
+  "1": "#a4bdfc", // Lavender
+  "2": "#7ae7bf", // Sage
+  "3": "#dbadff", // Grape
+  "4": "#ff887c", // Flamingo
+  "5": "#fbd75b", // Banana
+  "6": "#ffb878", // Tangerine
+  "7": "#46d6db", // Peacock
+  "8": "#e1e1e1", // Graphite
+  "9": "#5484ed", // Blueberry
+  "10": "#51b749", // Basil
+  "11": "#dc2127", // Tomato
+};
 
 // ============================================
 // Google Tasks Detection Utilities
@@ -74,8 +91,20 @@ export const gcalEventToFCEvent = (gcalEvent, calendarConfig) => {
     }
   }
 
-  // Determine color from tag (not from calendar config)
-  const eventColor = eventTag?.color || "#4285f4";
+  // Determine color - use original GCal color if setting enabled, otherwise use tag color
+  let eventColor;
+  if (getUseOriginalColors()) {
+    // Priority: event's colorId > calendar's backgroundColor > tag color > default
+    if (gcalEvent.colorId && GCAL_EVENT_COLORS[gcalEvent.colorId]) {
+      eventColor = GCAL_EVENT_COLORS[gcalEvent.colorId];
+    } else if (calendarConfig.backgroundColor) {
+      eventColor = calendarConfig.backgroundColor;
+    } else {
+      eventColor = eventTag?.color || "#4285f4";
+    }
+  } else {
+    eventColor = eventTag?.color || "#4285f4";
+  }
 
   const fcEvent = {
     id: `gcal-${gcalEvent.id}`, // Prefix to distinguish from Roam UIDs

@@ -1,4 +1,5 @@
 import { renderApp, unmountApp } from "../components/App";
+import GCalConfigDialog from "../components/GCalConfigDialog";
 
 let runningCount = 0;
 
@@ -204,3 +205,33 @@ function onCalendarClick(mutation) {
     }
   }, 50);
 }
+
+export const displayGCalConfigDialog = () => {
+  const targetElt = document.querySelector(".roam-body");
+  const previousContainer =
+    targetElt &&
+    targetElt.parentElement.querySelector(".fc-gcal-config-dialog-container");
+  let container;
+  if (previousContainer) {
+    ReactDOM.unmountComponentAtNode(previousContainer);
+  }
+  container = document.createElement("div");
+  container.classList.add("fc-gcal-config-dialog-container");
+  targetElt.appendChild(container);
+
+  function unmountGCalConfigDialog() {
+    const node = document.querySelector(".fc-gcal-config-dialog-container");
+    if (node) {
+      ReactDOM.unmountComponentAtNode(node);
+      node.remove();
+    }
+  }
+
+  ReactDOM.render(
+    <GCalConfigDialog
+      isOpen={true}
+      onClose={() => unmountGCalConfigDialog()}
+    />,
+    container
+  );
+};
