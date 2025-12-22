@@ -23,6 +23,8 @@ export const createTaskSyncMetadata = ({
   roamUpdated = null,
   lastSync = Date.now(),
   status = "needsAction",
+  taskDueDate = null, // ISO date string (YYYY-MM-DD) for cleanup purposes
+  isTodo = true, // Tasks are TODOs by default (unless completed)
 }) => ({
   gTaskId,
   gTaskListId,
@@ -31,6 +33,8 @@ export const createTaskSyncMetadata = ({
   roamUpdated,
   lastSync,
   status,
+  taskDueDate,
+  isTodo,
 });
 
 /**
@@ -235,6 +239,125 @@ export const determineTaskSyncStatus = (metadata, gTask) => {
   return TaskSyncStatus.SYNCED;
 };
 
+/**
+ * Get storage statistics for task sync metadata
+ * @returns {object} { taskCount, todoCount, estimatedBytes }
+ */
+export const getTaskStorageStats = () => {
+  const allMetadata = loadTaskSyncMetadata();
+  const entries = Object.entries(allMetadata);
+
+  let todoCount = 0;
+  for (const [, metadata] of entries) {
+    if (metadata.isTodo || metadata.status === "needsAction") {
+      todoCount++;
+    }
+  }
+
+  // Estimate ~200 bytes per entry (JSON serialized)
+  const estimatedBytes = entries.length * 200;
+
+  return {
+    taskCount: entries.length,
+    todoCount,
+    estimatedBytes,
+  };
+};
+
+/**
+ * Cleanup old task sync metadata for past tasks
+ * Removes metadata for tasks whose due date is > N days ago,
+ * unless the task still has TODO status.
+ * @param {number} daysThreshold - Days after which to cleanup (default: 7)
+ * @returns {object} { removedCount, keptTodoCount }
+ */
+export const cleanupOldTaskMetadata = (daysThreshold = 7) => {
+  loadTaskSyncMetadata();
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const thresholdDate = new Date(today.getTime() - daysThreshold * 24 * 60 * 60 * 1000);
+
+  let removedCount = 0;
+  let keptTodoCount = 0;
+  const toRemove = [];
+
+  for (const [roamUid, metadata] of Object.entries(syncMetadataCache)) {
+    // Skip if no due date stored (legacy entry, can't determine age)
+    if (!metadata.taskDueDate) {
+      continue;
+    }
+
+    const dueDate = new Date(metadata.taskDueDate);
+
+    // Check if task due date is before threshold
+    if (dueDate < thresholdDate) {
+      // Keep if it's still a TODO (not completed)
+      if (metadata.isTodo || metadata.status === "needsAction") {
+        keptTodoCount++;
+        continue;
+      }
+
+      toRemove.push(roamUid);
+    }
+  }
+
+  // Remove old entries
+  for (const roamUid of toRemove) {
+    delete syncMetadataCache[roamUid];
+    removedCount++;
+  }
+
+  if (removedCount > 0) {
+    persistTaskSyncMetadata();
+    console.log(`[TaskSyncMetadata] Cleaned up ${removedCount} old entries, kept ${keptTodoCount} TODOs`);
+  }
+
+  return { removedCount, keptTodoCount };
+};
+
+/**
+ * Cleanup ALL past tasks (manual cleanup)
+ * Removes metadata for all tasks whose due date has passed, regardless of TODO status
+ * @returns {object} { removedCount }
+ */
+export const cleanupAllPastTaskMetadata = () => {
+  loadTaskSyncMetadata();
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  let removedCount = 0;
+  const toRemove = [];
+
+  for (const [roamUid, metadata] of Object.entries(syncMetadataCache)) {
+    // Skip if no due date stored
+    if (!metadata.taskDueDate) {
+      continue;
+    }
+
+    const dueDate = new Date(metadata.taskDueDate);
+
+    // Remove if due date is before today
+    if (dueDate < today) {
+      toRemove.push(roamUid);
+    }
+  }
+
+  // Remove entries
+  for (const roamUid of toRemove) {
+    delete syncMetadataCache[roamUid];
+    removedCount++;
+  }
+
+  if (removedCount > 0) {
+    persistTaskSyncMetadata();
+    console.log(`[TaskSyncMetadata] Removed ${removedCount} past task entries`);
+  }
+
+  return { removedCount };
+};
+
 export default {
   createTaskSyncMetadata,
   loadTaskSyncMetadata,
@@ -250,4 +373,7 @@ export default {
   clearAllTaskSyncMetadata,
   determineTaskSyncStatus,
   TaskSyncStatus,
+  getTaskStorageStats,
+  cleanupOldTaskMetadata,
+  cleanupAllPastTaskMetadata,
 };

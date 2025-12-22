@@ -24,7 +24,10 @@ import {
   getConnectedCalendars,
   getTasksEnabled,
   getConnectedTaskLists,
+  getUseOriginalColors,
 } from "./services/googleCalendarService";
+import { cleanupOldMetadata } from "./models/SyncMetadata";
+import { cleanupOldTaskMetadata } from "./models/TaskSyncMetadata";
 
 export let mapOfTags = [];
 export let extensionStorage;
@@ -578,6 +581,34 @@ export const initializeGCalTags = () => {
   console.log(
     `Main GCal tag now has ${mainGCalTag.gCalCalendarIds.length} grouped calendars`
   );
+
+  // If "Use Original Colors" is enabled, apply calendar colors to tags on initialization
+  if (getUseOriginalColors()) {
+    let firstEnabledCalendarColor = null;
+
+    for (const calendarConfig of connectedCalendars) {
+      if (!calendarConfig.syncEnabled || !calendarConfig.backgroundColor) continue;
+
+      if (calendarConfig.showAsSeparateTag) {
+        // Update the separate tag's color
+        const tagName = calendarConfig.displayName || calendarConfig.name;
+        const tag = getTagFromName(tagName);
+        if (tag) {
+          tag.setColor(calendarConfig.backgroundColor);
+          console.log(`Applied original color to tag "${tagName}": ${calendarConfig.backgroundColor}`);
+        }
+      } else if (!firstEnabledCalendarColor) {
+        // Store the first enabled calendar's color for the main tag
+        firstEnabledCalendarColor = calendarConfig.backgroundColor;
+      }
+    }
+
+    // Apply the first enabled calendar's color to the main "Google calendar" tag
+    if (firstEnabledCalendarColor && mainGCalTag) {
+      mainGCalTag.setColor(firstEnabledCalendarColor);
+      console.log(`Applied original color to main GCal tag: ${firstEnabledCalendarColor}`);
+    }
+  }
 };
 
 // Initialize EventTags for connected Google Task Lists
@@ -797,6 +828,22 @@ export default {
           initializeGCalTags();
           // Initialize EventTags for connected task lists (if Tasks enabled)
           initializeGTaskTags();
+
+          // Cleanup old sync metadata (events > 7 days old, except TODOs)
+          const cleanupResult = cleanupOldMetadata();
+          if (cleanupResult.removedCount > 0) {
+            console.log(
+              `Google Calendar: Cleaned up ${cleanupResult.removedCount} old sync entries`
+            );
+          }
+
+          // Cleanup old task sync metadata (tasks > 7 days old, except pending TODOs)
+          const taskCleanupResult = cleanupOldTaskMetadata();
+          if (taskCleanupResult.removedCount > 0) {
+            console.log(
+              `Google Tasks: Cleaned up ${taskCleanupResult.removedCount} old sync entries`
+            );
+          }
         } else {
           console.log(
             "Google Calendar: Not authenticated (connect via Google Calendar tag)"

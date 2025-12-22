@@ -56,6 +56,14 @@ import { getTasksEnabled, getConnectedTaskLists, getTasks } from "../services/go
 import { fetchTasksForRange, importTaskToRoam, getExistingRoamBlockForTask } from "../services/googleTasksService";
 import { taskToFCEvent } from "../util/taskMapping";
 import { getRoamUidByGTaskId, getTaskSyncMetadata } from "../models/TaskSyncMetadata";
+import {
+  getAllCachedEventsForRange,
+  setAllCachedEvents,
+  invalidateAllEventsCache,
+  updateEventInAllCache,
+  removeEventFromAllCache,
+  addEventToAllCache,
+} from "../services/eventCacheService";
 
 let events = [];
 let filteredEvents = [];
@@ -114,6 +122,9 @@ const Calendar = ({
     if (tooltip) tooltip.remove();
     tooltip = document.querySelector(".bp3-tooltip");
     if (tooltip) tooltip.remove();
+
+    // Invalidate all-events cache on manual refresh
+    invalidateAllEventsCache();
 
     // Check and refresh Google Calendar connection if authenticated
     if (isAuthenticated()) {
@@ -299,6 +310,10 @@ const Calendar = ({
     }
 
     events.push(fcEvent);
+
+    // Update all-events cache with new event
+    addEventToAllCache(fcEvent);
+
     isDataToFilterAgain.current = true;
     setForceToReload((prev) => !prev);
   };
@@ -337,14 +352,30 @@ const Calendar = ({
           }
         }
       }
+
+      // Update all-events cache with updated event
+      if (index !== -1) {
+        updateEventInAllCache(events[index]);
+      }
+
       isDataToFilterAgain.current = true;
     }
   };
 
   const deleteEvent = (event) => {
+    // Get event info before removing
+    const eventDate = event.start ? new Date(event.start) : null;
+    const eventId = event.id || event.extendedProps?.gCalId;
+
     event.remove();
     const index = events.findIndex((evt) => evt.id === event.id);
     events.splice(index, 1);
+
+    // Remove from all-events cache
+    if (eventId && eventDate) {
+      removeEventFromAllCache(eventId, eventDate);
+    }
+
     isDataToFilterAgain.current = true;
     setForceToReload((prev) => !prev);
   };
@@ -366,9 +397,50 @@ const Calendar = ({
     viewRange.current.end = info.end;
 
     if (isDataToReload.current) {
+      // Step 0: Check cache for instant display
+      const allCacheResult = getAllCachedEventsForRange(info.start, info.end, false);
+      const hasCachedEvents = allCacheResult.events.length > 0;
+
+      if (hasCachedEvents) {
+        // Return cached events IMMEDIATELY - don't wait for any async operations
+        console.log(`[AllCache] INSTANT: Returning ${allCacheResult.events.length} cached events`);
+        events = [...allCacheResult.events];
+        filteredEvents = filterEvents(events, tagsToDisplay, filterLogic, isInSidebar);
+
+        // Trigger background refresh WITHOUT blocking - use Promise, not await
+        const doBackgroundRefresh = async () => {
+          console.log(`[Background] Starting fresh data load...`);
+          await loadFreshData(info);
+          console.log(`[Background] Fresh data loaded, triggering re-render`);
+          isDataToFilterAgain.current = true;
+          setForceToReload((prev) => !prev);
+        };
+        doBackgroundRefresh(); // Fire and forget - no await!
+
+        isDataToReload.current = false; // Don't reload again when re-render happens
+        return filteredEvents;
+      }
+
+      // No cache - do synchronous load (first time or after cache clear)
+      await loadFreshData(info);
+    }
+    if (isDataToFilterAgain.current) {
+      filteredEvents = filterEvents(
+        events,
+        tagsToDisplay,
+        filterLogic,
+        isInSidebar
+      );
+    }
+    return filteredEvents;
+  };
+
+  // Extracted data loading logic for background refresh
+  const loadFreshData = async (info) => {
       refreshTagsUids();
       // const begin = performance.now();
-      events = await getBlocksToDisplayFromDNP(
+      // Load fresh Roam events
+      const freshRoamEvents = await getBlocksToDisplayFromDNP(
         info.start,
         info.end,
         !isEntireDNP,
@@ -377,6 +449,9 @@ const Calendar = ({
       );
       // const end = performance.now();
       // console.log("Events loading time: ", end - begin);
+
+      // Start with fresh Roam events (this replaces any stale Roam events from cache)
+      events = freshRoamEvents;
 
       // Enrich Roam events with sync metadata (gCalId) to enable proper deduplication
       for (const evt of events) {
@@ -444,14 +519,20 @@ const Calendar = ({
         }
       }
 
-      // Load events from all connected Google Calendars
+      // Load events from all connected Google Calendars (with caching)
+      // Strategy:
+      // 1. Display cached events immediately for fast rendering
+      // 2. ALWAYS fetch from API to get fresh data (unless offline)
+      // 3. Update cache with fresh API data
+      // 4. Update display with any new/changed events
       if (isAuthenticated()) {
         const connectedCalendars = getConnectedCalendars();
+        const enabledCalendars = connectedCalendars.filter(
+          (c) => c.syncEnabled && c.syncDirection !== "export"
+        );
 
-        for (const calendarConfig of connectedCalendars) {
-          if (!calendarConfig.syncEnabled) continue;
-          if (calendarConfig.syncDirection === "export") continue; // Export-only calendars don't import events
-
+        // Step 2: ALWAYS fetch from API to get fresh data
+        for (const calendarConfig of enabledCalendars) {
           try {
             let gCalEvents = await getGCalEvents(
               calendarConfig.id,
@@ -459,22 +540,20 @@ const Calendar = ({
               info.end
             );
 
-            // Enrich Google Tasks with their actual notes/description
             if (gCalEvents && gCalEvents.length) {
               gCalEvents = await enrichEventsWithTaskData(gCalEvents, info.start, info.end);
-              console.log(`GCal events from ${calendarConfig.name}:`, gCalEvents);
+              console.log(`[API] Fetched ${gCalEvents.length} events from ${calendarConfig.name}`);
 
               for (const gcalEvent of gCalEvents) {
-                // Check if this event is already in Roam (by gCalId in existing events or in sync metadata)
+                const fcEvent = gcalEventToFCEvent(gcalEvent, calendarConfig);
+
+                // Check if this event is already displayed
                 const existingEventIndex = events.findIndex(
                   (evt) => evt.extendedProps?.gCalId === gcalEvent.id
                 );
 
-                // Also check sync metadata storage - a Roam block might be synced to this GCal event
-                const linkedRoamUid = getRoamUidByGCalId(gcalEvent.id);
-
                 if (existingEventIndex !== -1) {
-                  // Event exists in FC - check if GCal has updates
+                  // Event already displayed - check for updates
                   const metadata = getSyncMetadata(events[existingEventIndex].id);
                   if (metadata) {
                     const syncStatus = determineSyncStatus(metadata, gcalEvent);
@@ -483,10 +562,8 @@ const Calendar = ({
                       const roamUpdated = metadata.roamUpdated || metadata.lastSync;
 
                       if (gCalUpdated > roamUpdated) {
-                        // GCal is newer - update the FC event and Roam block
                         console.log("GCal event is newer, updating Roam:", gcalEvent.id);
                         await applyGCalToRoamUpdate(events[existingEventIndex].id, gcalEvent, calendarConfig);
-                        // Update FC event in memory
                         events[existingEventIndex] = mergeGCalDataToFCEvent(
                           events[existingEventIndex],
                           gcalEvent,
@@ -495,26 +572,25 @@ const Calendar = ({
                       }
                     }
                   }
-                } else if (linkedRoamUid) {
-                  // Event is linked to a Roam block but not in current FC events
-                  // Check if GCal has updates
-                  const metadata = getSyncMetadata(linkedRoamUid);
-                  if (metadata) {
-                    const syncStatus = determineSyncStatus(metadata, gcalEvent);
-                    if (syncStatus === SyncStatus.PENDING || syncStatus === SyncStatus.CONFLICT) {
-                      const gCalUpdated = new Date(gcalEvent.updated).getTime();
-                      const roamUpdated = metadata.roamUpdated || metadata.lastSync;
+                } else {
+                  // Event not displayed yet - add it
+                  const linkedRoamUid = getRoamUidByGCalId(gcalEvent.id);
+                  if (linkedRoamUid) {
+                    const metadata = getSyncMetadata(linkedRoamUid);
+                    if (metadata) {
+                      const syncStatus = determineSyncStatus(metadata, gcalEvent);
+                      if (syncStatus === SyncStatus.PENDING || syncStatus === SyncStatus.CONFLICT) {
+                        const gCalUpdated = new Date(gcalEvent.updated).getTime();
+                        const roamUpdated = metadata.roamUpdated || metadata.lastSync;
 
-                      if (gCalUpdated > roamUpdated) {
-                        // GCal is newer - update the Roam block
-                        console.log("GCal event is newer (linked), updating Roam:", gcalEvent.id);
-                        await applyGCalToRoamUpdate(linkedRoamUid, gcalEvent, calendarConfig);
+                        if (gCalUpdated > roamUpdated) {
+                          console.log("GCal event is newer (linked), updating Roam:", gcalEvent.id);
+                          await applyGCalToRoamUpdate(linkedRoamUid, gcalEvent, calendarConfig);
+                        }
                       }
                     }
                   }
-                } else {
-                  // New GCal-only event (not linked to any Roam block)
-                  events.push(gcalEventToFCEvent(gcalEvent, calendarConfig));
+                  events.push(fcEvent);
                 }
               }
             }
@@ -522,6 +598,7 @@ const Calendar = ({
             console.error(`Failed to fetch events from ${calendarConfig.name}:`, error);
           }
         }
+
 
         // Load tasks from Google Tasks (if enabled)
         if (getTasksEnabled()) {
@@ -569,19 +646,27 @@ const Calendar = ({
         }
       }
 
+      // Step 5: Cache ALL events (Roam + GCal + Tasks) for instant display on next view change
+      // Group events by month for caching
+      const eventsByMonth = new Map();
+      for (const evt of events) {
+        const eventStart = new Date(evt.start);
+        const monthKey = `${eventStart.getFullYear()}-${eventStart.getMonth()}`;
+        if (!eventsByMonth.has(monthKey)) {
+          eventsByMonth.set(monthKey, []);
+        }
+        eventsByMonth.get(monthKey).push(evt);
+      }
+
+      // Save to all-events cache
+      for (const [monthKey, monthEvents] of eventsByMonth) {
+        const [year, month] = monthKey.split("-").map(Number);
+        setAllCachedEvents(year, month, monthEvents);
+      }
+
       console.log("events :>> ", events);
+      isDataToReload.current = false; // Mark loading complete - API won't be called again until refresh/period change
       isDataToFilterAgain.current = true;
-    }
-    if (isDataToFilterAgain.current) {
-      filteredEvents = filterEvents(
-        events,
-        tagsToDisplay,
-        filterLogic,
-        isInSidebar
-      );
-      // console.log("Filtered events to display:>> ", filteredEvents);
-    }
-    return filteredEvents;
   };
 
   const handleEventDrop = async (info) => {
@@ -589,6 +674,10 @@ const Calendar = ({
     events[evtIndex].date = dateToISOString(info.event.start);
     events[evtIndex].start = info.event.start;
     events[evtIndex].end = info.event.end;
+
+    // Update all-events cache with updated event
+    updateEventInAllCache(events[evtIndex]);
+
     isDataToFilterAgain.current = true;
 
     // Handle GCal-only events (not yet imported to Roam)
@@ -817,6 +906,9 @@ const Calendar = ({
     if (evtIndex !== -1) {
       events[evtIndex].start = info.event.start;
       events[evtIndex].end = info.event.end;
+
+      // Update all-events cache with resized event
+      updateEventInAllCache(events[evtIndex]);
     }
 
     // Handle GCal-only events (not yet imported to Roam)

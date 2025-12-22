@@ -57,6 +57,33 @@ import {
   isExistingNode,
   getTreeByUid,
 } from "../util/roamApi";
+
+/**
+ * Helper to detect if a block content contains TODO marker
+ */
+const hasTodoMarker = (content) => {
+  return content && content.includes("{{[[TODO]]}}");
+};
+
+/**
+ * Helper to extract end date from event for storage
+ * Returns ISO date string (YYYY-MM-DD)
+ */
+const getEventEndDateString = (gcalEvent) => {
+  if (!gcalEvent) return null;
+
+  const endDateTime = gcalEvent.end?.dateTime || gcalEvent.end?.date;
+  if (!endDateTime) return null;
+
+  const endDate = new Date(endDateTime);
+
+  // For all-day events, GCal end date is exclusive (next day), subtract 1 day
+  if (!gcalEvent.end?.dateTime && gcalEvent.end?.date) {
+    endDate.setDate(endDate.getDate() - 1);
+  }
+
+  return endDate.toISOString().split("T")[0];
+};
 import { getCalendarUidFromPage } from "../util/data";
 import { startDateRegex, untilDateRegex, roamDateRegex } from "../util/regex";
 import { rangeEndAttribute } from "../index";
@@ -102,6 +129,15 @@ export const syncEventToGCal = async (roamUid, fcEvent, calendarId) => {
       // Create new event
       const result = await createEvent(calendarId, gcalEvent);
 
+      // Check if the Roam block has TODO marker
+      const blockContent = getBlockContentByUid(roamUid);
+      const isTodo = hasTodoMarker(blockContent);
+
+      // Extract end date for cleanup purposes
+      const eventEndDate = fcEvent.end
+        ? new Date(fcEvent.end).toISOString().split("T")[0]
+        : new Date(fcEvent.start).toISOString().split("T")[0];
+
       await saveSyncMetadata(
         roamUid,
         createSyncMetadata({
@@ -111,6 +147,8 @@ export const syncEventToGCal = async (roamUid, fcEvent, calendarId) => {
           gCalUpdated: result.updated,
           roamUpdated: Date.now(),
           lastSync: Date.now(),
+          eventEndDate,
+          isTodo,
         })
       );
 
@@ -326,6 +364,12 @@ export const applyImport = async (gcalEvent, calendarConfig) => {
         }
       }
 
+      // Check if the imported content has TODO marker
+      const isTodo = hasTodoMarker(content);
+
+      // Extract end date for cleanup purposes
+      const eventEndDate = getEventEndDateString(gcalEvent);
+
       await saveSyncMetadata(
         newBlockUid,
         createSyncMetadata({
@@ -334,6 +378,8 @@ export const applyImport = async (gcalEvent, calendarConfig) => {
           etag: gcalEvent.etag,
           gCalUpdated: gcalEvent.updated,
           roamUpdated: Date.now(),
+          eventEndDate,
+          isTodo,
         })
       );
     }
@@ -525,11 +571,18 @@ export const applyGCalToRoamUpdate = async (roamUid, gcalEvent, calendarConfig) 
       }
     }
 
+    // Update metadata with current TODO status and end date
+    const updatedContent = getBlockContentByUid(roamUid);
+    const isTodo = hasTodoMarker(updatedContent);
+    const eventEndDate = getEventEndDateString(gcalEvent);
+
     await updateSyncMetadata(roamUid, {
       gCalUpdated: gcalEvent.updated,
       etag: gcalEvent.etag,
       roamUpdated: Date.now(),
       lastSync: Date.now(),
+      eventEndDate,
+      isTodo,
     });
 
     return { success: true };

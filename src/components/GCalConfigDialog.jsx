@@ -37,6 +37,11 @@ import {
 import { initializeGCalTags, initializeGTaskTags, mapOfTags } from "../index";
 import { getTagFromName } from "../models/EventTag";
 import { updateStoredTags } from "../util/data";
+import {
+  getStorageStats,
+  cleanupAllPastMetadata,
+  clearAllSyncMetadata,
+} from "../models/SyncMetadata";
 
 const GCalConfigDialog = ({ isOpen, onClose }) => {
   const [isConnected, setIsConnected] = useState(false);
@@ -55,6 +60,9 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
   // Sync settings
   const [syncInterval, setSyncIntervalState] = useState(null);
   const [useOriginalColors, setUseOriginalColorsState] = useState(false);
+
+  // Sync stats
+  const [syncStats, setSyncStats] = useState({ eventCount: 0, todoCount: 0 });
 
   // Load initial state
   useEffect(() => {
@@ -95,6 +103,9 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
       setSyncIntervalState(getSyncInterval());
       setUseOriginalColorsState(getUseOriginalColors());
 
+      // Load sync stats
+      setSyncStats(getStorageStats());
+
       if (authenticated) {
         await fetchAvailableCalendars();
         await fetchAvailableTaskLists();
@@ -133,7 +144,8 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
           // Update backgroundColor for existing calendars
           const existingIndex = newConfigs.findIndex((c) => c.id === cal.id);
           if (existingIndex !== -1) {
-            newConfigs[existingIndex].backgroundColor = cal.backgroundColor || null;
+            newConfigs[existingIndex].backgroundColor =
+              cal.backgroundColor || null;
           }
         }
       }
@@ -234,6 +246,26 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
     setSyncInterval(interval);
   };
 
+  const handleCleanupPastEvents = () => {
+    const result = cleanupAllPastMetadata();
+    setSyncStats(getStorageStats());
+    if (result.removedCount > 0) {
+      console.log(`Cleaned up ${result.removedCount} past event sync entries`);
+    }
+  };
+
+  const handleReinitializeSync = () => {
+    if (
+      window.confirm(
+        "This will remove ALL sync metadata. Events will remain in both Roam and Google Calendar, but sync connections will be lost. Continue?"
+      )
+    ) {
+      clearAllSyncMetadata();
+      setSyncStats(getStorageStats());
+      console.log("All sync metadata has been cleared");
+    }
+  };
+
   const handleUseOriginalColorsChange = (enabled) => {
     setUseOriginalColorsState(enabled);
     setUseOriginalColors(enabled);
@@ -244,7 +276,8 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
       let tagsUpdated = false;
 
       for (const calendarConfig of calendars) {
-        if (!calendarConfig.syncEnabled || !calendarConfig.backgroundColor) continue;
+        if (!calendarConfig.syncEnabled || !calendarConfig.backgroundColor)
+          continue;
 
         if (calendarConfig.showAsSeparateTag) {
           // Update the separate tag's color
@@ -296,7 +329,11 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
         )}
 
         {error && (
-          <Callout intent="danger" icon="error" style={{ marginBottom: "15px" }}>
+          <Callout
+            intent="danger"
+            icon="error"
+            style={{ marginBottom: "15px" }}
+          >
             {error}
           </Callout>
         )}
@@ -335,9 +372,30 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
               onConfigChange={handleCalendarConfigChange}
             />
 
+            <FormGroup
+              label="Use original colors"
+              helperText="Display events with their original Google Calendar colors. Disable to use the color picker."
+              inline
+              style={{ marginTop: "15px" }}
+            >
+              <Switch
+                checked={useOriginalColors}
+                onChange={(e) =>
+                  handleUseOriginalColorsChange(e.target.checked)
+                }
+                style={{ marginBottom: 0 }}
+              />
+            </FormGroup>
+
             {/* TASK LISTS SECTION */}
             <div style={{ marginTop: "30px" }}>
-              <div style={{ display: "flex", alignItems: "center", marginBottom: "12px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  marginBottom: "12px",
+                }}
+              >
                 <h4 style={{ margin: 0 }}>Task Lists</h4>
                 <Switch
                   checked={tasksEnabled}
@@ -353,10 +411,15 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
                   pointerEvents: tasksEnabled ? "auto" : "none",
                 }}
               >
-                <Callout intent="warning" icon="warning-sign" style={{ marginBottom: "15px" }}>
-                  <strong>Note:</strong> Recurring tasks are not supported by the Google Tasks API.
-                  Only the initial task instance will be displayed.
-                  For recurring items, use recurring events in Google Calendar instead.
+                <Callout
+                  intent="warning"
+                  icon="warning-sign"
+                  style={{ marginBottom: "15px" }}
+                >
+                  <strong>Note:</strong> Recurring tasks are not supported by
+                  the Google Tasks API. Only the initial task instance will be
+                  displayed. For recurring items, use recurring events in Google
+                  Calendar instead.
                 </Callout>
                 <TaskListsTable
                   taskLists={availableTaskLists}
@@ -377,7 +440,9 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
                 inline
               >
                 <HTMLSelect
-                  value={syncInterval === null ? "manual" : syncInterval.toString()}
+                  value={
+                    syncInterval === null ? "manual" : syncInterval.toString()
+                  }
                   onChange={(e) => handleSyncIntervalChange(e.target.value)}
                   options={[
                     { value: "manual", label: "Manual only" },
@@ -387,18 +452,58 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
                   ]}
                 />
               </FormGroup>
-              <FormGroup
-                label="Use original Google Calendar colors"
-                helperText="Display events with their original Google Calendar colors instead of tag colors. Change view or date to see updated colors."
-                inline
-                style={{ marginTop: "15px" }}
+            </Card>
+
+            {/* SYNC DATA MANAGEMENT */}
+            <h4 style={{ marginBottom: "10px", marginTop: "30px" }}>
+              Sync Data
+            </h4>
+            <Card>
+              <div style={{ marginBottom: "15px" }}>
+                <strong>Synced events: </strong>
+                {syncStats.eventCount}
+                {syncStats.todoCount > 0 && (
+                  <span style={{ color: "#5c7080" }}>
+                    {" "}
+                    ({syncStats.todoCount} pending TODOs)
+                  </span>
+                )}
+                <span
+                  style={{ color: "#5c7080", fontSize: "12px", marginLeft: "10px" }}
+                >
+                  (~{Math.round(syncStats.estimatedBytes / 1024)} KB)
+                </span>
+              </div>
+              <div style={{ display: "flex", gap: "10px" }}>
+                <Button
+                  icon="trash"
+                  intent="none"
+                  onClick={handleCleanupPastEvents}
+                  disabled={syncStats.eventCount === 0}
+                >
+                  Unsync past events
+                </Button>
+                <Button
+                  icon="reset"
+                  intent="danger"
+                  onClick={handleReinitializeSync}
+                  disabled={syncStats.eventCount === 0}
+                >
+                  Reinitialize sync
+                </Button>
+              </div>
+              <p
+                style={{
+                  fontSize: "12px",
+                  color: "#5c7080",
+                  marginTop: "10px",
+                  marginBottom: 0,
+                }}
               >
-                <Switch
-                  checked={useOriginalColors}
-                  onChange={(e) => handleUseOriginalColorsChange(e.target.checked)}
-                  style={{ marginBottom: 0 }}
-                />
-              </FormGroup>
+                "Unsync past events" removes sync data for completed events.
+                "Reinitialize sync" clears all sync connections (events remain in
+                both Roam and Google Calendar).
+              </p>
             </Card>
           </>
         )}
@@ -443,8 +548,8 @@ const CalendarsTable = ({ calendars, configs, onConfigChange }) => {
             <th style={{ width: "55px" }}>Enable</th>
             <th style={{ width: "160px" }}>Name</th>
             <th style={{ width: "140px" }}>Tags</th>
-            <th style={{ width: "75px" }}>Separate</th>
             <th style={{ width: "55px" }}>Default</th>
+            <th style={{ width: "75px" }}>Separate</th>
             <th style={{ width: "110px" }}>Sync</th>
           </tr>
         </thead>
@@ -482,7 +587,9 @@ const CalendarRow = ({ calendar, config, onConfigChange }) => {
       <td>
         <Switch
           checked={config.syncEnabled}
-          onChange={(e) => onConfigChange(calendar.id, { syncEnabled: e.target.checked })}
+          onChange={(e) =>
+            onConfigChange(calendar.id, { syncEnabled: e.target.checked })
+          }
           style={{ marginBottom: 0 }}
         />
       </td>
@@ -510,16 +617,20 @@ const CalendarRow = ({ calendar, config, onConfigChange }) => {
       </td>
       <td>
         <Switch
-          checked={config.showAsSeparateTag || false}
-          onChange={(e) => onConfigChange(calendar.id, { showAsSeparateTag: e.target.checked })}
+          checked={config.isDefault || false}
+          onChange={(e) =>
+            onConfigChange(calendar.id, { isDefault: e.target.checked })
+          }
           disabled={!config.syncEnabled}
           style={{ marginBottom: 0 }}
         />
       </td>
       <td>
         <Switch
-          checked={config.isDefault || false}
-          onChange={(e) => onConfigChange(calendar.id, { isDefault: e.target.checked })}
+          checked={config.showAsSeparateTag || false}
+          onChange={(e) =>
+            onConfigChange(calendar.id, { showAsSeparateTag: e.target.checked })
+          }
           disabled={!config.syncEnabled}
           style={{ marginBottom: 0 }}
         />
@@ -528,7 +639,9 @@ const CalendarRow = ({ calendar, config, onConfigChange }) => {
         <HTMLSelect
           small
           value={config.syncDirection || "both"}
-          onChange={(e) => onConfigChange(calendar.id, { syncDirection: e.target.value })}
+          onChange={(e) =>
+            onConfigChange(calendar.id, { syncDirection: e.target.value })
+          }
           disabled={!config.syncEnabled}
           options={[
             { value: "both", label: "Both" },
@@ -609,13 +722,19 @@ const TaskListRow = ({ taskList, config, onConfigChange }) => {
       <td>
         <Switch
           checked={config.syncEnabled}
-          onChange={(e) => onConfigChange(taskList.id, { syncEnabled: e.target.checked })}
+          onChange={(e) =>
+            onConfigChange(taskList.id, { syncEnabled: e.target.checked })
+          }
           style={{ marginBottom: 0 }}
         />
       </td>
       <td>
         <div className="fc-cell-name">
-          <Icon icon="tick" size={12} style={{ marginRight: "6px", opacity: 0.5 }} />
+          <Icon
+            icon="tick"
+            size={12}
+            style={{ marginRight: "6px", opacity: 0.5 }}
+          />
           <span className="fc-name-text" title={taskList.title}>
             {taskList.title}
           </span>
@@ -635,7 +754,9 @@ const TaskListRow = ({ taskList, config, onConfigChange }) => {
       <td>
         <Switch
           checked={config.showAsSeparateTag || false}
-          onChange={(e) => onConfigChange(taskList.id, { showAsSeparateTag: e.target.checked })}
+          onChange={(e) =>
+            onConfigChange(taskList.id, { showAsSeparateTag: e.target.checked })
+          }
           disabled={!config.syncEnabled}
           style={{ marginBottom: 0 }}
         />

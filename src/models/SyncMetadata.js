@@ -22,6 +22,8 @@ export const createSyncMetadata = ({
   gCalUpdated = null,
   roamUpdated = null,
   lastSync = Date.now(),
+  eventEndDate = null, // ISO date string (YYYY-MM-DD) for cleanup purposes
+  isTodo = false, // Whether the Roam block has TODO status (preserved during cleanup)
 }) => ({
   gCalId,
   gCalCalendarId,
@@ -29,6 +31,8 @@ export const createSyncMetadata = ({
   gCalUpdated,
   roamUpdated,
   lastSync,
+  eventEndDate,
+  isTodo,
 });
 
 /**
@@ -218,6 +222,125 @@ export const determineSyncStatus = (metadata, gCalEvent) => {
   return SyncStatus.SYNCED;
 };
 
+/**
+ * Get storage statistics for sync metadata
+ * @returns {object} { eventCount, todoCount, estimatedBytes }
+ */
+export const getStorageStats = () => {
+  const allMetadata = loadSyncMetadata();
+  const entries = Object.entries(allMetadata);
+
+  let todoCount = 0;
+  for (const [, metadata] of entries) {
+    if (metadata.isTodo) {
+      todoCount++;
+    }
+  }
+
+  // Estimate ~200 bytes per entry (JSON serialized)
+  const estimatedBytes = entries.length * 200;
+
+  return {
+    eventCount: entries.length,
+    todoCount,
+    estimatedBytes,
+  };
+};
+
+/**
+ * Cleanup old sync metadata for past events
+ * Removes metadata for events that ended more than N days ago,
+ * unless the event still has TODO status.
+ * @param {number} daysThreshold - Days after which to cleanup (default: 7)
+ * @returns {object} { removedCount, keptTodoCount }
+ */
+export const cleanupOldMetadata = (daysThreshold = 7) => {
+  loadSyncMetadata();
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const thresholdDate = new Date(today.getTime() - daysThreshold * 24 * 60 * 60 * 1000);
+
+  let removedCount = 0;
+  let keptTodoCount = 0;
+  const toRemove = [];
+
+  for (const [roamUid, metadata] of Object.entries(syncMetadataCache)) {
+    // Skip if no end date stored (legacy entry, can't determine age)
+    if (!metadata.eventEndDate) {
+      continue;
+    }
+
+    const endDate = new Date(metadata.eventEndDate);
+
+    // Check if event ended before threshold
+    if (endDate < thresholdDate) {
+      // Keep if it's still a TODO
+      if (metadata.isTodo) {
+        keptTodoCount++;
+        continue;
+      }
+
+      toRemove.push(roamUid);
+    }
+  }
+
+  // Remove old entries
+  for (const roamUid of toRemove) {
+    delete syncMetadataCache[roamUid];
+    removedCount++;
+  }
+
+  if (removedCount > 0) {
+    persistSyncMetadata();
+    console.log(`[SyncMetadata] Cleaned up ${removedCount} old entries, kept ${keptTodoCount} TODOs`);
+  }
+
+  return { removedCount, keptTodoCount };
+};
+
+/**
+ * Cleanup ALL past events (manual cleanup)
+ * Removes metadata for all events that have ended, regardless of TODO status
+ * @returns {object} { removedCount }
+ */
+export const cleanupAllPastMetadata = () => {
+  loadSyncMetadata();
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  let removedCount = 0;
+  const toRemove = [];
+
+  for (const [roamUid, metadata] of Object.entries(syncMetadataCache)) {
+    // Skip if no end date stored
+    if (!metadata.eventEndDate) {
+      continue;
+    }
+
+    const endDate = new Date(metadata.eventEndDate);
+
+    // Remove if event ended before today
+    if (endDate < today) {
+      toRemove.push(roamUid);
+    }
+  }
+
+  // Remove entries
+  for (const roamUid of toRemove) {
+    delete syncMetadataCache[roamUid];
+    removedCount++;
+  }
+
+  if (removedCount > 0) {
+    persistSyncMetadata();
+    console.log(`[SyncMetadata] Removed ${removedCount} past event entries`);
+  }
+
+  return { removedCount };
+};
+
 export default {
   createSyncMetadata,
   loadSyncMetadata,
@@ -232,4 +355,7 @@ export default {
   clearAllSyncMetadata,
   determineSyncStatus,
   SyncStatus,
+  getStorageStats,
+  cleanupOldMetadata,
+  cleanupAllPastMetadata,
 };
