@@ -8,6 +8,7 @@ import { getTagFromName } from "../models/EventTag";
 import { SyncStatus } from "../models/SyncMetadata";
 import { dateToISOString } from "./dates";
 import { getUseOriginalColors } from "../services/googleCalendarService";
+import { getBlockContentByUid } from "./roamApi";
 
 // Google Calendar event colorId to hex color mapping
 // See: https://developers.google.com/calendar/api/v3/reference/colors
@@ -158,7 +159,17 @@ export const gcalEventToFCEvent = (gcalEvent, calendarConfig) => {
  * @returns {object} Google Calendar event resource
  */
 export const fcEventToGCalEvent = (fcEvent, calendarId, roamUid = null) => {
-  const title = cleanTitleForGCal(fcEvent.title);
+  // For events with children (like multi-day events with until:: child),
+  // use only the parent block content, not the flattened content
+  let title = fcEvent.title;
+  if (roamUid && fcEvent.extendedProps?.hasInfosInChildren) {
+    // Get only the parent block content, excluding children
+    const parentContent = getBlockContentByUid(roamUid);
+    if (parentContent) {
+      title = parentContent;
+    }
+  }
+  title = cleanTitleForGCal(title);
   const isAllDay = fcEvent.allDay || !fcEvent.extendedProps?.hasTime;
 
   const gcalEvent = {

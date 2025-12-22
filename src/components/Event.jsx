@@ -57,6 +57,7 @@ import {
 } from "../models/SyncMetadata";
 import { fcEventToGCalEvent } from "../util/gcalMapping";
 import { clearTasksCache } from "../services/taskService";
+import { invalidateAllEventsCache } from "../services/eventCacheService";
 
 // Google Calendar icon for unimported GCal events
 import googleCalendarIcon from "../services/gcal-logo-64-white.png";
@@ -72,6 +73,7 @@ const Event = ({
   tagsToDisplay,
   deleteEvent,
   updateEvent,
+  refreshCalendar,
 }) => {
   const [eventTagList, setEventTagList] = useState(
     event.extendedProps.eventTags
@@ -195,8 +197,15 @@ const Event = ({
 
         const newBlockUid = await importTaskToRoam(task, listConfig);
         if (newBlockUid) {
+          // Invalidate cache and refresh calendar to convert to synced task
+          invalidateAllEventsCache();
           setPopoverIsOpen(false);
           console.log("Imported Google Task to Roam:", newBlockUid);
+
+          // Trigger immediate calendar refresh
+          if (refreshCalendar) {
+            await refreshCalendar();
+          }
         }
         return;
       }
@@ -260,7 +269,7 @@ const Event = ({
         }
       }
 
-      // Handle multi-day all-day events with start::/end:: child blocks
+      // Handle multi-day all-day events with until:: child block
       if (newBlockUid && event.end) {
         const endDate = new Date(event.end);
         // For all-day events, GCal end is exclusive (day after last day)
@@ -269,16 +278,14 @@ const Event = ({
           endDate.getTime() - eventStart.getTime() > 24 * 60 * 60 * 1000;
 
         if (isMultiDay) {
-          const startDateStr =
-            window.roamAlphaAPI.util.dateToPageTitle(eventStart);
-          // GCal end date is exclusive, so subtract one day
+          // GCal end date is exclusive, so subtract one day to get the actual last day
           const endDateExclusive = new Date(endDate);
           endDateExclusive.setDate(endDateExclusive.getDate() - 1);
           const endDateStr =
             window.roamAlphaAPI.util.dateToPageTitle(endDateExclusive);
 
-          await createChildBlock(newBlockUid, `start:: [[${startDateStr}]]`);
-          await createChildBlock(newBlockUid, `end:: [[${endDateStr}]]`);
+          // Only add until:: child (not start::) because block is already on start date
+          await createChildBlock(newBlockUid, `until:: [[${endDateStr}]]`);
         }
       }
 
@@ -296,9 +303,17 @@ const Event = ({
         );
       }
 
+      // Invalidate cache and refresh calendar to convert to synced event
+      invalidateAllEventsCache();
+
       // Close popover and show success
       setPopoverIsOpen(false);
       console.log("Imported GCal event to Roam:", newBlockUid);
+
+      // Trigger immediate calendar refresh
+      if (refreshCalendar) {
+        await refreshCalendar();
+      }
     } catch (error) {
       console.error("Failed to import event to Roam:", error);
     }
@@ -880,6 +895,48 @@ const Event = ({
                 } catch (error) {
                   console.error("[Tasks] Failed to sync TODO/DONE to Google Tasks:", error);
                 }
+              }
+
+              // Sync to Google Calendar if this event is synced to GCal
+              if (isSyncedToGCal && isAuthenticated()) {
+                const metadata = getSyncMetadata(event.id);
+                if (metadata?.gCalId) {
+                  try {
+                    // Create updated FC event with new title
+                    const fcEvent = {
+                      ...event,
+                      title: updatedTitle,
+                      start: event.start,
+                      end: event.end,
+                      extendedProps: { ...event.extendedProps },
+                    };
+                    const gcalEventData = fcEventToGCalEvent(
+                      fcEvent,
+                      metadata.gCalCalendarId,
+                      event.id
+                    );
+                    const result = await updateGCalEvent(
+                      metadata.gCalCalendarId,
+                      metadata.gCalId,
+                      gcalEventData
+                    );
+                    await updateSyncMetadata(event.id, {
+                      gCalUpdated: result.updated,
+                      etag: result.etag,
+                      roamUpdated: Date.now(),
+                      lastSync: Date.now(),
+                    });
+                    console.log(`[GCal] Synced TODO/DONE toggle to Google Calendar: ${newCompletedState ? "[[DONE]]" : "[[TODO]]"}`);
+                  } catch (error) {
+                    console.error("[GCal] Failed to sync TODO/DONE to Google Calendar:", error);
+                  }
+                }
+              }
+
+              // Clear cache and trigger calendar refresh to update checkbox state
+              invalidateAllEventsCache();
+              if (refreshCalendar) {
+                await refreshCalendar();
               }
             }}
           />

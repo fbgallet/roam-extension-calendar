@@ -234,6 +234,7 @@ const Calendar = ({
         backgroundColor={info.backgroundColor}
         updateEvent={updateEvent}
         deleteEvent={deleteEvent}
+        refreshCalendar={updateSize}
       ></Event>
     );
   };
@@ -564,18 +565,48 @@ const Calendar = ({
                       if (gCalUpdated > roamUpdated) {
                         console.log("GCal event is newer, updating Roam:", gcalEvent.id);
                         await applyGCalToRoamUpdate(events[existingEventIndex].id, gcalEvent, calendarConfig);
+
+                        // Get fresh content from Roam block (which now has {{[[TODO]]}} or {{[[DONE]]}})
+                        const freshContent = getBlockContentByUid(events[existingEventIndex].id);
+
                         events[existingEventIndex] = mergeGCalDataToFCEvent(
                           events[existingEventIndex],
                           gcalEvent,
                           calendarConfig
                         );
+
+                        // Override title with Roam content to ensure proper TODO/DONE formatting
+                        if (freshContent) {
+                          events[existingEventIndex].title = freshContent;
+
+                          // Update classNames and tags if TODO/DONE state changed
+                          const hasTodo = freshContent.includes("{{[[TODO]]}}");
+                          const hasDone = freshContent.includes("{{[[DONE]]}}");
+
+                          if (hasTodo || hasDone) {
+                            const newClassNames = [...events[existingEventIndex].classNames].filter(
+                              (c) => c !== "TODO" && c !== "DONE"
+                            );
+                            newClassNames.push(hasTodo ? "TODO" : "DONE");
+                            events[existingEventIndex].classNames = newClassNames;
+
+                            // Update event tags
+                            const updatedTags = getMatchingTags(
+                              mapOfTags,
+                              getBlocksUidReferencedInThisBlock(events[existingEventIndex].id)
+                            );
+                            events[existingEventIndex].extendedProps.eventTags = updatedTags;
+                          }
+                        }
                       }
                     }
                   }
                 } else {
-                  // Event not displayed yet - add it
+                  // Event not in current view - check if linked to Roam
                   const linkedRoamUid = getRoamUidByGCalId(gcalEvent.id);
                   if (linkedRoamUid) {
+                    // Event is linked to Roam but not in current view
+                    // (likely outside date range or filtered out)
                     const metadata = getSyncMetadata(linkedRoamUid);
                     if (metadata) {
                       const syncStatus = determineSyncStatus(metadata, gcalEvent);
@@ -589,8 +620,12 @@ const Calendar = ({
                         }
                       }
                     }
+                    // Don't add GCal event - Roam block exists but not in current view
+                    console.log(`[Dedupe] Skipping GCal event ${gcalEvent.id} - linked to Roam block ${linkedRoamUid}`);
+                  } else {
+                    // No linked Roam block - add as GCal-only event
+                    events.push(fcEvent);
                   }
-                  events.push(fcEvent);
                 }
               }
             }
