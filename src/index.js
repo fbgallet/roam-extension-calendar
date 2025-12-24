@@ -28,6 +28,7 @@ import {
 } from "./services/googleCalendarService";
 import { cleanupOldMetadata } from "./models/SyncMetadata";
 import { cleanupOldTaskMetadata } from "./models/TaskSyncMetadata";
+import { cleanupOldAllEventsCache } from "./services/eventCacheService";
 
 export let mapOfTags = [];
 export let extensionStorage;
@@ -849,6 +850,10 @@ export default {
             "Google Calendar: Not authenticated (connect via Google Calendar tag)"
           );
         }
+
+        // Cleanup old cached events (keep only current and previous month)
+        // This runs regardless of Google Calendar authentication
+        cleanupOldAllEventsCache();
       })
       .catch((error) => {
         console.error("Google Calendar initialization error:", error);
@@ -861,6 +866,16 @@ export default {
     disconnectObserver();
     removeListeners();
 
-    console.log("Full Calendar extension unloaded");
+    // Properly unmount all Calendar instances to prevent zombie components
+    const allCalendarInstances = document.querySelectorAll(".full-calendar-comp");
+    allCalendarInstances.forEach((instance) => {
+      try {
+        const ReactDOM = require("react-dom");
+        ReactDOM.unmountComponentAtNode(instance);
+        instance.remove();
+      } catch (error) {
+        console.error("[Unload] Error unmounting Calendar instance:", error);
+      }
+    });
   },
 };

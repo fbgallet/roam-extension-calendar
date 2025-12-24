@@ -58,6 +58,11 @@ import {
   getTreeByUid,
 } from "../util/roamApi";
 
+import {
+  acquireSyncLock,
+  releaseSyncLock,
+} from "./syncLockService";
+
 /**
  * Helper to detect if a block content contains TODO marker
  */
@@ -109,6 +114,11 @@ export const createSyncResult = () => ({
  * @returns {object} Sync result
  */
 export const syncEventToGCal = async (roamUid, fcEvent, calendarId) => {
+  // Acquire lock to prevent duplicate syncs across multiple component instances
+  if (!acquireSyncLock(roamUid)) {
+    return { success: false, error: "Already syncing", skipped: true };
+  }
+
   try {
     const metadata = getSyncMetadata(roamUid);
     const gcalEvent = fcEventToGCalEvent(fcEvent, calendarId);
@@ -126,6 +136,23 @@ export const syncEventToGCal = async (roamUid, fcEvent, calendarId) => {
 
       return { success: true, action: "updated", gCalId: result.id };
     } else {
+      // Double-check metadata again in case another instance just created it
+      // This handles the race where two instances both saw "no metadata" before acquiring the lock
+      const freshMetadata = getSyncMetadata(roamUid);
+      if (freshMetadata && freshMetadata.gCalId) {
+        // Update instead of create
+        const result = await updateGCalEvent(calendarId, freshMetadata.gCalId, gcalEvent);
+
+        await updateSyncMetadata(roamUid, {
+          gCalUpdated: result.updated,
+          etag: result.etag,
+          roamUpdated: Date.now(),
+          lastSync: Date.now(),
+        });
+
+        return { success: true, action: "updated", gCalId: result.id };
+      }
+
       // Create new event
       const result = await createEvent(calendarId, gcalEvent);
 
@@ -157,6 +184,9 @@ export const syncEventToGCal = async (roamUid, fcEvent, calendarId) => {
   } catch (error) {
     console.error("Error syncing event to GCal:", error);
     return { success: false, error: error.message };
+  } finally {
+    // Always release the lock, even if there was an error
+    releaseSyncLock(roamUid);
   }
 };
 
@@ -360,7 +390,6 @@ export const applyImport = async (gcalEvent, calendarConfig) => {
           const endDateStr = window.roamAlphaAPI.util.dateToPageTitle(endDateObj);
           const endBlockContent = `${rangeEndAttribute}:: [[${endDateStr}]]`;
           await createChildBlock(newBlockUid, endBlockContent, "first");
-          console.log(`[GCal Import] Created end date child block: ${endBlockContent}`);
         }
       }
 
@@ -455,7 +484,6 @@ const updateChildBlockDate = async (blockUid, currentContent, newDate) => {
     const currentDateStr = matchingDates[0].replace("[[", "").replace("]]", "");
     const newContent = currentContent.replace(currentDateStr, newRoamDate);
     await updateBlock(blockUid, newContent);
-    console.log(`[GCal→Roam] Updated child block date: ${currentDateStr} → ${newRoamDate}`);
   }
 };
 
@@ -501,14 +529,6 @@ export const applyGCalToRoamUpdate = async (roamUid, gcalEvent, calendarConfig) 
       gcalEndDateObj &&
       gcalStartDateObj.toDateString() !== gcalEndDateObj.toDateString();
 
-    console.log("[GCal→Roam] Event dates:", {
-      start: gcalStartDateObj.toDateString(),
-      end: gcalEndDateObj?.toDateString(),
-      isMultiDay: isMultiDayEvent,
-      hasStartBlock: !!startBlock,
-      hasEndBlock: !!endBlock,
-    });
-
     // Update start child block if it exists
     if (startBlock) {
       await updateChildBlockDate(startBlock.uid, startBlock.content, gcalStartDateObj);
@@ -518,17 +538,12 @@ export const applyGCalToRoamUpdate = async (roamUid, gcalEvent, calendarConfig) 
     if (endBlock) {
       if (isMultiDayEvent && gcalEndDateObj) {
         await updateChildBlockDate(endBlock.uid, endBlock.content, gcalEndDateObj);
-      } else if (!isMultiDayEvent) {
-        // Event is no longer multi-day, should we remove the end block?
-        // For now, just update it to match the start date or leave it
-        console.log("[GCal→Roam] Event is no longer multi-day, end block may be stale");
       }
     } else if (isMultiDayEvent && gcalEndDateObj && rangeEndAttribute) {
       // No end block exists but the event is multi-day - create one
       const endDateStr = window.roamAlphaAPI.util.dateToPageTitle(gcalEndDateObj);
       const endBlockContent = `${rangeEndAttribute}:: [[${endDateStr}]]`;
       await createChildBlock(roamUid, endBlockContent, "first");
-      console.log(`[GCal→Roam] Created end date child block: ${endBlockContent}`);
     }
 
     // =========================================================================

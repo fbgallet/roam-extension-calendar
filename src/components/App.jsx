@@ -12,6 +12,8 @@ export function renderApp(inSidebar, periodFromDatepicker) {
     parentElt = parentElt.parentElement;
     const existing = parentElt.querySelector(".full-calendar-comp");
     if (existing) {
+      // Properly unmount React component before removing DOM node
+      ReactDOM.unmountComponentAtNode(existing);
       existing.remove();
     }
     root.classList.add("fc-sidebar");
@@ -20,6 +22,8 @@ export function renderApp(inSidebar, periodFromDatepicker) {
     parentElt = document.querySelector(".rm-article-wrapper");
     const existing = parentElt.querySelector(".full-calendar-comp");
     if (existing) {
+      // Properly unmount React component before removing DOM node
+      ReactDOM.unmountComponentAtNode(existing);
       existing.remove();
     }
     parentElt.insertBefore(root, parentElt.firstChild);

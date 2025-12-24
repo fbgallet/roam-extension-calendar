@@ -57,7 +57,7 @@ import {
 } from "../models/SyncMetadata";
 import { fcEventToGCalEvent } from "../util/gcalMapping";
 import { clearTasksCache } from "../services/taskService";
-import { invalidateAllEventsCache } from "../services/eventCacheService";
+import { invalidateAllEventsCache, updateEventInAllCache } from "../services/eventCacheService";
 
 // Google Calendar icon for unimported GCal events
 import googleCalendarIcon from "../services/gcal-logo-64-white.png";
@@ -841,8 +841,11 @@ const Event = ({
               let updatedTitle, updatedClassNames, updatedTags;
               const newCompletedState = !isChecked;
 
+              // CRITICAL: Read actual Roam block content (not event.title which has markers stripped)
+              const currentBlockContent = getBlockContentByUid(event.id);
+
               if (isChecked) {
-                updatedTitle = event.title.replace(
+                updatedTitle = currentBlockContent.replace(
                   "{{[[DONE]]}}",
                   "{{[[TODO]]}}"
                 );
@@ -858,7 +861,7 @@ const Event = ({
                   "name"
                 );
               } else {
-                updatedTitle = event.title.replace(
+                updatedTitle = currentBlockContent.replace(
                   "{{[[TODO]]}}",
                   "{{[[DONE]]}}"
                 );
@@ -881,8 +884,8 @@ const Event = ({
                 classNames: updatedClassNames,
                 color: updatedColor,
                 extendedProps: {
+                  ...event.extendedProps, // Preserve all existing extended props (gCalId, etc.)
                   eventTags: updatedTags,
-                  isRef: event.extendedProps.isRef,
                 },
               });
 
@@ -933,11 +936,19 @@ const Event = ({
                 }
               }
 
-              // Clear cache and trigger calendar refresh to update checkbox state
-              invalidateAllEventsCache();
-              if (refreshCalendar) {
-                await refreshCalendar();
-              }
+              // Update the event in cache instead of invalidating all cache
+              updateEventInAllCache({
+                ...event,
+                title: updatedTitle,
+                classNames: updatedClassNames,
+                color: updatedColor,
+                extendedProps: {
+                  ...event.extendedProps,
+                  eventTags: updatedTags,
+                },
+              });
+              // Don't call refreshCalendar() here - it would invalidate the cache we just updated
+              // The event is already updated in the UI via updateEvent() above
             }}
           />
         )}

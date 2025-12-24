@@ -58,7 +58,7 @@ import { taskToFCEvent } from "../util/taskMapping";
 import { getRoamUidByGTaskId, getTaskSyncMetadata } from "../models/TaskSyncMetadata";
 import {
   getAllCachedEventsForRange,
-  setAllCachedEvents,
+  setAllCachedEventsForRange,
   invalidateAllEventsCache,
   updateEventInAllCache,
   removeEventFromAllCache,
@@ -75,6 +75,8 @@ const Calendar = ({
   initialDate,
   initialSettings,
 }) => {
+  const isLoadingFreshDataRef = useRef(false); // Lock to prevent concurrent loadFreshData calls
+  const isMountedRef = useRef(true); // Track if component is still mounted to cancel async operations
   const [newEventDialogIsOpen, setNewEventDialogIsOpen] = useState(false);
   const [focusedPageUid, setFocusedPageUid] = useState(null);
   const [focusedPageTitle, setFocusedPageTitle] = useState(null);
@@ -111,6 +113,20 @@ const Calendar = ({
     periodType ||
       (initialSettings.view !== null ? initialSettings.view : "dayGridMonth")
   );
+
+  // Cleanup on unmount to prevent zombie async operations
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      // CRITICAL: Set this FIRST to cancel all ongoing async operations
+      isMountedRef.current = false;
+      // Reset the loading lock to prevent stale locks
+      isLoadingFreshDataRef.current = false;
+      // Mark data as needing reload for next mount
+      isDataToReload.current = true;
+    };
+  }, [isInSidebar]);
 
   async function updateSize() {
     const calendarApi = calendarRef.current.getApi();
@@ -340,16 +356,22 @@ const Calendar = ({
       );
       for (const key in updatedProperties) {
         if (updatedProperties[key] !== undefined) {
-          events[index][key] = updatedProperties[key];
-          if (key !== "extendedProps")
-            event.setProp(key, updatedProperties[key]);
-          else {
+          if (key === "extendedProps") {
+            // Merge extendedProps instead of replacing to preserve existing properties
+            events[index][key] = {
+              ...events[index][key],
+              ...updatedProperties[key],
+            };
+            // Update each extended prop individually
             for (const extendedProp in updatedProperties["extendedProps"]) {
               event.setExtendedProp(
                 extendedProp,
                 updatedProperties[key][extendedProp]
               );
             }
+          } else {
+            events[index][key] = updatedProperties[key];
+            event.setProp(key, updatedProperties[key]);
           }
         }
       }
@@ -388,8 +410,8 @@ const Calendar = ({
   const getEventsFromDNP = async (info) => {
     if (
       viewRange.current.start &&
-      (viewRange.current.start.getDate() !== info.start.getDate() ||
-        viewRange.current.end.getDate() !== info.end.getDate())
+      (viewRange.current.start.getTime() !== info.start.getTime() ||
+        viewRange.current.end.getTime() !== info.end.getTime())
     ) {
       isDataToReload.current = true;
       isDataToFilterAgain.current = true;
@@ -404,15 +426,31 @@ const Calendar = ({
 
       if (hasCachedEvents) {
         // Return cached events IMMEDIATELY - don't wait for any async operations
-        console.log(`[AllCache] INSTANT: Returning ${allCacheResult.events.length} cached events`);
         events = [...allCacheResult.events];
+
+        // Enrich Roam events from cache with sync metadata (gCalId) to enable proper deduplication
+        // This is critical - cached events may not have gCalId enrichment from when they were cached
+        for (const evt of events) {
+          // Only enrich Roam events (not GCal-only events which already have gCalId)
+          if (!evt.extendedProps?.isGCalEvent) {
+            const metadata = getSyncMetadata(evt.id);
+            if (metadata?.gCalId) {
+              evt.extendedProps = {
+                ...evt.extendedProps,
+                gCalId: metadata.gCalId,
+                gCalCalendarId: metadata.gCalCalendarId,
+              };
+            }
+          }
+        }
+
         filteredEvents = filterEvents(events, tagsToDisplay, filterLogic, isInSidebar);
 
         // Trigger background refresh WITHOUT blocking - use Promise, not await
         const doBackgroundRefresh = async () => {
-          console.log(`[Background] Starting fresh data load...`);
           await loadFreshData(info);
-          console.log(`[Background] Fresh data loaded, triggering re-render`);
+          // Note: loadFreshData already caches via setAllCachedEventsForRange at line 687
+          // No need to re-cache here as it would overwrite with potentially incomplete data
           isDataToFilterAgain.current = true;
           setForceToReload((prev) => !prev);
         };
@@ -438,8 +476,14 @@ const Calendar = ({
 
   // Extracted data loading logic for background refresh
   const loadFreshData = async (info) => {
-      refreshTagsUids();
-      // const begin = performance.now();
+      // Prevent concurrent execution to avoid double-syncing
+      if (isLoadingFreshDataRef.current) {
+        return;
+      }
+
+      isLoadingFreshDataRef.current = true;
+      try {
+        refreshTagsUids();
       // Load fresh Roam events
       const freshRoamEvents = await getBlocksToDisplayFromDNP(
         info.start,
@@ -469,29 +513,23 @@ const Calendar = ({
       // Auto-sync Roam events with GCal trigger tags that aren't synced yet
       if (isAuthenticated()) {
         const connectedCalendars = getConnectedCalendars();
-        console.log("[Auto-sync] Connected calendars:", connectedCalendars);
-        console.log("[Auto-sync] Checking", events.length, "events for auto-sync");
-        let syncedCount = 0;
 
         for (const evt of events) {
-          // Skip if already synced
-          if (evt.extendedProps?.gCalId) {
-            console.log("[Auto-sync] Skipping already synced event:", evt.title);
-            continue;
-          }
+          // Check if component is still mounted before syncing
+          if (!isMountedRef.current) break;
 
-          // Debug: log event tags
-          console.log("[Auto-sync] Event:", evt.title, "- Tags:", evt.extendedProps?.eventTags);
+          // Skip if already synced
+          if (evt.extendedProps?.gCalId) continue;
 
           // Check if event has a GCal trigger tag
           const targetCalendar = findCalendarForEvent(evt, connectedCalendars);
 
           if (targetCalendar) {
-            // This event has a trigger tag but isn't synced - sync it now
-            console.log("[Auto-sync] ✓ Found target calendar for event:", evt.title, "→", targetCalendar.name);
-
             try {
               const result = await syncEventToGCal(evt.id, evt, targetCalendar.id);
+
+              // Check again after async operation completes
+              if (!isMountedRef.current) break;
 
               if (result.success) {
                 // Update event with sync info for proper deduplication
@@ -500,23 +538,11 @@ const Calendar = ({
                   gCalId: result.gCalId,
                   gCalCalendarId: targetCalendar.id,
                 };
-                syncedCount++;
-                console.log("[Auto-sync] ✓ Successfully synced:", evt.title);
-              } else {
-                console.log("[Auto-sync] ✗ Sync failed (no success):", evt.title, result);
               }
             } catch (error) {
-              console.error("[Auto-sync] ✗ Error syncing event:", evt.title, error);
+              console.error("[Auto-sync] Error syncing event:", evt.title, error);
             }
-          } else {
-            console.log("[Auto-sync] No target calendar found for event:", evt.title);
           }
-        }
-
-        if (syncedCount > 0) {
-          console.log(`[Auto-sync] ✓ Completed: synced ${syncedCount} event(s) to Google Calendar`);
-        } else {
-          console.log("[Auto-sync] No events needed syncing");
         }
       }
 
@@ -534,6 +560,9 @@ const Calendar = ({
 
         // Step 2: ALWAYS fetch from API to get fresh data
         for (const calendarConfig of enabledCalendars) {
+          // Check if component is still mounted before fetching
+          if (!isMountedRef.current) break;
+
           try {
             let gCalEvents = await getGCalEvents(
               calendarConfig.id,
@@ -541,9 +570,14 @@ const Calendar = ({
               info.end
             );
 
+            // Check again after async fetch
+            if (!isMountedRef.current) break;
+
             if (gCalEvents && gCalEvents.length) {
               gCalEvents = await enrichEventsWithTaskData(gCalEvents, info.start, info.end);
-              console.log(`[API] Fetched ${gCalEvents.length} events from ${calendarConfig.name}`);
+
+              // Check again after enrichment
+              if (!isMountedRef.current) break;
 
               for (const gcalEvent of gCalEvents) {
                 const fcEvent = gcalEventToFCEvent(gcalEvent, calendarConfig);
@@ -563,8 +597,13 @@ const Calendar = ({
                       const roamUpdated = metadata.roamUpdated || metadata.lastSync;
 
                       if (gCalUpdated > roamUpdated) {
-                        console.log("GCal event is newer, updating Roam:", gcalEvent.id);
+                        // Check if still mounted before modifying Roam
+                        if (!isMountedRef.current) break;
+
                         await applyGCalToRoamUpdate(events[existingEventIndex].id, gcalEvent, calendarConfig);
+
+                        // Check again after async update
+                        if (!isMountedRef.current) break;
 
                         // Get fresh content from Roam block (which now has {{[[TODO]]}} or {{[[DONE]]}})
                         const freshContent = getBlockContentByUid(events[existingEventIndex].id);
@@ -615,13 +654,17 @@ const Calendar = ({
                         const roamUpdated = metadata.roamUpdated || metadata.lastSync;
 
                         if (gCalUpdated > roamUpdated) {
-                          console.log("GCal event is newer (linked), updating Roam:", gcalEvent.id);
+                          // Check if still mounted before modifying Roam
+                          if (!isMountedRef.current) break;
+
                           await applyGCalToRoamUpdate(linkedRoamUid, gcalEvent, calendarConfig);
+
+                          // Check again after async update
+                          if (!isMountedRef.current) break;
                         }
                       }
                     }
                     // Don't add GCal event - Roam block exists but not in current view
-                    console.log(`[Dedupe] Skipping GCal event ${gcalEvent.id} - linked to Roam block ${linkedRoamUid}`);
                   } else {
                     // No linked Roam block - add as GCal-only event
                     events.push(fcEvent);
@@ -638,9 +681,11 @@ const Calendar = ({
         // Load tasks from Google Tasks (if enabled)
         if (getTasksEnabled()) {
           const connectedTaskLists = getConnectedTaskLists();
-          console.log("[Tasks] Loading tasks from", connectedTaskLists.filter(l => l.syncEnabled).length, "enabled task lists");
 
           for (const listConfig of connectedTaskLists) {
+            // Check if component is still mounted
+            if (!isMountedRef.current) break;
+
             if (!listConfig.syncEnabled) continue;
 
             try {
@@ -650,8 +695,10 @@ const Calendar = ({
                 showCompleted: true,
               });
 
+              // Check again after async fetch
+              if (!isMountedRef.current) break;
+
               if (tasks && tasks.length) {
-                console.log(`[Tasks] Found ${tasks.length} tasks from "${listConfig.name}"`);
 
                 for (const task of tasks) {
                   // Only process tasks with due dates
@@ -682,26 +729,18 @@ const Calendar = ({
       }
 
       // Step 5: Cache ALL events (Roam + GCal + Tasks) for instant display on next view change
-      // Group events by month for caching
-      const eventsByMonth = new Map();
-      for (const evt of events) {
-        const eventStart = new Date(evt.start);
-        const monthKey = `${eventStart.getFullYear()}-${eventStart.getMonth()}`;
-        if (!eventsByMonth.has(monthKey)) {
-          eventsByMonth.set(monthKey, []);
-        }
-        eventsByMonth.get(monthKey).push(evt);
+      // Only cache if component is still mounted
+      if (!isMountedRef.current) {
+        return; // Don't cache data from zombie instance
       }
 
-      // Save to all-events cache
-      for (const [monthKey, monthEvents] of eventsByMonth) {
-        const [year, month] = monthKey.split("-").map(Number);
-        setAllCachedEvents(year, month, monthEvents);
-      }
+      setAllCachedEventsForRange(info.start, info.end, events);
 
-      console.log("events :>> ", events);
-      isDataToReload.current = false; // Mark loading complete - API won't be called again until refresh/period change
+      isDataToReload.current = false;
       isDataToFilterAgain.current = true;
+      } finally {
+        isLoadingFreshDataRef.current = false;
+      }
   };
 
   const handleEventDrop = async (info) => {

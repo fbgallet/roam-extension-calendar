@@ -267,6 +267,76 @@ const cleanupOldCacheEntries = () => {
   }
 };
 
+/**
+ * Cleanup cache entries older than 1 month before current month
+ * Keeps current month and next month, removes months older than 1 month ago
+ * Should be called on calendar initialization
+ */
+export const cleanupOldAllEventsCache = () => {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth(); // 0-11
+
+  // Calculate next month
+  let nextMonth = currentMonth + 1;
+  let nextYear = currentYear;
+  if (nextMonth > 11) {
+    nextMonth = 0;
+    nextYear = currentYear + 1;
+  }
+
+  // Calculate the cutoff: 1 month before current month
+  let cutoffMonth = currentMonth - 1;
+  let cutoffYear = currentYear;
+  if (cutoffMonth < 0) {
+    cutoffMonth = 11;
+    cutoffYear = currentYear - 1;
+  }
+
+  const keysToRemove = [];
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(ALL_EVENTS_CACHE_PREFIX)) {
+      try {
+        // Extract year-month from key format: "all-events-cache-2025-12"
+        const match = key.match(/all-events-cache-(\d{4})-(\d{2})/);
+        if (match) {
+          const cacheYear = parseInt(match[1], 10);
+          const cacheMonth = parseInt(match[2], 10) - 1; // Convert to 0-11
+
+          // Keep current month and next month
+          const isCurrentMonth = cacheYear === currentYear && cacheMonth === currentMonth;
+          const isNextMonth = cacheYear === nextYear && cacheMonth === nextMonth;
+
+          // Remove if older than cutoff month (1 month before current)
+          const cacheDate = new Date(cacheYear, cacheMonth, 1);
+          const cutoffDate = new Date(cutoffYear, cutoffMonth, 1);
+          const isOlderThanCutoff = cacheDate < cutoffDate;
+
+          if (!isCurrentMonth && !isNextMonth && isOlderThanCutoff) {
+            keysToRemove.push(key);
+          }
+        } else {
+          // Invalid format, remove it
+          keysToRemove.push(key);
+        }
+      } catch {
+        // Invalid JSON or parsing error, remove it
+        keysToRemove.push(key);
+      }
+    }
+  }
+
+  for (const key of keysToRemove) {
+    localStorage.removeItem(key);
+  }
+
+  if (keysToRemove.length > 0) {
+    console.log(`[AllEventsCache] Cleaned up ${keysToRemove.length} old cache entries (keeping current and next month, removing older than 1 month ago)`);
+  }
+};
+
 // ============================================================================
 // ALL EVENTS CACHE (Roam + GCal + Tasks)
 // ============================================================================
@@ -485,6 +555,104 @@ export const addEventToAllCache = (event) => {
 };
 
 /**
+ * Save all events to cache for all months in the visible date range
+ * This ensures that events visible in a month view (which spans multiple calendar months)
+ * are cached in ALL relevant months for instant display
+ * @param {Date} startDate - Start of visible range (from FullCalendar info.start)
+ * @param {Date} endDate - End of visible range (from FullCalendar info.end)
+ * @param {array} events - Array of ALL events to cache
+ * @returns {boolean} True if caching was performed, false if skipped
+ */
+export const setAllCachedEventsForRange = (startDate, endDate, events) => {
+  // Calculate the number of days in the range
+  const rangeDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+
+  // Only cache for reasonable ranges (up to ~60 days)
+  // This covers: day view (1 day), week view (7 days), month view (~35-42 days)
+  // But skips: year view (365 days), multi-month view (90+ days)
+  if (rangeDays > 60) {
+    console.log(`[AllEventsCache] Skipping cache for large range (${rangeDays} days) - likely year/multi-month view`);
+    return false;
+  }
+
+  // Determine the "primary" month being viewed (the one with most days in the range)
+  const now = new Date();
+  const currentRealMonth = now.getMonth();
+  const currentRealYear = now.getFullYear();
+
+  // Calculate which month has the most days in the visible range
+  const daysPerMonth = new Map();
+  let currentDate = new Date(startDate);
+  while (currentDate < endDate) {
+    const monthKey = `${currentDate.getFullYear()}-${currentDate.getMonth()}`;
+    daysPerMonth.set(monthKey, (daysPerMonth.get(monthKey) || 0) + 1);
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  // Find the primary month (most days visible)
+  let primaryMonthKey = null;
+  let maxDays = 0;
+  for (const [key, days] of daysPerMonth) {
+    if (days > maxDays) {
+      maxDays = days;
+      primaryMonthKey = key;
+    }
+  }
+
+  const [primaryYear, primaryMonth] = primaryMonthKey.split('-').map(Number);
+  console.log(`[AllEventsCache] Primary month being viewed: ${primaryYear}-${primaryMonth + 1}`);
+
+  // Group events by the months they belong to (based on event start date)
+  const eventsByMonth = new Map();
+
+  for (const evt of events) {
+    const eventStart = new Date(evt.start);
+    const eventYear = eventStart.getFullYear();
+    const eventMonth = eventStart.getMonth();
+    const monthKey = `${eventYear}-${eventMonth}`;
+
+    if (!eventsByMonth.has(monthKey)) {
+      eventsByMonth.set(monthKey, { year: eventYear, month: eventMonth, events: [] });
+    }
+
+    // Create a deep copy to avoid reference issues and ensure all properties are preserved
+    const eventCopy = JSON.parse(JSON.stringify(evt));
+    eventsByMonth.get(monthKey).events.push(eventCopy);
+  }
+
+  // Only cache the primary month being viewed and the next month relative to today's current month
+  // This prevents overwriting the current month's cache when viewing a different month
+  const nextRealMonth = currentRealMonth === 11 ? 0 : currentRealMonth + 1;
+  const nextRealYear = currentRealMonth === 11 ? currentRealYear + 1 : currentRealYear;
+
+  let cachedMonthsCount = 0;
+  for (const monthData of eventsByMonth.values()) {
+    const isPrimaryMonth = monthData.year === primaryYear && monthData.month === primaryMonth;
+    const isCurrentRealMonth = monthData.year === currentRealYear && monthData.month === currentRealMonth;
+    const isNextRealMonth = monthData.year === nextRealYear && monthData.month === nextRealMonth;
+
+    // Only cache the primary month being viewed
+    // Don't cache current/next months if they're not the primary month
+    // This prevents overwriting December's cache when viewing January
+    const shouldCache = isPrimaryMonth;
+
+    if (shouldCache) {
+      setAllCachedEvents(monthData.year, monthData.month, monthData.events);
+      console.log(`[AllEventsCache] Cached ${monthData.events.length} events for ${monthData.year}-${monthData.month + 1} (primary month)`);
+      cachedMonthsCount++;
+    } else {
+      const reason = isCurrentRealMonth ? "current real month but not primary" :
+                     isNextRealMonth ? "next real month but not primary" :
+                     "not primary month";
+      console.log(`[AllEventsCache] Skipped caching ${monthData.events.length} events for ${monthData.year}-${monthData.month + 1} (${reason})`);
+    }
+  }
+
+  console.log(`[AllEventsCache] Saved events to ${cachedMonthsCount} months (${rangeDays} days range)`);
+  return true;
+};
+
+/**
  * Get cache statistics for debugging
  * @returns {object} Cache stats
  */
@@ -543,4 +711,6 @@ export default {
   updateEventInAllCache,
   removeEventFromAllCache,
   addEventToAllCache,
+  setAllCachedEventsForRange,
+  cleanupOldAllEventsCache,
 };
