@@ -845,9 +845,103 @@
 }
 
 .fc-gcal-description p {
-  margin: 0;
-  white-space: pre-wrap;
+  margin: 0 0 6px 0;
   word-break: break-word;
+}
+
+.fc-gcal-description p:last-child {
+  margin-bottom: 0;
+}
+
+.fc-gcal-description ul,
+.fc-gcal-description ol {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+.fc-gcal-description li {
+  margin: 2px 0;
+}
+
+.fc-gcal-description a {
+  color: #106ba3;
+  text-decoration: underline;
+}
+
+.fc-gcal-description a:hover {
+  color: #0e5a8a;
+}
+
+.fc-gcal-description strong,
+.fc-gcal-description b {
+  font-weight: 600;
+}
+
+.fc-gcal-description em,
+.fc-gcal-description i {
+  font-style: italic;
+}
+
+/* Attachments section */
+.fc-gcal-attachments {
+  margin: 10px 0;
+}
+
+.fc-gcal-attachments-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #5c7080;
+  margin-bottom: 6px;
+}
+
+.fc-gcal-attachments-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.fc-gcal-attachments-list li {
+  margin: 4px 0;
+}
+
+.fc-gcal-attachments-list a {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 3px;
+  text-decoration: none;
+  color: #106ba3;
+  font-size: 12px;
+  transition: background 0.15s ease;
+}
+
+.fc-gcal-attachments-list a:hover {
+  background: rgba(0, 0, 0, 0.06);
+  text-decoration: none;
+}
+
+.fc-attachment-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.fc-attachment-title {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fc-attachment-type {
+  font-size: 10px;
+  color: #5c7080;
+  opacity: 0.7;
 }
 
 .fc-gcal-actions {
@@ -925,9 +1019,35 @@
   margin-left: 22px;
 }
 
-/* GCal selector in new event dialog */
-.fc-gcal-selector {
+/* GCal sync controls in new event dialog */
+.fc-gcal-sync-controls {
   margin-bottom: 10px;
+  padding: 8px;
+  border-radius: 3px;
+  background-color: rgba(138, 155, 168, 0.1);
+}
+
+.fc-gcal-sync-label {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.fc-gcal-sync-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.fc-gcal-sync-row .bp3-control {
+  margin-bottom: 0;
+}
+
+.fc-gcal-selector {
+  flex: 1;
+  margin-left: auto;
 }
 
 .fc-gcal-selector .bp3-html-select {
@@ -1029,7 +1149,7 @@
 }
 
 .fc-event-popover .fc-sync-status {
-  padding: 4px 8px;
+  padding: 4px 4px;
   background: rgba(66, 133, 244, 0.1);
   border-radius: 3px;
   height: 24px;
@@ -1052,6 +1172,22 @@
 .fc-sync-status-clickable .bp3-icon {
   margin-left: 4px;
   opacity: 0.6;
+}
+
+/* Synced event info section */
+.fc-synced-event-info {
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* Clickable calendar source for synced events */
+.fc-gcal-calendar-source-clickable {
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.fc-gcal-calendar-source-clickable:hover {
+  opacity: 0.8;
 }
 
 /* Roam event actions container */

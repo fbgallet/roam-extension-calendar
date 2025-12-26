@@ -224,6 +224,8 @@ const Calendar = ({
     let title = info.event.title;
     let hasCheckbox = false;
     let isChecked;
+
+    // Check for Roam format TODO/DONE (for Roam events)
     if (title.includes("{{[[TODO]]}}")) {
       hasCheckbox = true;
       isChecked = false;
@@ -232,6 +234,16 @@ const Calendar = ({
       hasCheckbox = true;
       isChecked = true;
       title = title.replace("{{[[DONE]]}}", "");
+    }
+    // Check for non-synced GCal format TODO/DONE (for non-synced GCal events)
+    else if (title.match(/^\[\[TODO\]\]/) || title.match(/^\[\s*\]/)) {
+      hasCheckbox = true;
+      isChecked = false;
+      title = title.replace(/^\[\[TODO\]\]\s*/, "").replace(/^\[\s*\]\s*/, "");
+    } else if (title.match(/^\[\[DONE\]\]/) || title.match(/^\[x\]/)) {
+      hasCheckbox = true;
+      isChecked = true;
+      title = title.replace(/^\[\[DONE\]\]\s*/, "").replace(/^\[x\]\s*/, "");
     }
     // console.log(info);
     const dnpTitle = window.roamAlphaAPI.util.dateToPageTitle(info.event.start);
@@ -247,6 +259,20 @@ const Calendar = ({
       // Remove single timestamps like "21:30" or "9:30pm"
       title = title.replace(/\b\d{1,2}:\d{2}\s*(?:am|pm)?/gi, "");
     }
+
+    // Remove calendar trigger tags from title for display
+    // Get all connected calendars and their trigger tags
+    const connectedCalendars = getConnectedCalendars();
+    connectedCalendars.forEach((calendar) => {
+      if (calendar.triggerTags && calendar.triggerTags.length > 0) {
+        calendar.triggerTags.forEach((tag) => {
+          // Remove #[[tag]], [[tag]], and #tag formats
+          title = title.replace(new RegExp(`#\\[\\[${tag}\\]\\]`, 'gi'), "");
+          title = title.replace(new RegExp(`\\[\\[${tag}\\]\\]`, 'gi'), "");
+          title = title.replace(new RegExp(`#${tag}\\b`, 'gi'), "");
+        });
+      }
+    });
 
     title = title.trim();
 
@@ -445,11 +471,13 @@ const Calendar = ({
 
         // Enrich Roam events from cache with sync metadata (gCalId) to enable proper deduplication
         // This is critical - cached events may not have gCalId enrichment from when they were cached
+        // IMPORTANT: Merge, don't replace, to preserve description, location, and other extendedProps from cache
         for (const evt of events) {
           // Only enrich Roam events (not GCal-only events which already have gCalId)
           if (!evt.extendedProps?.isGCalEvent) {
             const metadata = getSyncMetadata(evt.id);
-            if (metadata?.gCalId) {
+            if (metadata?.gCalId && !evt.extendedProps?.gCalId) {
+              // Only add if not already present (cache might already have it)
               evt.extendedProps = {
                 ...evt.extendedProps,
                 gCalId: metadata.gCalId,
@@ -516,7 +544,9 @@ const Calendar = ({
       // Enrich Roam events with sync metadata (gCalId) to enable proper deduplication
       for (const evt of events) {
         const metadata = getSyncMetadata(evt.id);
-        if (metadata?.gCalId) {
+
+        // Add sync metadata if available
+        if (metadata?.gCalId && !evt.extendedProps?.gCalId) {
           evt.extendedProps = {
             ...evt.extendedProps,
             gCalId: metadata.gCalId,
@@ -607,6 +637,13 @@ const Calendar = ({
                   const metadata = getSyncMetadata(events[existingEventIndex].id);
                   if (metadata) {
                     const syncStatus = determineSyncStatus(metadata, gcalEvent);
+
+                    // Save current Roam-specific data before merging
+                    const currentTitle = events[existingEventIndex].title;
+                    const currentClassNames = events[existingEventIndex].classNames;
+                    const currentEventTags = events[existingEventIndex].extendedProps?.eventTags;
+
+                    // Check if GCal has been updated more recently and needs to update Roam
                     if (syncStatus === SyncStatus.PENDING || syncStatus === SyncStatus.CONFLICT) {
                       const gCalUpdated = new Date(gcalEvent.updated).getTime();
                       const roamUpdated = metadata.roamUpdated || metadata.lastSync;
@@ -623,6 +660,7 @@ const Calendar = ({
                         // Get fresh content from Roam block (which now has {{[[TODO]]}} or {{[[DONE]]}})
                         const freshContent = getBlockContentByUid(events[existingEventIndex].id);
 
+                        // Merge GCal data (description, location, etc.)
                         events[existingEventIndex] = mergeGCalDataToFCEvent(
                           events[existingEventIndex],
                           gcalEvent,
@@ -652,6 +690,34 @@ const Calendar = ({
                             events[existingEventIndex].extendedProps.eventTags = updatedTags;
                           }
                         }
+                      } else {
+                        // GCal is not newer, but still merge GCal-only data (description, location, htmlLink)
+                        events[existingEventIndex] = mergeGCalDataToFCEvent(
+                          events[existingEventIndex],
+                          gcalEvent,
+                          calendarConfig
+                        );
+
+                        // Restore Roam-specific data
+                        events[existingEventIndex].title = currentTitle;
+                        events[existingEventIndex].classNames = currentClassNames;
+                        if (currentEventTags) {
+                          events[existingEventIndex].extendedProps.eventTags = currentEventTags;
+                        }
+                      }
+                    } else {
+                      // Status is SYNCED - merge GCal data to get description, location, htmlLink
+                      events[existingEventIndex] = mergeGCalDataToFCEvent(
+                        events[existingEventIndex],
+                        gcalEvent,
+                        calendarConfig
+                      );
+
+                      // Restore Roam-specific data that shouldn't be overwritten by GCal
+                      events[existingEventIndex].title = currentTitle;
+                      events[existingEventIndex].classNames = currentClassNames;
+                      if (currentEventTags) {
+                        events[existingEventIndex].extendedProps.eventTags = currentEventTags;
                       }
                     }
                   }

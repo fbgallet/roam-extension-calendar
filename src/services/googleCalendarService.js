@@ -580,9 +580,9 @@ export const getEvents = async (calendarId, timeMin, timeMax, options = {}) => {
       singleEvents: true,
       orderBy: "startTime",
       maxResults: options.maxResults || 250,
-      // Request all relevant fields including description and colorId
+      // Request all relevant fields including description, colorId, and attachments
       fields:
-        "items(id,summary,description,location,start,end,htmlLink,etag,updated,creator,organizer,attendees,recurrence,recurringEventId,status,colorId)",
+        "items(id,summary,description,location,start,end,htmlLink,etag,updated,creator,organizer,attendees,recurrence,recurringEventId,status,colorId,attachments)",
     };
 
     // For incremental sync

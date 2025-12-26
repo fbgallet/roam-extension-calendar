@@ -1,5 +1,5 @@
 // import { addObserver, disconnectObserver } from "./observers";
-import { Colors } from "@blueprintjs/core";
+import { Colors, Toaster, Position, Intent } from "@blueprintjs/core";
 import { EventTag, deleteTagByName, getTagFromName } from "./models/EventTag";
 import {
   getNormalizedDisjunctionForRegex,
@@ -29,6 +29,7 @@ import {
 import { cleanupOldMetadata } from "./models/SyncMetadata";
 import { cleanupOldTaskMetadata } from "./models/TaskSyncMetadata";
 import { cleanupOldAllEventsCache } from "./services/eventCacheService";
+import { syncBlockToDefaultCalendar, showSyncResultToast } from "./services/syncService";
 
 export let mapOfTags = [];
 export let extensionStorage;
@@ -588,7 +589,8 @@ export const initializeGCalTags = () => {
     let firstEnabledCalendarColor = null;
 
     for (const calendarConfig of connectedCalendars) {
-      if (!calendarConfig.syncEnabled || !calendarConfig.backgroundColor) continue;
+      if (!calendarConfig.syncEnabled || !calendarConfig.backgroundColor)
+        continue;
 
       if (calendarConfig.showAsSeparateTag) {
         // Update the separate tag's color
@@ -596,7 +598,9 @@ export const initializeGCalTags = () => {
         const tag = getTagFromName(tagName);
         if (tag) {
           tag.setColor(calendarConfig.backgroundColor);
-          console.log(`Applied original color to tag "${tagName}": ${calendarConfig.backgroundColor}`);
+          console.log(
+            `Applied original color to tag "${tagName}": ${calendarConfig.backgroundColor}`
+          );
         }
       } else if (!firstEnabledCalendarColor) {
         // Store the first enabled calendar's color for the main tag
@@ -607,7 +611,9 @@ export const initializeGCalTags = () => {
     // Apply the first enabled calendar's color to the main "Google calendar" tag
     if (firstEnabledCalendarColor && mainGCalTag) {
       mainGCalTag.setColor(firstEnabledCalendarColor);
-      console.log(`Applied original color to main GCal tag: ${firstEnabledCalendarColor}`);
+      console.log(
+        `Applied original color to main GCal tag: ${firstEnabledCalendarColor}`
+      );
     }
   }
 };
@@ -807,6 +813,48 @@ export default {
       },
     });
 
+    // Add command palette command for syncing to Google Calendar
+    extensionAPI.ui.commandPalette.addCommand({
+      label: "Full Calendar: Sync to default Google calendar",
+      callback: async () => {
+        const blockUid = window.roamAlphaAPI.ui.getFocusedBlock()?.["block-uid"];
+        if (!blockUid) {
+          const toaster = Toaster.create({ position: Position.TOP });
+          toaster.show({
+            message: "No block is currently focused",
+            intent: Intent.WARNING,
+            icon: "warning-sign",
+            timeout: 3000,
+          });
+          return;
+        }
+
+        const result = await syncBlockToDefaultCalendar(blockUid);
+        showSyncResultToast(result, blockUid);
+      },
+    });
+
+    // Add block context menu command for syncing to Google Calendar
+    window.roamAlphaAPI.ui.blockContextMenu.addCommand({
+      label: "Full Calendar: Sync to default Google calendar",
+      "display-conditional": () => {
+        // Only show the command if Google Calendar is connected
+        const calendars = getConnectedCalendars();
+        return (
+          calendars &&
+          calendars.length > 0 &&
+          calendars.some(
+            (cal) => cal.syncEnabled && cal.syncDirection !== "import"
+          )
+        );
+      },
+      callback: async (e) => {
+        const blockUid = e["block-uid"];
+        const result = await syncBlockToDefaultCalendar(blockUid);
+        showSyncResultToast(result, blockUid);
+      },
+    });
+
     initializeMapOfTags();
 
     if (storedTagsInfo && storedTagsInfo.length)
@@ -867,7 +915,9 @@ export default {
     removeListeners();
 
     // Properly unmount all Calendar instances to prevent zombie components
-    const allCalendarInstances = document.querySelectorAll(".full-calendar-comp");
+    const allCalendarInstances = document.querySelectorAll(
+      ".full-calendar-comp"
+    );
     allCalendarInstances.forEach((instance) => {
       try {
         const ReactDOM = require("react-dom");

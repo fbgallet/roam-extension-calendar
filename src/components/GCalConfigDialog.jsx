@@ -133,20 +133,20 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
       const calendars = await listCalendars();
 
       // Log calendar details for debugging
-      console.log("=== Google Calendars Data ===");
-      calendars.forEach((cal) => {
-        console.log(`Calendar: "${cal.summaryOverride || cal.summary}"`);
-        console.log(`  - id: ${cal.id}`);
-        console.log(`  - summary: ${cal.summary}`);
-        console.log(
-          `  - summaryOverride: ${cal.summaryOverride || "(not set)"}`
-        );
-        console.log(`  - description: ${cal.description || "(not set)"}`);
-        console.log(`  - owner: ${cal.owner?.email || "(not set)"}`);
-        console.log(`  - backgroundColor: ${cal.backgroundColor}`);
-        console.log(`  - primary: ${cal.primary || false}`);
-        console.log("---");
-      });
+      // console.log("=== Google Calendars Data ===");
+      // calendars.forEach((cal) => {
+      //   console.log(`Calendar: "${cal.summaryOverride || cal.summary}"`);
+      //   console.log(`  - id: ${cal.id}`);
+      //   console.log(`  - summary: ${cal.summary}`);
+      //   console.log(
+      //     `  - summaryOverride: ${cal.summaryOverride || "(not set)"}`
+      //   );
+      //   console.log(`  - description: ${cal.description || "(not set)"}`);
+      //   console.log(`  - owner: ${cal.owner?.email || "(not set)"}`);
+      //   console.log(`  - backgroundColor: ${cal.backgroundColor}`);
+      //   console.log(`  - primary: ${cal.primary || false}`);
+      //   console.log("---");
+      // });
 
       // Get user email from primary calendar
       const primaryCalendar = calendars.find((cal) => cal.primary);

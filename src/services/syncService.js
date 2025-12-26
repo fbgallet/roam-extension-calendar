@@ -56,14 +56,19 @@ import {
   deleteBlockIfNoChild,
   isExistingNode,
   getTreeByUid,
+  getEventDateFromBlock,
+  blockHasCalendarTag,
+  addTagToBlock,
 } from "../util/roamApi";
 
-import { parseRange } from "../util/dates";
+import { parseRange, dateToISOString } from "../util/dates";
 
 import {
   acquireSyncLock,
   releaseSyncLock,
 } from "./syncLockService";
+
+import { Toaster, Position, Intent } from "@blueprintjs/core";
 
 /**
  * Helper to detect if a block content contains TODO marker
@@ -124,6 +129,8 @@ export const syncEventToGCal = async (roamUid, fcEvent, calendarId) => {
   try {
     const metadata = getSyncMetadata(roamUid);
     const gcalEvent = fcEventToGCalEvent(fcEvent, calendarId);
+    console.log("[syncEventToGCal] Block UID:", roamUid);
+    console.log("[syncEventToGCal] Existing metadata:", metadata);
 
     if (metadata && metadata.gCalId) {
       // Update existing event
@@ -156,7 +163,10 @@ export const syncEventToGCal = async (roamUid, fcEvent, calendarId) => {
       }
 
       // Create new event
+      console.log("[syncEventToGCal] Creating new event in calendar:", calendarId);
+      console.log("[syncEventToGCal] Event data:", gcalEvent);
       const result = await createEvent(calendarId, gcalEvent);
+      console.log("[syncEventToGCal] Event created successfully:", result);
 
       // Check if the Roam block has TODO marker
       const blockContent = getBlockContentByUid(roamUid);
@@ -733,6 +743,250 @@ export const getEventSyncStatus = (roamUid) => {
   };
 };
 
+/**
+ * Sync a block to the default (first enabled) Google Calendar
+ * Called from block context menu or command palette
+ * @param {object|string} blockContextOrUid - Block context object or block UID string
+ * @returns {object} Result with success status and message
+ */
+/**
+ * Format event date/time for display in toast
+ * @param {string} startDateTime - ISO date or datetime string
+ * @param {string} endDateTime - ISO date or datetime string (optional)
+ * @returns {string} Formatted date/time string
+ */
+const formatEventDateTime = (startDateTime, endDateTime) => {
+  if (!startDateTime) return "";
+
+  const start = new Date(startDateTime);
+  const hasTime = startDateTime.includes("T");
+
+  // Format date (e.g., "Dec 26")
+  const dateFormat = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+
+  // Format time (e.g., "2:30 PM")
+  const timeFormat = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+
+  let result = dateFormat.format(start);
+
+  if (hasTime) {
+    result += " at " + timeFormat.format(start);
+
+    if (endDateTime) {
+      const end = new Date(endDateTime);
+      // Check if end is on a different day
+      if (start.toDateString() !== end.toDateString()) {
+        result += " - " + dateFormat.format(end) + " at " + timeFormat.format(end);
+      } else {
+        result += " - " + timeFormat.format(end);
+      }
+    }
+  } else if (endDateTime) {
+    // All-day event spanning multiple days
+    const end = new Date(endDateTime);
+    if (start.toDateString() !== end.toDateString()) {
+      result += " - " + dateFormat.format(end);
+    }
+  }
+
+  return result;
+};
+
+/**
+ * Show sync result toast notification
+ * @param {object} result - Sync result from syncBlockToDefaultCalendar
+ * @param {string} blockUid - Block UID for fetching content
+ */
+export const showSyncResultToast = (result, blockUid) => {
+  const toaster = Toaster.create({ position: Position.TOP });
+
+  if (result.success) {
+    const blockContent = getBlockContentByUid(blockUid) || "Event";
+    const actionText = result.action === "created" ? "created in" : "updated in";
+    const eventTitle = blockContent.length > 50
+      ? blockContent.substring(0, 47) + "..."
+      : blockContent;
+
+    // Format the date/time information
+    const dateTimeStr = formatEventDateTime(result.eventStart, result.eventEnd);
+    const dateTimeInfo = dateTimeStr ? ` (${dateTimeStr})` : "";
+
+    toaster.show({
+      message: `"${eventTitle}" ${actionText} ${result.calendarName}${dateTimeInfo}`,
+      intent: Intent.SUCCESS,
+      icon: "tick-circle",
+      timeout: 4000,
+    });
+  } else {
+    // Determine the appropriate intent based on the error type
+    let intent = Intent.DANGER;
+    let icon = "error";
+
+    if (
+      result.error.includes("not determine event date") ||
+      result.error.includes("Block not found")
+    ) {
+      intent = Intent.WARNING;
+      icon = "warning-sign";
+    }
+
+    toaster.show({
+      message: result.error,
+      intent: intent,
+      icon: icon,
+      timeout: 5000,
+    });
+  }
+};
+
+export const syncBlockToDefaultCalendar = async (blockContextOrUid) => {
+  try {
+    // Support both block context object and direct UID string
+    const blockUid = typeof blockContextOrUid === "string"
+      ? blockContextOrUid
+      : blockContextOrUid["block-uid"];
+
+    const blockContent = getBlockContentByUid(blockUid);
+
+    if (!blockContent) {
+      return {
+        success: false,
+        error: "Block not found or empty",
+      };
+    }
+
+    // Get connected calendars
+    const calendars = getConnectedCalendars();
+    if (!calendars || calendars.length === 0) {
+      return {
+        success: false,
+        error: "No Google Calendar connected. Please configure Google Calendar first.",
+      };
+    }
+
+    // Find first sync-enabled calendar (default calendar)
+    const defaultCalendar = calendars.find(
+      (cal) => cal.syncEnabled && cal.syncDirection !== "import"
+    );
+    if (!defaultCalendar) {
+      return {
+        success: false,
+        error: "No calendar available for sync. Please enable sync for at least one calendar.",
+      };
+    }
+
+    // Get the date for the event
+    const eventDate = getEventDateFromBlock(blockUid);
+    if (!eventDate) {
+      return {
+        success: false,
+        error:
+          "Could not determine event date. Block must be in a Daily Note Page or contain a date reference.",
+      };
+    }
+
+    // Create a simple FC event object for syncing
+    // The fcEventToGCalEvent function will handle the conversion to Google Calendar format
+    const eventDateStr = dateToISOString(eventDate);
+    const rangeInfo = parseRange(blockContent);
+
+    const fcEvent = {
+      id: blockUid,
+      title: blockContent,
+      start: rangeInfo ? `${eventDateStr}T${rangeInfo.range.start}` : eventDateStr,
+      end: rangeInfo && rangeInfo.range.end ? `${eventDateStr}T${rangeInfo.range.end}` : null,
+      extendedProps: {
+        eventTags: [],
+      },
+    };
+
+    // Add calendar tag to block if not present
+    // Use first trigger tag alias if available, otherwise use display name
+    if (!blockHasCalendarTag(blockUid, defaultCalendar)) {
+      let tagToAdd = null;
+      if (defaultCalendar.triggerTags && defaultCalendar.triggerTags.length > 0) {
+        tagToAdd = defaultCalendar.triggerTags[0];
+      } else if (defaultCalendar.displayName) {
+        tagToAdd = defaultCalendar.displayName;
+      }
+
+      if (tagToAdd) {
+        await addTagToBlock(blockUid, tagToAdd);
+      }
+    }
+
+    // Sync to Google Calendar using existing sync infrastructure
+    console.log("[syncBlockToDefaultCalendar] Syncing to calendar:", defaultCalendar.name, defaultCalendar.id);
+    console.log("[syncBlockToDefaultCalendar] FC Event:", fcEvent);
+    const result = await syncEventToGCal(blockUid, fcEvent, defaultCalendar.id);
+    console.log("[syncBlockToDefaultCalendar] Sync result:", result);
+
+    if (result.success) {
+      return {
+        success: true,
+        action: result.action,
+        calendarName: defaultCalendar.name,
+        gCalId: result.gCalId,
+        eventStart: fcEvent.start,
+        eventEnd: fcEvent.end,
+      };
+    } else if (result.skipped) {
+      return {
+        success: false,
+        error: "Sync already in progress for this block",
+      };
+    } else {
+      // Provide user-friendly error messages
+      let errorMessage = result.error || "Unknown error";
+
+      // Detect network/offline errors
+      if (
+        errorMessage.includes("Failed to fetch") ||
+        errorMessage.includes("NetworkError") ||
+        errorMessage.includes("network")
+      ) {
+        errorMessage = "Unable to connect to Google Calendar. Please check your internet connection.";
+      } else if (errorMessage.includes("401") || errorMessage.includes("Unauthorized")) {
+        errorMessage = "Google Calendar authentication expired. Please reconnect your calendar.";
+      } else if (errorMessage.includes("403") || errorMessage.includes("Forbidden")) {
+        errorMessage = "Permission denied. Please check your Google Calendar permissions.";
+      } else if (errorMessage.includes("404")) {
+        errorMessage = "Calendar not found. The calendar may have been deleted.";
+      }
+
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    }
+  } catch (error) {
+    console.error("Error syncing block to calendar:", error);
+
+    // Provide user-friendly error messages for exceptions
+    let errorMessage = error.message;
+
+    if (
+      errorMessage.includes("Failed to fetch") ||
+      errorMessage.includes("NetworkError") ||
+      errorMessage.includes("network")
+    ) {
+      errorMessage = "Unable to connect to Google Calendar. Please check your internet connection.";
+    }
+
+    return {
+      success: false,
+      error: errorMessage,
+    };
+  }
+};
+
 export default {
   syncEventToGCal,
   deleteEventFromGCal,
@@ -746,4 +1000,6 @@ export default {
   checkNeedsSync,
   getEventSyncStatus,
   createSyncResult,
+  syncBlockToDefaultCalendar,
+  showSyncResultToast,
 };

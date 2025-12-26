@@ -127,6 +127,7 @@ export const gcalEventToFCEvent = (gcalEvent, calendarConfig) => {
       gCalUpdated: gcalEvent.updated,
       description: gcalEvent.description || "",
       location: gcalEvent.location || "",
+      attachments: gcalEvent.attachments || [],
       syncStatus: SyncStatus.GCAL_ONLY,
       isGCalEvent: true,
       // Google Task data (if this event is a task enriched by taskService)
@@ -397,7 +398,18 @@ export const mergeGCalDataToFCEvent = (fcEvent, gcalEvent, calendarConfig) => {
     gCalUpdated: gcalEvent.updated,
     description: gcalEvent.description || "",
     location: gcalEvent.location || "",
+    attachments: gcalEvent.attachments || [],
     syncStatus: SyncStatus.SYNCED,
+    // Store GCal event data for access to htmlLink and other metadata
+    gCalEventData: {
+      htmlLink: gcalEvent.htmlLink,
+      creator: gcalEvent.creator,
+      organizer: gcalEvent.organizer,
+      attendees: gcalEvent.attendees,
+      recurrence: gcalEvent.recurrence,
+      recurringEventId: gcalEvent.recurringEventId,
+      status: gcalEvent.status,
+    },
   };
 
   return updated;
@@ -477,7 +489,7 @@ export const hasSyncTriggerTag = (fcEvent, connectedCalendars) => {
 };
 
 /**
- * Convert [[TODO]] or [[DONE]] in GCal title to Roam {{[[TODO]]}} or {{[[DONE]]}} format
+ * Convert [[TODO]], [[DONE]], [ ], or [x] in GCal title to Roam {{[[TODO]]}} or {{[[DONE]]}} format
  * @param {string} title - GCal event title
  * @returns {string} Title with converted TODO/DONE syntax
  */
@@ -487,6 +499,9 @@ export const convertGCalTodoToRoam = (title) => {
   // Convert [[TODO]] to {{[[TODO]]}} and [[DONE]] to {{[[DONE]]}}
   converted = converted.replace(/\[\[TODO\]\]/g, "{{[[TODO]]}}");
   converted = converted.replace(/\[\[DONE\]\]/g, "{{[[DONE]]}}");
+  // Convert [ ] to {{[[TODO]]}} and [x] to {{[[DONE]]}}
+  converted = converted.replace(/^\[\s*\]\s*/g, "{{[[TODO]]}} ");
+  converted = converted.replace(/^\[x\]\s*/g, "{{[[DONE]]}} ");
   return converted;
 };
 

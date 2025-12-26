@@ -1,4 +1,4 @@
-import { Button, Popover, HTMLSelect } from "@blueprintjs/core";
+import { Button, Popover, HTMLSelect, Switch } from "@blueprintjs/core";
 import {
   createChildBlock,
   deleteBlock,
@@ -7,6 +7,8 @@ import {
   getParentBlock,
   isExistingNode,
   updateBlock,
+  blockHasCalendarTag,
+  getBlockContentByUid,
 } from "../util/roamApi";
 import { useRef, useState, useEffect } from "react";
 import { getCalendarUidFromPage } from "../util/data";
@@ -32,6 +34,7 @@ const NewEventDialog = ({
   const [selectedCalendarId, setSelectedCalendarId] = useState("");
   const [connectedCalendars, setConnectedCalendars] = useState([]);
   const [isGCalConnected, setIsGCalConnected] = useState(false);
+  const [syncToGCal, setSyncToGCal] = useState(false);
   const renderRef = useRef(null);
   const popoverRef = useRef(null);
 
@@ -53,6 +56,39 @@ const NewEventDialog = ({
       }
     }
   }, [newEventDialogIsOpen]);
+
+  // Check for Google Calendar tags - monitor block content changes
+  useEffect(() => {
+    if (!eventUid || connectedCalendars.length === 0 || !isBlockRendering) {
+      return;
+    }
+
+    // Function to check for calendar tags
+    const checkForCalendarTags = () => {
+      let foundCalendar = null;
+      for (const cal of connectedCalendars) {
+        if (blockHasCalendarTag(eventUid, cal)) {
+          foundCalendar = cal;
+          break;
+        }
+      }
+
+      // Only auto-enable if a calendar tag is found
+      // Don't auto-disable if tag is removed (user might have manually enabled)
+      if (foundCalendar) {
+        setSyncToGCal(true);
+        setSelectedCalendarId(foundCalendar.id);
+      }
+    };
+
+    // Initial check
+    checkForCalendarTags();
+
+    // Poll every 500ms to detect tag changes as user types
+    const interval = setInterval(checkForCalendarTags, 500);
+
+    return () => clearInterval(interval);
+  }, [eventUid, connectedCalendars, isBlockRendering]);
 
   const handleNew = async () => {
     const calendarBlockUid = await getCalendarUidFromPage(pageUid);
@@ -112,13 +148,8 @@ const NewEventDialog = ({
   const handleConfirm = async () => {
     setIsBlockRendering(false);
     setNewEventDialogIsOpen(false);
-    await addEvent(eventUid, pageUid);
-  };
-
-  const handleSync = async () => {
-    setIsBlockRendering(false);
-    setNewEventDialogIsOpen(false);
-    await addEvent(eventUid, pageUid, true, selectedCalendarId || null);
+    // If sync is enabled, pass the calendar ID
+    await addEvent(eventUid, pageUid, syncToGCal, syncToGCal ? selectedCalendarId : null);
   };
 
   return (
@@ -163,18 +194,39 @@ const NewEventDialog = ({
               ref={renderRef}
             ></div>
             {isGCalConnected && connectedCalendars.length > 0 && (
-              <div className="fc-gcal-selector">
-                <HTMLSelect
-                  value={selectedCalendarId}
-                  onChange={(e) => setSelectedCalendarId(e.target.value)}
-                  minimal
-                >
-                  {connectedCalendars.map((cal) => (
-                    <option key={cal.id} value={cal.id}>
-                      {cal.name} {cal.isDefault ? "(default)" : ""}
-                    </option>
-                  ))}
-                </HTMLSelect>
+              <div className="fc-gcal-sync-controls">
+                <div className="fc-gcal-sync-label">
+                  Sync to
+                  <img
+                    src="https://ssl.gstatic.com/calendar/images/dynamiclogo_2020q4/calendar_31_2x.png"
+                    alt="Google Calendar"
+                    style={{ height: '16px', width: '16px', marginLeft: '4px', verticalAlign: 'middle' }}
+                  />
+                </div>
+                <div className="fc-gcal-sync-row">
+                  <Switch
+                    checked={syncToGCal}
+                    onChange={(e) => setSyncToGCal(e.target.checked)}
+                    label={
+                      <span className="bp5-icon bp5-icon-refresh"></span>
+                    }
+                  />
+                  {syncToGCal && (
+                    <div className="fc-gcal-selector">
+                      <HTMLSelect
+                        value={selectedCalendarId}
+                        onChange={(e) => setSelectedCalendarId(e.target.value)}
+                        minimal
+                      >
+                        {connectedCalendars.map((cal) => (
+                          <option key={cal.id} value={cal.id}>
+                            {cal.displayName || cal.name} {cal.isDefault ? "(default)" : ""}
+                          </option>
+                        ))}
+                      </HTMLSelect>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
             <div>
@@ -186,14 +238,6 @@ const NewEventDialog = ({
                   isBlockRendering ? () => handleConfirm() : () => handleNew()
                 }
               />
-              {isGCalConnected && connectedCalendars.length > 0 && (
-                <Button
-                  intent="primary"
-                  text={"Sync to GCal"}
-                  onClick={() => handleSync()}
-                  disabled={!isBlockRendering}
-                />
-              )}
             </div>
           </>
         }

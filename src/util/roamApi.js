@@ -1,4 +1,4 @@
-import { uidRegex } from "./regex";
+import { uidRegex, dnpUidRegex } from "./regex";
 
 export function getTreeByUid(uid) {
   if (uid)
@@ -277,6 +277,44 @@ export const addTagToBlock = async (uid, tagName) => {
 };
 
 /**
+ * Check if block has any calendar tag (display name or trigger tags)
+ * Uses :block/refs to properly detect tags regardless of format (#tag, [[tag]], #[[tag]])
+ * @param {string} uid - Block UID
+ * @param {object} calendarConfig - Calendar configuration
+ * @returns {boolean} True if block has any calendar tag
+ */
+export const blockHasCalendarTag = (uid, calendarConfig) => {
+  // Get block with its references
+  const block = window.roamAlphaAPI.pull(
+    "[:block/uid {:block/refs [:node/title]}]",
+    [":block/uid", uid]
+  );
+
+  if (!block || !block[":block/refs"]) return false;
+
+  // Get all page titles referenced in the block
+  const referencedPages = block[":block/refs"]
+    .map((ref) => ref[":node/title"])
+    .filter(Boolean);
+
+  // Collect all possible tag names for this calendar (case-insensitive comparison)
+  const calendarTags = [];
+
+  if (calendarConfig.displayName) {
+    calendarTags.push(calendarConfig.displayName.toLowerCase());
+  }
+
+  if (calendarConfig.triggerTags && calendarConfig.triggerTags.length > 0) {
+    calendarTags.push(...calendarConfig.triggerTags.map((tag) => tag.toLowerCase()));
+  }
+
+  // Check if any referenced page matches a calendar tag
+  return referencedPages.some((pageTitle) =>
+    calendarTags.includes(pageTitle.toLowerCase())
+  );
+};
+
+/**
  * Remove all GCal-related tags from a block
  * @param {string} uid - Block UID
  * @param {Array} connectedCalendars - Array of connected calendar configs
@@ -316,4 +354,69 @@ export const removeGCalTagsFromBlock = async (uid, connectedCalendars) => {
   if (content !== originalContent) {
     await updateBlock(uid, content);
   }
+};
+
+/**
+ * Get the event date from a block
+ * Priority:
+ * 1. Daily Note Page UID (if block is in a DNP)
+ * 2. Date reference in :block/refs (DNP UIDs)
+ * 3. Date reference in block content (using Roam API)
+ * @param {string} blockUid - Block UID
+ * @returns {Date|null} - Event date or null if not found
+ */
+export const getEventDateFromBlock = (blockUid) => {
+  // Try to get parent page UID and block refs
+  const block = window.roamAlphaAPI.pull(
+    "[:block/uid :block/page {:block/page [:block/uid]} {:block/refs [:block/uid]}]",
+    [":block/uid", blockUid]
+  );
+
+  const pageUid = block?.[":block/page"]?.[":block/uid"];
+
+  // 1. Check if parent page is a Daily Note Page
+  if (pageUid && dnpUidRegex.test(pageUid)) {
+    // Use the helper function from dates.js which correctly parses MM-DD-YYYY format
+    const dateArray = pageUid.split("-");
+    const month = parseInt(dateArray[0], 10) - 1; // JavaScript months are 0-indexed
+    const day = parseInt(dateArray[1], 10);
+    const year = parseInt(dateArray[2], 10);
+    return new Date(year, month, day);
+  }
+
+  // 2. Check :block/refs for DNP UIDs
+  const refs = block?.[":block/refs"];
+  if (refs && Array.isArray(refs)) {
+    for (const ref of refs) {
+      const refUid = ref[":block/uid"];
+      if (refUid && dnpUidRegex.test(refUid)) {
+        // Parse MM-DD-YYYY format correctly
+        const dateArray = refUid.split("-");
+        const month = parseInt(dateArray[0], 10) - 1;
+        const day = parseInt(dateArray[1], 10);
+        const year = parseInt(dateArray[2], 10);
+        return new Date(year, month, day);
+      }
+    }
+  }
+
+  // 3. Try to parse date from block content (using Roam's built-in date parser)
+  const tree = getTreeByUid(blockUid);
+  if (tree && tree[0]) {
+    const blockContent = tree[0].string || "";
+
+    // Use Roam's pageTitleToDate on referenced pages
+    const dateRefRegex = /\[\[([^\]]+)\]\]/g;
+    let match;
+
+    while ((match = dateRefRegex.exec(blockContent)) !== null) {
+      const dateStr = match[1];
+      const parsedDate = window.roamAlphaAPI.util.pageTitleToDate(dateStr);
+      if (parsedDate) {
+        return parsedDate;
+      }
+    }
+  }
+
+  return null;
 };

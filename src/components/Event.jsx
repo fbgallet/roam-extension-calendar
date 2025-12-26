@@ -46,7 +46,10 @@ import {
   createEvent as createGCalEvent,
   updateTask,
 } from "../services/googleCalendarService";
-import { syncTaskCompletionToGoogle, importTaskToRoam } from "../services/googleTasksService";
+import {
+  syncTaskCompletionToGoogle,
+  importTaskToRoam,
+} from "../services/googleTasksService";
 import { getTaskSyncMetadata } from "../models/TaskSyncMetadata";
 import {
   saveSyncMetadata,
@@ -55,9 +58,13 @@ import {
   updateSyncMetadata,
   deleteSyncMetadata,
 } from "../models/SyncMetadata";
-import { fcEventToGCalEvent } from "../util/gcalMapping";
+import { fcEventToGCalEvent, convertGCalTodoToRoam } from "../util/gcalMapping";
 import { clearTasksCache } from "../services/taskService";
-import { invalidateAllEventsCache, updateEventInAllCache } from "../services/eventCacheService";
+import {
+  invalidateAllEventsCache,
+  updateEventInAllCache,
+} from "../services/eventCacheService";
+import { parseHtmlToReact } from "../util/htmlParser";
 
 // Google Calendar icon for unimported GCal events
 import googleCalendarIcon from "../services/gcal-logo-64-white.png";
@@ -148,7 +155,8 @@ const Event = ({
 
     setIsUpdatingTask(true);
     const currentStatus = gTaskData.status;
-    const newStatus = currentStatus === "completed" ? "needsAction" : "completed";
+    const newStatus =
+      currentStatus === "completed" ? "needsAction" : "completed";
 
     try {
       await updateTask(taskListId, gTaskData.id, {
@@ -160,12 +168,141 @@ const Event = ({
 
       // Clear the tasks cache so next fetch gets fresh data
       clearTasksCache();
-      console.log(`[Tasks] Non-imported task "${event.title}" marked as ${newStatus}`);
+      console.log(
+        `[Tasks] Non-imported task "${event.title}" marked as ${newStatus}`
+      );
 
       // Force a re-render by toggling the state
       setTaskCompleted(newStatus === "completed");
     } catch (error) {
       console.error("[Tasks] Failed to update task status:", error);
+    } finally {
+      setIsUpdatingTask(false);
+    }
+  };
+
+  // Detect if non-synced GCal event has TODO/DONE markers
+  const hasGCalTodoMarker =
+    isGCalEvent &&
+    !isGoogleTask &&
+    (event.title.match(/^\[\[TODO\]\]/) ||
+      event.title.match(/^\[\s*\]/) ||
+      event.title.match(/^\[\[DONE\]\]/) ||
+      event.title.match(/^\[x\]/));
+
+  // For non-synced GCal events, enable checkbox even without markers
+  const showGCalCheckbox = isGCalEvent && !isGoogleTask;
+
+  const [gCalTodoCompleted, setGCalTodoCompleted] = useState(
+    event.title.match(/^\[\[DONE\]\]/) || event.title.match(/^\[x\]/)
+  );
+
+  // Handler to toggle non-synced GCal event TODO/DONE status
+  const handleGCalTodoToggle = async (e) => {
+    e.stopPropagation();
+    if (isUpdatingTask) return;
+
+    const gCalId = event.extendedProps?.gCalId;
+    const gCalCalendarId = event.extendedProps?.gCalCalendarId;
+    if (!gCalId || !gCalCalendarId) return;
+
+    setIsUpdatingTask(true);
+    const newCompleted = !gCalTodoCompleted;
+
+    try {
+      // Update the event title in Google Calendar
+      let newTitle = event.title;
+      if (newCompleted) {
+        // Mark as done
+        newTitle = newTitle
+          .replace(/^\[\[TODO\]\]\s*/, "[[DONE]] ")
+          .replace(/^\[\s*\]\s*/, "[x] ");
+        if (!newTitle.match(/^\[\[DONE\]\]/) && !newTitle.match(/^\[x\]/)) {
+          newTitle = "[[DONE]] " + newTitle;
+        }
+      } else {
+        // Mark as todo
+        newTitle = newTitle
+          .replace(/^\[\[DONE\]\]\s*/, "[[TODO]] ")
+          .replace(/^\[x\]\s*/, "[ ] ");
+        if (!newTitle.match(/^\[\[TODO\]\]/) && !newTitle.match(/^\[\s*\]/)) {
+          newTitle = "[[TODO]] " + newTitle;
+        }
+      }
+
+      // Build the complete event update object with required fields
+      const isAllDay = event.allDay || !event.extendedProps?.hasTime;
+      const updateData = {
+        summary: newTitle,
+      };
+
+      // Add start and end times (required by Google Calendar API)
+      if (isAllDay) {
+        // All-day event - end date is exclusive in Google Calendar
+        const startDate = new Date(event.start);
+        // Get the date string in local timezone format (YYYY-MM-DD)
+        const startDateStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
+
+        // For all-day events, if there's no end or end equals start, set end to next day
+        let endDateStr;
+        if (!event.end) {
+          // No end date - single day event, end should be next day
+          const endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
+          endDateStr = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+        } else {
+          const endDate = new Date(event.end);
+          const endDateStrTmp = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+
+          // Check if it's a single-day event (start and end are same day)
+          if (startDateStr === endDateStrTmp) {
+            // Single day event - end should be next day
+            const nextDay = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
+            endDateStr = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, '0')}-${String(nextDay.getDate()).padStart(2, '0')}`;
+          } else {
+            endDateStr = endDateStrTmp;
+          }
+        }
+
+        updateData.start = {
+          date: startDateStr,
+        };
+        updateData.end = {
+          date: endDateStr,
+        };
+      } else {
+        // Timed event
+        const startDate = new Date(event.start);
+        const endDate = event.end
+          ? new Date(event.end)
+          : new Date(startDate.getTime() + 60 * 60 * 1000);
+        updateData.start = {
+          dateTime: startDate.toISOString(),
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        };
+        updateData.end = {
+          dateTime: endDate.toISOString(),
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        };
+      }
+
+      await updateGCalEvent(gCalCalendarId, gCalId, updateData);
+
+      // Update local event using the updateEvent function
+      updateEvent(event, {
+        title: newTitle,
+      });
+
+      setGCalTodoCompleted(newCompleted);
+
+      // Invalidate cache to refresh on next load
+      invalidateAllEventsCache();
+      console.log(
+        `[GCal] Non-synced event "${newTitle}" marked as ${
+          newCompleted ? "done" : "todo"
+        }`
+      );
+    } catch (error) {
+      console.error("[GCal] Failed to update event TODO/DONE status:", error);
     } finally {
       setIsUpdatingTask(false);
     }
@@ -236,8 +373,10 @@ const Event = ({
         }
       }
 
-      // Add title
-      content += event.title || "(No title)";
+      // Add title (convert TODO/DONE markers to Roam format)
+      let title = event.title || "(No title)";
+      title = convertGCalTodoToRoam(title);
+      content += title;
 
       // Add trigger tag from calendar config
       const calendarId = event.extendedProps?.gCalCalendarId;
@@ -328,6 +467,31 @@ const Event = ({
       (c) => c.id === metadata.gCalCalendarId
     );
     return { metadata, calendar };
+  };
+
+  // Get the synced GCal event data (location, htmlLink, etc.) for synced Roam events
+  const syncedGCalData = isSyncedToGCal
+    ? event.extendedProps?.gCalEventData
+    : null;
+
+  // Get description and filter out Roam block link and block references section
+  const getSyncedDescription = () => {
+    if (!isSyncedToGCal || !event.extendedProps?.description) return null;
+
+    let description = event.extendedProps.description;
+
+    // Remove the Roam block link section (e.g., "---\nRoam block: https://...")
+    description = description.replace(/\n*---\s*\nRoam block:.*$/s, "").trim();
+
+    // Remove the block references section (e.g., "---\nBlock references:\n((uid)) = ...")
+    description = description
+      .replace(/\n*---\s*\nBlock references:[\s\S]*?(?=\n---|\n*$)/s, "")
+      .trim();
+
+    if (!description) return null;
+
+    // Parse HTML description to React elements
+    return parseHtmlToReact(description);
   };
 
   // Open synced event in Google Calendar
@@ -443,15 +607,35 @@ const Event = ({
         "Google Calendar";
       await addTagToBlock(event.id, tagToAdd);
 
-      // Update event with sync info
-      updateEvent(event, {
+      // Update event with sync info and GCal data
+      const updatedEvent = {
+        ...event,
         extendedProps: {
           ...event.extendedProps,
           gCalId: createdEvent.id,
           gCalCalendarId: targetCalendar.id,
+          gCalEtag: createdEvent.etag,
+          gCalUpdated: createdEvent.updated,
+          description: createdEvent.description || "",
+          location: createdEvent.location || "",
+          attachments: createdEvent.attachments || [],
           syncStatus: "synced",
+          gCalEventData: {
+            htmlLink: createdEvent.htmlLink,
+            creator: createdEvent.creator,
+            organizer: createdEvent.organizer,
+            attendees: createdEvent.attendees,
+            recurrence: createdEvent.recurrence,
+            recurringEventId: createdEvent.recurringEventId,
+            status: createdEvent.status,
+          },
         },
-      });
+      };
+
+      updateEvent(event, updatedEvent);
+
+      // Also update in cache to persist the data
+      updateEventInAllCache(updatedEvent);
 
       console.log("Event synced to Google Calendar:", createdEvent.id);
       setPopoverIsOpen(false);
@@ -559,16 +743,39 @@ const Event = ({
             // Google Calendar/Task event details
             <div className="fc-gcal-event-details">
               <div className="fc-gcal-title-row">
-                {(isGoogleTask || isGTaskEvent) && (
+                {(isGoogleTask || isGTaskEvent || showGCalCheckbox) && (
                   <Checkbox
-                    checked={taskCompleted || (isGTaskEvent && event.extendedProps?.gTaskData?.status === "completed")}
+                    checked={
+                      taskCompleted ||
+                      (isGTaskEvent &&
+                        event.extendedProps?.gTaskData?.status ===
+                          "completed") ||
+                      (showGCalCheckbox && gCalTodoCompleted)
+                    }
                     disabled={isUpdatingTask}
-                    onChange={isGTaskEvent ? handleGTaskEventToggle : handleTaskToggle}
+                    onChange={
+                      isGTaskEvent
+                        ? handleGTaskEventToggle
+                        : showGCalCheckbox
+                        ? handleGCalTodoToggle
+                        : handleTaskToggle
+                    }
                     className="fc-task-checkbox"
                   />
                 )}
-                <h4 className={taskCompleted ? "fc-task-completed" : ""}>
-                  {event.title.replace(/\{\{\[\[(TODO|DONE)\]\]\}\}\s*/g, "")}
+                <h4
+                  className={
+                    taskCompleted || (hasGCalTodoMarker && gCalTodoCompleted)
+                      ? "fc-task-completed"
+                      : ""
+                  }
+                >
+                  {event.title
+                    .replace(/\{\{\[\[(TODO|DONE)\]\]\}\}\s*/g, "")
+                    .replace(/^\[\[TODO\]\]\s*/, "")
+                    .replace(/^\[\[DONE\]\]\s*/, "")
+                    .replace(/^\[\s*\]\s*/, "")
+                    .replace(/^\[x\]\s*/, "")}
                 </h4>
               </div>
               {isGoogleTask && (
@@ -590,7 +797,10 @@ const Event = ({
                   {event.extendedProps?.gTaskData && (
                     <span className="fc-task-list-name">
                       {" "}
-                      ({event.extendedProps.gTaskData.taskListTitle || "Task List"})
+                      (
+                      {event.extendedProps.gTaskData.taskListTitle ||
+                        "Task List"}
+                      )
                     </span>
                   )}
                 </div>
@@ -634,11 +844,6 @@ const Event = ({
                   <span>{event.extendedProps.location}</span>
                 </div>
               )}
-              {event.extendedProps?.description && (
-                <div className="fc-gcal-description">
-                  <p>{event.extendedProps.description}</p>
-                </div>
-              )}
               {event.extendedProps?.gCalEventData?.attendees?.length > 0 && (
                 <div className="fc-gcal-attendees">
                   <Icon icon="people" size={12} />
@@ -652,6 +857,47 @@ const Event = ({
                         event.extendedProps.gCalEventData.attendees.length - 3
                       } more`}
                   </span>
+                </div>
+              )}
+              {event.extendedProps?.description && (
+                <div className="fc-gcal-description">
+                  {parseHtmlToReact(event.extendedProps.description)}
+                </div>
+              )}
+              {/* Attachments if available */}
+              {event.extendedProps?.attachments?.length > 0 && (
+                <div className="fc-gcal-attachments">
+                  <div className="fc-gcal-attachments-header">
+                    <Icon icon="paperclip" size={12} />
+                    <span>
+                      Attachments ({event.extendedProps.attachments.length})
+                    </span>
+                  </div>
+                  <ul className="fc-gcal-attachments-list">
+                    {event.extendedProps.attachments.map(
+                      (attachment, index) => (
+                        <li key={index}>
+                          <a
+                            href={attachment.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {attachment.iconLink && (
+                              <img
+                                src={attachment.iconLink}
+                                alt=""
+                                className="fc-attachment-icon"
+                              />
+                            )}
+                            <span className="fc-attachment-title">
+                              {attachment.title || "Untitled"}
+                            </span>
+                          </a>
+                        </li>
+                      )
+                    )}
+                  </ul>
                 </div>
               )}
               {event.extendedProps?.gCalEventData?.recurrence && (
@@ -688,16 +934,17 @@ const Event = ({
                 )}
                 <Button
                   small
-                  icon="import"
+                  icon="automatic-updates"
                   intent="primary"
                   onClick={handleImportToRoam}
                 >
-                  Import to Roam
+                  Sync to Roam block
                 </Button>
               </div>
               <div className="fc-gcal-tag">
                 <Tag minimal>
-                  {eventTagList?.[0]?.name || (isGTaskEvent ? "Google Tasks" : "Google Calendar")}
+                  {eventTagList?.[0]?.name ||
+                    (isGTaskEvent ? "Google Tasks" : "Google Calendar")}
                 </Tag>
               </div>
             </div>
@@ -705,10 +952,129 @@ const Event = ({
             // Regular Roam event
             <>
               <div ref={popoverRef}></div>
+
+              {/* Show calendar info for synced events */}
+              {isSyncedToGCal && (
+                <div className="fc-synced-event-info">
+                  {/* Calendar name - clickable to open in GCal */}
+                  {getSyncedCalendarInfo()?.calendar?.displayName && (
+                    <Tooltip content="View in Google Calendar" position="top">
+                      <div
+                        className="fc-gcal-calendar-source fc-gcal-calendar-source-clickable"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Use htmlLink if available, otherwise construct URL from metadata
+                          if (syncedGCalData?.htmlLink) {
+                            window.open(syncedGCalData.htmlLink, "_blank");
+                          } else {
+                            const syncInfo = getSyncedCalendarInfo();
+                            if (syncInfo?.metadata?.gCalId) {
+                              const gCalUrl = `https://calendar.google.com/calendar/event?eid=${btoa(
+                                syncInfo.metadata.gCalId +
+                                  " " +
+                                  syncInfo.metadata.gCalCalendarId
+                              )}`;
+                              window.open(gCalUrl, "_blank");
+                            }
+                          }
+                        }}
+                      >
+                        <img
+                          src={googleCalendarIcon}
+                          alt=""
+                          className="fc-gcal-icon-small"
+                        />
+                        <span>
+                          {getSyncedCalendarInfo().calendar.displayName}
+                        </span>
+                      </div>
+                    </Tooltip>
+                  )}
+
+                  {/* Location if available */}
+                  {event.extendedProps?.location && (
+                    <div className="fc-gcal-location">
+                      <Icon icon="map-marker" size={12} />
+                      <span>{event.extendedProps.location}</span>
+                    </div>
+                  )}
+
+                  {/* Attendees if available */}
+                  {event.extendedProps?.gCalEventData?.attendees?.length >
+                    0 && (
+                    <div className="fc-gcal-attendees">
+                      <Icon icon="people" size={12} />
+                      <span>
+                        {event.extendedProps.gCalEventData.attendees
+                          .slice(0, 3)
+                          .map((a) => a.displayName || a.email)
+                          .join(", ")}
+                        {event.extendedProps.gCalEventData.attendees.length >
+                          3 &&
+                          ` +${
+                            event.extendedProps.gCalEventData.attendees.length -
+                            3
+                          } more`}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Description if available (filtered and HTML parsed) */}
+                  {getSyncedDescription() && (
+                    <div className="fc-gcal-description">
+                      {getSyncedDescription()}
+                    </div>
+                  )}
+
+                  {/* Attachments if available */}
+                  {event.extendedProps?.attachments?.length > 0 && (
+                    <div className="fc-gcal-attachments">
+                      <div className="fc-gcal-attachments-header">
+                        <Icon icon="paperclip" size={12} />
+                        <span>
+                          Attachments ({event.extendedProps.attachments.length})
+                        </span>
+                      </div>
+                      <ul className="fc-gcal-attachments-list">
+                        {event.extendedProps.attachments.map(
+                          (attachment, index) => (
+                            <li key={index}>
+                              <a
+                                href={attachment.fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {attachment.iconLink && (
+                                  <img
+                                    src={attachment.iconLink}
+                                    alt=""
+                                    className="fc-attachment-icon"
+                                  />
+                                )}
+                                <span className="fc-attachment-title">
+                                  {attachment.title || "Untitled"}
+                                </span>
+                              </a>
+                            </li>
+                          )
+                        )}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="fc-roam-event-actions">
                 {eventTagList && eventTagList[0].name !== calendarTag.name ? (
                   <TagList
-                    list={eventTagList}
+                    list={
+                      isSyncedToGCal
+                        ? eventTagList.filter(
+                            (tag) => tag.name !== "Google calendar"
+                          )
+                        : eventTagList
+                    }
                     setEventTagList={setEventTagList}
                     isInteractive={true}
                     event={event}
@@ -898,9 +1264,16 @@ const Event = ({
               if (taskMetadata) {
                 try {
                   await syncTaskCompletionToGoogle(event.id, newCompletedState);
-                  console.log(`[Tasks] Synced TODO/DONE toggle to Google Tasks: ${newCompletedState ? "completed" : "needsAction"}`);
+                  console.log(
+                    `[Tasks] Synced TODO/DONE toggle to Google Tasks: ${
+                      newCompletedState ? "completed" : "needsAction"
+                    }`
+                  );
                 } catch (error) {
-                  console.error("[Tasks] Failed to sync TODO/DONE to Google Tasks:", error);
+                  console.error(
+                    "[Tasks] Failed to sync TODO/DONE to Google Tasks:",
+                    error
+                  );
                 }
               }
 
@@ -933,9 +1306,16 @@ const Event = ({
                       roamUpdated: Date.now(),
                       lastSync: Date.now(),
                     });
-                    console.log(`[GCal] Synced TODO/DONE toggle to Google Calendar: ${newCompletedState ? "[[DONE]]" : "[[TODO]]"}`);
+                    console.log(
+                      `[GCal] Synced TODO/DONE toggle to Google Calendar: ${
+                        newCompletedState ? "[[DONE]]" : "[[TODO]]"
+                      }`
+                    );
                   } catch (error) {
-                    console.error("[GCal] Failed to sync TODO/DONE to Google Calendar:", error);
+                    console.error(
+                      "[GCal] Failed to sync TODO/DONE to Google Calendar:",
+                      error
+                    );
                   }
                 }
               }
@@ -974,6 +1354,15 @@ const Event = ({
             className="fc-task-checkbox-inline"
           />
         )}
+        {/* Inline checkbox for non-synced GCal events */}
+        {showGCalCheckbox && (
+          <Checkbox
+            checked={gCalTodoCompleted}
+            disabled={isUpdatingTask}
+            onChange={handleGCalTodoToggle}
+            className="fc-task-checkbox-inline"
+          />
+        )}
         <Tooltip
           position={"auto-start"}
           hoverOpenDelay={500}
@@ -981,7 +1370,7 @@ const Event = ({
           content={
             <>
               <p className={taskCompleted ? "fc-task-completed" : ""}>
-                {event.title}
+                {displayTitle}
               </p>
               {isGoogleTask && (
                 <div className="fc-gcal-task-indicator">
@@ -1009,7 +1398,7 @@ const Event = ({
                 <div className="fc-gcal-calendar-hint">
                   <GoogleTasksIconSvg
                     className="fc-gcal-icon-small"
-                    style={{ width: '16px', height: '16px' }}
+                    style={{ width: "16px", height: "16px" }}
                   />
                   <span>{event.extendedProps.gTaskListName}</span>
                 </div>
@@ -1021,7 +1410,16 @@ const Event = ({
                 </div>
               )}
               {eventTagList && eventTagList[0].name !== calendarTag.name ? (
-                <TagList list={eventTagList} isInteractive={false} />
+                <TagList
+                  list={
+                    isSyncedToGCal
+                      ? eventTagList.filter(
+                          (tag) => tag.name !== "Google calendar"
+                        )
+                      : eventTagList
+                  }
+                  isInteractive={false}
+                />
               ) : null}
             </>
           }
@@ -1038,7 +1436,7 @@ const Event = ({
             {isGTaskEvent && (
               <GoogleTasksIconSvg
                 className="fc-gcal-icon-inline"
-                style={{ width: '12px', height: '12px', marginRight: '4px' }}
+                style={{ width: "12px", height: "12px", marginRight: "4px" }}
               />
             )}
             {isSyncedToGCal && (
