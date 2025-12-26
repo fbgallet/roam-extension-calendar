@@ -4,7 +4,7 @@
 
 🆕 New in v.6 (January 2026):
 
-- Two-way sync with **Google calendar** (see section below for detailed instructions)
+- Two-way sync with **Google calendar** (see [section below](https://github.com/fbgallet/roam-extension-calendar?tab=readme-ov-file#google-calendar-support) for detailed instructions)
 - a lot of fixes
 
 See [changelog here for more details on updates and fixes](https://github.com/fbgallet/roam-extension-calendar/blob/main/CHANGELOG.md)
