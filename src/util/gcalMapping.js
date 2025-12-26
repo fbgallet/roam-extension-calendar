@@ -7,7 +7,7 @@
 import { getTagFromName } from "../models/EventTag";
 import { SyncStatus } from "../models/SyncMetadata";
 import { dateToISOString } from "./dates";
-import { getUseOriginalColors } from "../services/googleCalendarService";
+import { getUseOriginalColors, getCheckboxFormat } from "../services/googleCalendarService";
 import { getBlockContentByUid } from "./roamApi";
 import { uidRegex } from "./regex";
 
@@ -90,6 +90,20 @@ export const gcalEventToFCEvent = (gcalEvent, calendarConfig) => {
       : getTagFromName("TODO");
     if (statusTag) {
       eventTags.push(statusTag);
+    }
+  } else {
+    // For non-task GCal events, check if title has checkbox markers
+    const title = gcalEvent.summary || "";
+    if (title.match(/^\[\[TODO\]\]/) || title.match(/^\[\s*\]/)) {
+      const todoTag = getTagFromName("TODO");
+      if (todoTag) {
+        eventTags.push(todoTag);
+      }
+    } else if (title.match(/^\[\[DONE\]\]/) || title.match(/^\[x\]/)) {
+      const doneTag = getTagFromName("DONE");
+      if (doneTag) {
+        eventTags.push(doneTag);
+      }
     }
   }
 
@@ -299,7 +313,7 @@ export const fcEventToGCalEvent = (fcEvent, calendarId, roamUid = null) => {
 
 /**
  * Clean a Roam block title for Google Calendar
- * Removes Roam-specific syntax but preserves TODO/DONE as [[TODO]]/[[DONE]]
+ * Removes Roam-specific syntax but preserves TODO/DONE based on user preference
  */
 export const cleanTitleForGCal = (title) => {
   if (!title) return "";
@@ -309,10 +323,19 @@ export const cleanTitleForGCal = (title) => {
   // Remove bullet points at the beginning (• or -)
   cleaned = cleaned.replace(/^[•\-]\s*/, "");
 
-  // Convert {{[[TODO]]}} and {{[[DONE]]}} to [[TODO]] and [[DONE]] for GCal
-  // This allows bidirectional sync of task status
-  cleaned = cleaned.replace(/\{\{\[\[TODO\]\]\}\}/g, "[[TODO]]");
-  cleaned = cleaned.replace(/\{\{\[\[DONE\]\]\}\}/g, "[[DONE]]");
+  // Get user's checkbox format preference
+  const checkboxFormat = getCheckboxFormat();
+
+  if (checkboxFormat === "bracket") {
+    // Convert to [ ]/[x] format for GCal
+    cleaned = cleaned.replace(/^\{\{\[\[TODO\]\]\}\}\s*/g, "[ ] ");
+    cleaned = cleaned.replace(/^\{\{\[\[DONE\]\]\}\}\s*/g, "[x] ");
+  } else {
+    // Convert {{[[TODO]]}} and {{[[DONE]]}} to [[TODO]] and [[DONE]] for GCal (default)
+    // This allows bidirectional sync of task status
+    cleaned = cleaned.replace(/\{\{\[\[TODO\]\]\}\}/g, "[[TODO]]");
+    cleaned = cleaned.replace(/\{\{\[\[DONE\]\]\}\}/g, "[[DONE]]");
+  }
 
   // Protect backtick content by temporarily replacing it with placeholders
   // This preserves backticks and their content for proper round-trip sync
@@ -490,18 +513,22 @@ export const hasSyncTriggerTag = (fcEvent, connectedCalendars) => {
 
 /**
  * Convert [[TODO]], [[DONE]], [ ], or [x] in GCal title to Roam {{[[TODO]]}} or {{[[DONE]]}} format
+ * Always converts to Roam format regardless of what's in GCal
  * @param {string} title - GCal event title
  * @returns {string} Title with converted TODO/DONE syntax
  */
 export const convertGCalTodoToRoam = (title) => {
   if (!title) return title;
   let converted = title;
+
+  // Always convert to {{[[TODO]]}}/{{[[DONE]]}} format for Roam blocks
   // Convert [[TODO]] to {{[[TODO]]}} and [[DONE]] to {{[[DONE]]}}
-  converted = converted.replace(/\[\[TODO\]\]/g, "{{[[TODO]]}}");
-  converted = converted.replace(/\[\[DONE\]\]/g, "{{[[DONE]]}}");
+  converted = converted.replace(/^\[\[TODO\]\]\s*/g, "{{[[TODO]]}} ");
+  converted = converted.replace(/^\[\[DONE\]\]\s*/g, "{{[[DONE]]}} ");
   // Convert [ ] to {{[[TODO]]}} and [x] to {{[[DONE]]}}
   converted = converted.replace(/^\[\s*\]\s*/g, "{{[[TODO]]}} ");
   converted = converted.replace(/^\[x\]\s*/g, "{{[[DONE]]}} ");
+
   return converted;
 };
 

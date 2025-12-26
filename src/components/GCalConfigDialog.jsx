@@ -30,6 +30,8 @@ import {
   initializeTaskListConfigs,
   getUseOriginalColors,
   setUseOriginalColors,
+  getCheckboxFormat,
+  setCheckboxFormat,
   DEFAULT_CALENDAR_CONFIG,
   DEFAULT_TASK_LIST_CONFIG,
   onAuthStateChange,
@@ -61,6 +63,7 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
   // Sync settings
   const [syncInterval, setSyncIntervalState] = useState(null);
   const [useOriginalColors, setUseOriginalColorsState] = useState(false);
+  const [checkboxFormat, setCheckboxFormatState] = useState("roam");
 
   // Sync stats
   const [syncStats, setSyncStats] = useState({ eventCount: 0, todoCount: 0 });
@@ -112,6 +115,7 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
 
       setSyncIntervalState(getSyncInterval());
       setUseOriginalColorsState(getUseOriginalColors());
+      setCheckboxFormatState(getCheckboxFormat());
 
       // Load sync stats
       setSyncStats(getStorageStats());
@@ -381,6 +385,11 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
     }
   };
 
+  const handleCheckboxFormatChange = (format) => {
+    setCheckboxFormatState(format);
+    setCheckboxFormat(format);
+  };
+
   return (
     <Dialog
       isOpen={isOpen}
@@ -459,6 +468,22 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
                   handleUseOriginalColorsChange(e.target.checked)
                 }
                 style={{ marginBottom: 0 }}
+              />
+            </FormGroup>
+
+            <FormGroup
+              label="Checkbox format"
+              helperText="Choose the checkbox format to use in Google Calendar event titles when syncing with Roam."
+              inline
+              style={{ marginTop: "15px" }}
+            >
+              <HTMLSelect
+                value={checkboxFormat}
+                onChange={(e) => handleCheckboxFormatChange(e.target.value)}
+                options={[
+                  { value: "roam", label: "[[TODO]]/[[DONE]]" },
+                  { value: "bracket", label: "[ ]/[x]" },
+                ]}
               />
             </FormGroup>
 

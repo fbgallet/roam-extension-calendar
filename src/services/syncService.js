@@ -128,7 +128,7 @@ export const syncEventToGCal = async (roamUid, fcEvent, calendarId) => {
 
   try {
     const metadata = getSyncMetadata(roamUid);
-    const gcalEvent = fcEventToGCalEvent(fcEvent, calendarId);
+    const gcalEvent = fcEventToGCalEvent(fcEvent, calendarId, roamUid);
     console.log("[syncEventToGCal] Block UID:", roamUid);
     console.log("[syncEventToGCal] Existing metadata:", metadata);
 

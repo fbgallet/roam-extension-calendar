@@ -33,6 +33,7 @@ export const STORAGE_KEYS = {
   AUTO_SYNC: "gcal-auto-sync",
   SYNC_INTERVAL: "gcal-sync-interval",
   USE_ORIGINAL_COLORS: "gcal-use-original-colors",
+  CHECKBOX_FORMAT: "gcal-checkbox-format",
   // Google Tasks storage keys
   TASKS_ENABLED: "gtasks-enabled",
   CONNECTED_TASK_LISTS: "gtasks-connected-lists",
@@ -994,6 +995,22 @@ export const setUseOriginalColors = (enabled) => {
   extensionStorage.set(STORAGE_KEYS.USE_ORIGINAL_COLORS, enabled);
 };
 
+/**
+ * Get checkbox format preference for Roam checkboxes
+ * Returns "bracket" for [ ]/[x] or "roam" for [[TODO]]/[[DONE]]
+ * Default is "roam"
+ */
+export const getCheckboxFormat = () => {
+  return extensionStorage.get(STORAGE_KEYS.CHECKBOX_FORMAT) ?? "roam";
+};
+
+/**
+ * Set checkbox format preference for Roam checkboxes
+ */
+export const setCheckboxFormat = (format) => {
+  extensionStorage.set(STORAGE_KEYS.CHECKBOX_FORMAT, format);
+};
+
 // ============================================
 // Connected Task Lists Management
 // ============================================
@@ -1133,6 +1150,8 @@ export default {
   setSyncInterval,
   getUseOriginalColors,
   setUseOriginalColors,
+  getCheckboxFormat,
+  setCheckboxFormat,
   // Connected Task Lists
   getTasksEnabled,
   setTasksEnabled,

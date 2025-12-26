@@ -190,8 +190,8 @@ const Event = ({
       event.title.match(/^\[\[DONE\]\]/) ||
       event.title.match(/^\[x\]/));
 
-  // For non-synced GCal events, enable checkbox even without markers
-  const showGCalCheckbox = isGCalEvent && !isGoogleTask;
+  // For non-synced GCal events, only show checkbox if title has markers
+  const showGCalCheckbox = isGCalEvent && !isGoogleTask && hasGCalTodoMarker;
 
   const [gCalTodoCompleted, setGCalTodoCompleted] = useState(
     event.title.match(/^\[\[DONE\]\]/) || event.title.match(/^\[x\]/)
@@ -211,22 +211,21 @@ const Event = ({
 
     try {
       // Update the event title in Google Calendar
+      // Respect the original format: [ ] <=> [x] and [[TODO]] <=> [[DONE]]
       let newTitle = event.title;
       if (newCompleted) {
-        // Mark as done
-        newTitle = newTitle
-          .replace(/^\[\[TODO\]\]\s*/, "[[DONE]] ")
-          .replace(/^\[\s*\]\s*/, "[x] ");
-        if (!newTitle.match(/^\[\[DONE\]\]/) && !newTitle.match(/^\[x\]/)) {
-          newTitle = "[[DONE]] " + newTitle;
+        // Mark as done - preserve format
+        if (newTitle.match(/^\[\[TODO\]\]/)) {
+          newTitle = newTitle.replace(/^\[\[TODO\]\]\s*/, "[[DONE]] ");
+        } else if (newTitle.match(/^\[\s*\]/)) {
+          newTitle = newTitle.replace(/^\[\s*\]\s*/, "[x] ");
         }
       } else {
-        // Mark as todo
-        newTitle = newTitle
-          .replace(/^\[\[DONE\]\]\s*/, "[[TODO]] ")
-          .replace(/^\[x\]\s*/, "[ ] ");
-        if (!newTitle.match(/^\[\[TODO\]\]/) && !newTitle.match(/^\[\s*\]/)) {
-          newTitle = "[[TODO]] " + newTitle;
+        // Mark as todo - preserve format
+        if (newTitle.match(/^\[\[DONE\]\]/)) {
+          newTitle = newTitle.replace(/^\[\[DONE\]\]\s*/, "[[TODO]] ");
+        } else if (newTitle.match(/^\[x\]/)) {
+          newTitle = newTitle.replace(/^\[x\]\s*/, "[ ] ");
         }
       }
 
@@ -287,11 +286,33 @@ const Event = ({
 
       await updateGCalEvent(gCalCalendarId, gCalId, updateData);
 
+      // Update event tags based on new completion state
+      const updatedTags = [...eventTagList];
+      const todoTag = getTagFromName("TODO");
+      const doneTag = getTagFromName("DONE");
+
+      // Remove both TODO and DONE tags first
+      const filteredTags = updatedTags.filter(
+        (tag) => tag.name !== "TODO" && tag.name !== "DONE"
+      );
+
+      // Add the appropriate tag based on completion state
+      if (newCompleted && doneTag) {
+        filteredTags.push(doneTag);
+      } else if (!newCompleted && todoTag) {
+        filteredTags.push(todoTag);
+      }
+
       // Update local event using the updateEvent function
       updateEvent(event, {
         title: newTitle,
+        extendedProps: {
+          ...event.extendedProps,
+          eventTags: filteredTags,
+        },
       });
 
+      setEventTagList(filteredTags);
       setGCalTodoCompleted(newCompleted);
 
       // Invalidate cache to refresh on next load

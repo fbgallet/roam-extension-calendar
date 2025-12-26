@@ -1021,7 +1021,6 @@
 
 /* GCal sync controls in new event dialog */
 .fc-gcal-sync-controls {
-  margin-bottom: 10px;
   padding: 8px;
   border-radius: 3px;
   background-color: rgba(138, 155, 168, 0.1);
