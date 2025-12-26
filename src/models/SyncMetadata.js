@@ -24,6 +24,7 @@ export const createSyncMetadata = ({
   lastSync = Date.now(),
   eventEndDate = null, // ISO date string (YYYY-MM-DD) for cleanup purposes
   isTodo = false, // Whether the Roam block has TODO status (preserved during cleanup)
+  hadOriginalTimeRange = false, // Whether the original Roam event had a time range (e.g., "13:00-14:00") or just start time (e.g., "13:00")
 }) => ({
   gCalId,
   gCalCalendarId,
@@ -33,6 +34,7 @@ export const createSyncMetadata = ({
   lastSync,
   eventEndDate,
   isTodo,
+  hadOriginalTimeRange,
 });
 
 /**
@@ -45,7 +47,13 @@ export const loadSyncMetadata = () => {
 
   try {
     const stored = extensionStorage.get(STORAGE_KEY);
-    syncMetadataCache = stored || {};
+    // Parse from JSON if it's a string, otherwise use as-is for backward compatibility
+    if (typeof stored === 'string') {
+      syncMetadataCache = JSON.parse(stored);
+    } else {
+      syncMetadataCache = stored || {};
+    }
+    console.log(`[SyncMetadata] Loaded ${Object.keys(syncMetadataCache).length} entries from storage`);
     return syncMetadataCache;
   } catch (error) {
     console.error("Failed to load sync metadata:", error);
@@ -59,7 +67,10 @@ export const loadSyncMetadata = () => {
  */
 const persistSyncMetadata = () => {
   try {
-    extensionStorage.set(STORAGE_KEY, syncMetadataCache);
+    // Serialize to JSON to ensure all fields are properly saved
+    const serialized = JSON.stringify(syncMetadataCache);
+    extensionStorage.set(STORAGE_KEY, serialized);
+    console.log(`[SyncMetadata] Persisted ${Object.keys(syncMetadataCache).length} entries`);
   } catch (error) {
     console.error("Failed to persist sync metadata:", error);
   }

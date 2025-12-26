@@ -228,6 +228,18 @@ const filterTreeToGetEvents = async (
                 childInfos = getInfosFromChildren(block.tree);
                 if (childInfos) {
                   if (!isRef && childInfos.start) continue;
+                  // If we have a start:: child, use its date as the start date
+                  if (childInfos.start && childInfos.start.date) {
+                    startDNP = dateToISOString(childInfos.start.date);
+                    startUid = childInfos.start.uid;
+                    // Track for duplicate detection when both start and end dates are in view
+                    if (isRef && childInfos.until) {
+                      possibleDuplicateEvents.push({
+                        id: block.uid,
+                        start: startDNP,
+                      });
+                    }
+                  }
                   if (isRef && !startDNP && until) continue;
                   until = childInfos.until;
                   // avoid duplicates
@@ -244,9 +256,12 @@ const filterTreeToGetEvents = async (
                 }
               }
               if (until) {
+                // Skip if we're on the end date AND the start date is also in the current view
+                // (to avoid duplicates when both start and end dates would find this event)
+                // But if start date is from childInfos.start, we need this reference to create the event
                 if (
                   isRef &&
-                  (!startDNP || childInfos?.start) &&
+                  !childInfos?.start &&
                   dateString === dateToISOString(until.date)
                 )
                   continue;
@@ -490,7 +505,8 @@ export const getInfosFromChildren = (children, mapToInclude = mapOfTags) => {
       hasInfosToReturn = true;
       const start = getBoundaryDate(child.string, "start");
       if (start) {
-        infos.start = true;
+        infos.start = start;
+        infos.start.uid = child.uid;
         continue;
       }
       const until = getBoundaryDate(child.string);
@@ -549,26 +565,26 @@ export const parseEventObject = (
 
   let hasTime = false;
   let range, endDate;
-  if (isTimeGrid) {
-    let parsedRange = parseRange(title);
-    if (parsedRange) {
-      range = parsedRange.range;
-      title = title.replace(parsedRange.matchingString, "");
+  // Always parse timestamps, even when not in timeGrid view
+  // This ensures hasTime is set correctly for events with date references in children
+  let parsedRange = parseRange(title);
+  if (parsedRange) {
+    range = parsedRange.range;
+    title = title.replace(parsedRange.matchingString, "");
+    hasTime = true;
+  } else {
+    let parsedTime = getNormalizedTimestamp(title, strictTimestampRegex);
+    if (parsedTime) {
+      console.log("parsedTime :>> ", parsedTime);
       hasTime = true;
-    } else {
-      let parsedTime = getNormalizedTimestamp(title, strictTimestampRegex);
-      if (parsedTime) {
-        console.log("parsedTime :>> ", parsedTime);
-        hasTime = true;
-        range = { start: parsedTime.timestamp };
-        title = title.replace(parsedTime.matchingString, "");
-        let duration = getDurationInMin(title);
-        if (duration) {
-          endDate = getDateAddingDurationToDate(
-            new Date(`${date}T${range.start}`),
-            duration
-          );
-        }
+      range = { start: parsedTime.timestamp };
+      title = title.replace(parsedTime.matchingString, "");
+      let duration = getDurationInMin(title);
+      if (duration) {
+        endDate = getDateAddingDurationToDate(
+          new Date(`${date}T${range.start}`),
+          duration
+        );
       }
     }
   }

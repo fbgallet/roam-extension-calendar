@@ -58,6 +58,8 @@ import {
   getTreeByUid,
 } from "../util/roamApi";
 
+import { parseRange } from "../util/dates";
+
 import {
   acquireSyncLock,
   releaseSyncLock,
@@ -165,6 +167,10 @@ export const syncEventToGCal = async (roamUid, fcEvent, calendarId) => {
         ? new Date(fcEvent.end).toISOString().split("T")[0]
         : new Date(fcEvent.start).toISOString().split("T")[0];
 
+      // Detect if original event had a time range (not just start time)
+      // Check for time ranges in block content (e.g., "13:00-14:00")
+      const hadOriginalTimeRange = parseRange(blockContent) !== null;
+
       await saveSyncMetadata(
         roamUid,
         createSyncMetadata({
@@ -176,6 +182,7 @@ export const syncEventToGCal = async (roamUid, fcEvent, calendarId) => {
           lastSync: Date.now(),
           eventEndDate,
           isTodo,
+          hadOriginalTimeRange,
         })
       );
 
@@ -399,6 +406,17 @@ export const applyImport = async (gcalEvent, calendarConfig) => {
       // Extract end date for cleanup purposes
       const eventEndDate = getEventEndDateString(gcalEvent);
 
+      // For new imports, check if the event has a non-default duration
+      // If it does, mark it as having a time range so future syncs preserve it
+      let hadOriginalTimeRange = false;
+      if (gcalEvent.start.dateTime && gcalEvent.end?.dateTime) {
+        const startDate = new Date(gcalEvent.start.dateTime);
+        const endDate = new Date(gcalEvent.end.dateTime);
+        const durationMs = endDate.getTime() - startDate.getTime();
+        const isDefaultDuration = durationMs === 3600000; // 1 hour
+        hadOriginalTimeRange = !isDefaultDuration;
+      }
+
       await saveSyncMetadata(
         newBlockUid,
         createSyncMetadata({
@@ -409,6 +427,7 @@ export const applyImport = async (gcalEvent, calendarConfig) => {
           roamUpdated: Date.now(),
           eventEndDate,
           isTodo,
+          hadOriginalTimeRange,
         })
       );
     }
@@ -500,7 +519,11 @@ export const applyGCalToRoamUpdate = async (roamUid, gcalEvent, calendarConfig) 
       return await applyImport(gcalEvent, calendarConfig);
     }
 
-    const content = gcalEventToRoamContent(gcalEvent, calendarConfig);
+    // Get metadata to check if original event had a time range
+    const metadata = getSyncMetadata(roamUid);
+    const hadOriginalTimeRange = metadata?.hadOriginalTimeRange || false;
+
+    const content = gcalEventToRoamContent(gcalEvent, calendarConfig, hadOriginalTimeRange);
     await updateBlock(roamUid, content);
 
     // Check if the date changed and move the block if needed

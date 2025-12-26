@@ -216,7 +216,7 @@ const TagPopover = ({
         <div className="fc-gcal-header">
           <div className="fc-gcal-calendar-name">
             <Icon icon="calendar" size={12} style={{ marginRight: "6px" }} />
-            <span>{calendarConfig?.name || tag.name}</span>
+            <span>{calendarConfig?.displayName || calendarConfig?.name || tag.name}</span>
           </div>
           <Button
             icon="cog"
@@ -404,8 +404,9 @@ const GroupedCalendarItem = ({ calendar, onToggle, onAliasUpdate }) => {
         <span
           className="fc-gcal-grouped-name"
           onClick={() => setIsExpanded(!isExpanded)}
+          title={`ID: ${calendar.id}`}
         >
-          {calendar.name}
+          {calendar.displayName || calendar.name}
         </span>
         <Icon
           icon={isExpanded ? "chevron-up" : "chevron-down"}

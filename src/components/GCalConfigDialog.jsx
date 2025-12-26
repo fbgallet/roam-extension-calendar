@@ -47,6 +47,7 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [userEmail, setUserEmail] = useState("");
 
   // Calendars
   const [availableCalendars, setAvailableCalendars] = useState([]);
@@ -73,15 +74,24 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
 
   // Listen for auth state changes
   useEffect(() => {
-    const unsubscribe = onAuthStateChange((authenticated) => {
+    const unsubscribe = onAuthStateChange(async (authenticated) => {
       setIsConnected(authenticated);
       if (authenticated) {
-        fetchAvailableCalendars();
-        fetchAvailableTaskLists();
+        // Only fetch if dialog is open to avoid unnecessary API calls
+        if (isOpen) {
+          try {
+            // Small delay to ensure GAPI client token is synchronized
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            await fetchAvailableCalendars();
+            await fetchAvailableTaskLists();
+          } finally {
+            setIsLoading(false);
+          }
+        }
       }
     });
     return unsubscribe;
-  }, []);
+  }, [isOpen]);
 
   const loadInitialState = async () => {
     setIsLoading(true);
@@ -118,10 +128,34 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
     }
   };
 
-  const fetchAvailableCalendars = async () => {
+  const fetchAvailableCalendars = async (retryCount = 0) => {
     try {
       const calendars = await listCalendars();
+
+      // Log calendar details for debugging
+      console.log("=== Google Calendars Data ===");
+      calendars.forEach((cal) => {
+        console.log(`Calendar: "${cal.summaryOverride || cal.summary}"`);
+        console.log(`  - id: ${cal.id}`);
+        console.log(`  - summary: ${cal.summary}`);
+        console.log(
+          `  - summaryOverride: ${cal.summaryOverride || "(not set)"}`
+        );
+        console.log(`  - description: ${cal.description || "(not set)"}`);
+        console.log(`  - owner: ${cal.owner?.email || "(not set)"}`);
+        console.log(`  - backgroundColor: ${cal.backgroundColor}`);
+        console.log(`  - primary: ${cal.primary || false}`);
+        console.log("---");
+      });
+
+      // Get user email from primary calendar
+      const primaryCalendar = calendars.find((cal) => cal.primary);
+      if (primaryCalendar) {
+        setUserEmail(primaryCalendar.id);
+      }
+
       setAvailableCalendars(calendars);
+      setError(""); // Clear any previous errors
 
       // Initialize configs for any new calendars
       const existingConfigs = getConnectedCalendars();
@@ -130,22 +164,36 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
       const newConfigs = [...existingConfigs];
       for (const cal of calendars) {
         if (!existingIds.has(cal.id)) {
+          // Use summaryOverride if available (user's custom name), otherwise use summary (original name)
+          const displayName = cal.summaryOverride || cal.summary;
           newConfigs.push({
             ...DEFAULT_CALENDAR_CONFIG,
             id: cal.id,
-            name: cal.summary,
-            displayName: cal.summary,
+            name: cal.summary, // Store original name
+            displayName: displayName, // Store user's display name
             triggerTags: [],
             syncEnabled: false, // Disabled by default
             isDefault: newConfigs.length === 0,
             backgroundColor: cal.backgroundColor || null,
           });
         } else {
-          // Update backgroundColor for existing calendars
+          // Update backgroundColor and name for existing calendars
+          // Preserve user's custom displayName if it exists
           const existingIndex = newConfigs.findIndex((c) => c.id === cal.id);
           if (existingIndex !== -1) {
             newConfigs[existingIndex].backgroundColor =
               cal.backgroundColor || null;
+            newConfigs[existingIndex].name = cal.summary; // Update original name from Google
+            // Only update displayName if it wasn't customized by the user
+            // (i.e., if it still matches the old name or doesn't exist)
+            if (
+              !newConfigs[existingIndex].displayName ||
+              newConfigs[existingIndex].displayName ===
+                newConfigs[existingIndex].name
+            ) {
+              newConfigs[existingIndex].displayName =
+                cal.summaryOverride || cal.summary;
+            }
           }
         }
       }
@@ -158,6 +206,19 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
       setCalendarConfigs(filteredConfigs);
     } catch (err) {
       console.error("Failed to fetch calendars:", err);
+
+      // Retry up to 2 times with exponential backoff (after fresh auth, token might not be ready)
+      if (retryCount < 2) {
+        const delay = (retryCount + 1) * 1000; // 1s, then 2s
+        console.log(
+          `Retrying calendar fetch in ${delay}ms... (attempt ${
+            retryCount + 1
+          }/2)`
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return fetchAvailableCalendars(retryCount + 1);
+      }
+
       setError("Failed to fetch calendars from Google");
     }
   };
@@ -182,14 +243,21 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
 
     try {
       await authenticate();
-      setIsConnected(true);
-      await fetchAvailableCalendars();
-      await fetchAvailableTaskLists();
+      // The onAuthStateChange listener will handle fetching calendars and stopping the spinner
     } catch (err) {
-      setError("Failed to connect to Google");
       console.error(err);
-    } finally {
       setIsLoading(false);
+      // Check if the error might be due to popup blocking
+      const errorMessage = err?.message || "";
+      if (errorMessage.includes("popup") || errorMessage.includes("blocked")) {
+        setError(
+          "Connection failed. Please check if your browser is blocking popups (look for an icon in the address bar)."
+        );
+      } else {
+        setError(
+          "Failed to connect to Google. If you don't see a popup window, please check if your browser is blocking popups."
+        );
+      }
     }
   };
 
@@ -200,6 +268,7 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
     try {
       await signOut();
       setIsConnected(false);
+      setUserEmail("");
       setAvailableCalendars([]);
       setAvailableTaskLists([]);
     } catch (err) {
@@ -349,6 +418,12 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
               />
               <strong>
                 {isConnected ? "Connected to Google" : "Not connected"}
+                {isConnected && userEmail && (
+                  <span style={{ fontWeight: "normal", color: "#5c7080" }}>
+                    {" "}
+                    ({userEmail})
+                  </span>
+                )}
               </strong>
             </div>
             <Button
@@ -469,7 +544,11 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
                   </span>
                 )}
                 <span
-                  style={{ color: "#5c7080", fontSize: "12px", marginLeft: "10px" }}
+                  style={{
+                    color: "#5c7080",
+                    fontSize: "12px",
+                    marginLeft: "10px",
+                  }}
                 >
                   (~{Math.round(syncStats.estimatedBytes / 1024)} KB)
                 </span>
@@ -501,8 +580,8 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
                 }}
               >
                 "Unsync past events" removes sync data for completed events.
-                "Reinitialize sync" clears all sync connections (events remain in
-                both Roam and Google Calendar).
+                "Reinitialize sync" clears all sync connections (events remain
+                in both Roam and Google Calendar).
               </p>
             </Card>
           </>
@@ -530,6 +609,18 @@ const CalendarsTable = ({ calendars, configs, onConfigChange }) => {
       name: cal.summary,
     };
     return { ...cal, config };
+  });
+
+  // Sort calendars: enabled ones first, then disabled ones, then alphabetically
+  rows.sort((a, b) => {
+    // Sort by enabled status
+    if (a.config.syncEnabled && !b.config.syncEnabled) return -1;
+    if (!a.config.syncEnabled && b.config.syncEnabled) return 1;
+
+    // Then sort alphabetically by name
+    const nameA = a.summaryOverride || a.summary;
+    const nameB = b.summaryOverride || b.summary;
+    return nameA.localeCompare(nameB);
   });
 
   if (rows.length === 0) {
@@ -573,6 +664,15 @@ const CalendarsTable = ({ calendars, configs, onConfigChange }) => {
  */
 const CalendarRow = ({ calendar, config, onConfigChange }) => {
   const [tagsStr, setTagsStr] = useState((config.triggerTags || []).join(", "));
+  const [displayName, setDisplayName] = useState(
+    config.displayName || config.name || calendar.summary
+  );
+  const [isEditingName, setIsEditingName] = useState(false);
+
+  // Update displayName when config changes
+  useEffect(() => {
+    setDisplayName(config.displayName || config.name || calendar.summary);
+  }, [config.displayName, config.name, calendar.summary]);
 
   const handleTagsConfirm = () => {
     const tags = tagsStr
@@ -580,6 +680,28 @@ const CalendarRow = ({ calendar, config, onConfigChange }) => {
       .map((t) => t.trim().toLowerCase())
       .filter((t) => t.length > 0);
     onConfigChange(calendar.id, { triggerTags: tags });
+  };
+
+  const handleNameConfirm = () => {
+    setIsEditingName(false);
+    const trimmedName = displayName.trim();
+    if (trimmedName && trimmedName !== config.displayName) {
+      onConfigChange(calendar.id, { displayName: trimmedName });
+    } else if (!trimmedName) {
+      // Reset to original if empty
+      const fallbackName = config.name || calendar.summary;
+      setDisplayName(fallbackName);
+      onConfigChange(calendar.id, { displayName: fallbackName });
+    }
+  };
+
+  const handleNameKeyDown = (e) => {
+    if (e.key === "Enter") {
+      handleNameConfirm();
+    } else if (e.key === "Escape") {
+      setDisplayName(config.displayName || config.name || calendar.summary);
+      setIsEditingName(false);
+    }
   };
 
   return (
@@ -599,9 +721,27 @@ const CalendarRow = ({ calendar, config, onConfigChange }) => {
             className="fc-color-dot"
             style={{ backgroundColor: calendar.backgroundColor }}
           />
-          <span className="fc-name-text" title={calendar.summary}>
-            {calendar.summary}
-          </span>
+          {isEditingName ? (
+            <InputGroup
+              small
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              onBlur={handleNameConfirm}
+              onKeyDown={handleNameKeyDown}
+              autoFocus
+              className="fc-name-input"
+              style={{ width: "100%" }}
+            />
+          ) : (
+            <span
+              className="fc-name-text"
+              title={`ID: ${calendar.id}\nClick to edit display name`}
+              onClick={() => setIsEditingName(true)}
+              style={{ cursor: "text" }}
+            >
+              {config.displayName || config.name || calendar.summary}
+            </span>
+          )}
         </div>
       </td>
       <td>

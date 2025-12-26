@@ -238,12 +238,27 @@ const Calendar = ({
     if (title.includes(`[[${dnpTitle}]]`)) {
       title = title.replace(`[[${dnpTitle}]]`, "");
     }
+
+    // Remove timestamps from title for display (they're redundant with timeText or grid position)
+    // This handles both ranges (21:30-22:30) and single times (21:30)
+    if (info.event.extendedProps?.hasTime) {
+      // Remove time ranges like "21:30-22:30" or "9:30pm-10:30pm"
+      title = title.replace(/\d{1,2}:\d{2}\s*(?:am|pm)?\s*-\s*\d{1,2}:\d{2}\s*(?:am|pm)?/gi, "");
+      // Remove single timestamps like "21:30" or "9:30pm"
+      title = title.replace(/\b\d{1,2}:\d{2}\s*(?:am|pm)?/gi, "");
+    }
+
     title = title.trim();
+
+    // Only show timeText in month view, not in time grid views where position indicates time
+    const isTimeGridView = info.view.type.includes("time");
+    const shouldShowTime = !isTimeGridView;
+
     return (
       <Event
         displayTitle={title}
         event={info.event}
-        timeText={info.timeText}
+        timeText={shouldShowTime ? info.timeText : null}
         hasCheckbox={hasCheckbox}
         isChecked={isChecked}
         tagsToDisplay={tagsToDisplay}

@@ -195,17 +195,28 @@ export const resolveReferences = (content, refsArray = [], once = false) => {
   uidRegex.lastIndex = 0;
   if (uidRegex.test(content)) {
     uidRegex.lastIndex = 0;
-    let matches = content.matchAll(uidRegex);
-    for (const match of matches) {
+    // Note: uidRegex already has negative lookbehind/lookahead for backticks ((?<!`) and (?!`)),
+    // so references inside backticks like `code ((uid))` are automatically preserved
+
+    // Collect all matches first to avoid regex state issues
+    let matches = Array.from(content.matchAll(uidRegex));
+
+    // Process matches in reverse order to avoid index shifting when replacing
+    for (let i = matches.length - 1; i >= 0; i--) {
+      const match = matches[i];
       let refUid = match[0].slice(2, -2);
+
       // prevent infinite loop !
       let isNewRef = !refsArray.includes(refUid);
       refsArray.push(refUid);
+
       let resolvedRef = getBlockContentByUid(refUid);
       uidRegex.lastIndex = 0;
       if (uidRegex.test(resolvedRef) && isNewRef && !once)
         resolvedRef = resolveReferences(resolvedRef, refsArray);
-      content = content.replace(match, resolvedRef);
+
+      // Replace using index to ensure we replace the correct occurrence
+      content = content.slice(0, match.index) + resolvedRef + content.slice(match.index + match[0].length);
     }
   }
   return content;

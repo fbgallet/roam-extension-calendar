@@ -663,7 +663,11 @@ const Event = ({
               {/* Show original calendar/task list name */}
               {event.extendedProps?.gCalCalendarName && (
                 <div className="fc-gcal-calendar-source">
-                  <Icon icon="calendar" size={12} />
+                  <img
+                    src={googleCalendarIcon}
+                    alt=""
+                    className="fc-gcal-icon-small"
+                  />
                   <span>{event.extendedProps.gCalCalendarName}</span>
                 </div>
               )}

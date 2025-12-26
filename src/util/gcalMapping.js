@@ -9,6 +9,7 @@ import { SyncStatus } from "../models/SyncMetadata";
 import { dateToISOString } from "./dates";
 import { getUseOriginalColors } from "../services/googleCalendarService";
 import { getBlockContentByUid } from "./roamApi";
+import { uidRegex } from "./regex";
 
 // Google Calendar event colorId to hex color mapping
 // See: https://developers.google.com/calendar/api/v3/reference/colors
@@ -121,7 +122,7 @@ export const gcalEventToFCEvent = (gcalEvent, calendarConfig) => {
       // GCal-specific metadata
       gCalId: gcalEvent.id,
       gCalCalendarId: calendarConfig.id,
-      gCalCalendarName: calendarConfig.name, // Original calendar name for display
+      gCalCalendarName: calendarConfig.displayName || calendarConfig.name, // Display name for calendar
       gCalEtag: gcalEvent.etag,
       gCalUpdated: gcalEvent.updated,
       description: gcalEvent.description || "",
@@ -169,6 +170,24 @@ export const fcEventToGCalEvent = (fcEvent, calendarId, roamUid = null) => {
       title = parentContent;
     }
   }
+
+  // Extract block references and their resolved content BEFORE cleaning
+  // We'll add these to the description as a "legend"
+  const blockRefLegend = [];
+  if (title) {
+    // Reset regex state and find all block references (excluding those in backticks)
+    uidRegex.lastIndex = 0;
+    const matches = Array.from(title.matchAll(uidRegex));
+    for (const match of matches) {
+      const refUid = match[0].slice(2, -2); // Remove (( and ))
+      const resolvedContent = getBlockContentByUid(refUid);
+      if (resolvedContent) {
+        blockRefLegend.push({ ref: match[0], content: resolvedContent });
+      }
+    }
+  }
+
+  // Keep block references in title, just clean Roam syntax
   title = cleanTitleForGCal(title);
   const isAllDay = fcEvent.allDay || !fcEvent.extendedProps?.hasTime;
 
@@ -179,14 +198,25 @@ export const fcEventToGCalEvent = (fcEvent, calendarId, roamUid = null) => {
   // Build description with optional Roam link
   let description = fcEvent.extendedProps?.description || "";
 
+  // Remove old block references section and Roam link if they exist
+  description = description.replace(/\n*---\nBlock references:[\s\S]*?(?=\n---\nRoam block:|$)/s, "").trim();
+  description = description.replace(/\n*---\nRoam block:.*$/s, "").trim();
+
+  // Add block references legend if there are any
+  if (blockRefLegend.length > 0) {
+    description += "\n\n---\nBlock references:";
+    for (const { ref, content } of blockRefLegend) {
+      // Clean the resolved content for display (remove Roam syntax)
+      const cleanedContent = cleanTitleForGCal(content);
+      description += `\n${ref} = ${cleanedContent}`;
+    }
+  }
+
   // Add Roam block link if roamUid provided
   if (roamUid) {
     const graphName = window.roamAlphaAPI?.graph?.name;
     if (graphName) {
       const roamLink = `https://roamresearch.com/#/app/${graphName}/page/${roamUid}`;
-      // Remove old Roam link if exists
-      description = description.replace(/\n*---\nRoam block:.*$/s, "").trim();
-      // Add new link
       description += `\n\n---\nRoam block: ${roamLink}`;
     }
   }
@@ -283,11 +313,20 @@ export const cleanTitleForGCal = (title) => {
   cleaned = cleaned.replace(/\{\{\[\[TODO\]\]\}\}/g, "[[TODO]]");
   cleaned = cleaned.replace(/\{\{\[\[DONE\]\]\}\}/g, "[[DONE]]");
 
+  // Protect backtick content by temporarily replacing it with placeholders
+  // This preserves backticks and their content for proper round-trip sync
+  const backtickContent = [];
+  cleaned = cleaned.replace(/`([^`]+)`/g, (match, content) => {
+    backtickContent.push(content);
+    return `__BACKTICK_${backtickContent.length - 1}__`;
+  });
+
   // Remove page references [[Page Name]] EXCEPT [[TODO]] and [[DONE]]
   cleaned = cleaned.replace(/\[\[(?!TODO\]\]|DONE\]\])([^\]]+)\]\]/g, "$1");
 
-  // Remove block references ((block-uid))
-  cleaned = cleaned.replace(/\(\([a-zA-Z0-9_-]+\)\)/g, "");
+  // Keep block references ((block-uid)) in the title - they will be explained in the description
+  // Only remove them if they're embeds
+  // cleaned = cleaned.replace(/\(\([a-zA-Z0-9_-]+\)\)/g, "");
 
   // Remove hashtags #tag or #[[tag]]
   cleaned = cleaned.replace(/#\[\[([^\]]+)\]\]/g, "");
@@ -301,6 +340,11 @@ export const cleanTitleForGCal = (title) => {
 
   // Remove other Roam syntax (but not [[TODO]]/[[DONE]])
   cleaned = cleaned.replace(/\{\{[^}]+\}\}/g, "");
+
+  // Restore backtick content exactly as-is for proper round-trip sync
+  cleaned = cleaned.replace(/__BACKTICK_(\d+)__/g, (match, index) => {
+    return `\`${backtickContent[parseInt(index)]}\``;
+  });
 
   // Clean up extra whitespace
   cleaned = cleaned.replace(/\s+/g, " ").trim();
@@ -450,8 +494,12 @@ export const convertGCalTodoToRoam = (title) => {
  * Extract Roam block content from GCal event
  * Used when importing a GCal event to Roam
  * Converts [[TODO]]/[[DONE]] in GCal back to {{[[TODO]]}}/{{[[DONE]]}} in Roam
+ * @param {object} gcalEvent - Google Calendar event
+ * @param {object} calendarConfig - Calendar configuration
+ * @param {boolean} hadOriginalTimeRange - If true, the original Roam event had a time range (e.g., "13:00-14:00");
+ *                                         if false/undefined, it only had a start time or was all-day
  */
-export const gcalEventToRoamContent = (gcalEvent, calendarConfig) => {
+export const gcalEventToRoamContent = (gcalEvent, calendarConfig, hadOriginalTimeRange = null) => {
   let content = "";
 
   // Add time if it's a timed event
@@ -461,12 +509,28 @@ export const gcalEventToRoamContent = (gcalEvent, calendarConfig) => {
     const minutes = startDate.getMinutes();
     const timeStr = `${hours}:${String(minutes).padStart(2, "0")}`;
 
-    if (gcalEvent.end?.dateTime) {
+    // Only add end time if:
+    // 1. Original event had a time range (hadOriginalTimeRange === true), OR
+    // 2. This is a new import (hadOriginalTimeRange === null), OR
+    // 3. The end time is different from default 1-hour duration
+    const shouldIncludeEndTime = hadOriginalTimeRange === true || hadOriginalTimeRange === null;
+
+    if (shouldIncludeEndTime && gcalEvent.end?.dateTime) {
       const endDate = new Date(gcalEvent.end.dateTime);
       const endHours = endDate.getHours();
       const endMinutes = endDate.getMinutes();
       const endTimeStr = `${endHours}:${String(endMinutes).padStart(2, "0")}`;
-      content += `${timeStr}-${endTimeStr} `;
+
+      // Check if end time is exactly 1 hour after start (default duration)
+      const durationMs = endDate.getTime() - startDate.getTime();
+      const isDefaultDuration = durationMs === 3600000; // 1 hour in milliseconds
+
+      // Only include the range if original had it, or if it's not the default 1-hour duration
+      if (hadOriginalTimeRange === true || (hadOriginalTimeRange === null && !isDefaultDuration)) {
+        content += `${timeStr}-${endTimeStr} `;
+      } else {
+        content += `${timeStr} `;
+      }
     } else {
       content += `${timeStr} `;
     }
