@@ -6,6 +6,9 @@
 
 ### Fixes
 
+- events spanning multiple months were only visible in the starting month
+- more stable multidays events and timestamps
+
 ## v.5 (October 22nd, 2024) Drag&drop tag
 
 ### Updates

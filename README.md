@@ -2,18 +2,12 @@
 
 ### A comprehensive calendar to handle your tasks and have an overview of events or any tagged content in your Daily Note Pages.
 
-🆕 New in v.5:
+🆕 New in v.6 (January 2026):
 
-- drag&drop event tags to create new event
-- 12h-format support
-- modifier key when dragging a block into the calendar is now consistent with native Roam behavior (Alt key to reference, no key to move)
+- Two-way sync with **Google calendar** (see section below for detailed instructions)
+- a lot of fixes
 
-🆕 New in v.4:
-
-- **Multi-day events** full support, see 'Events with date attributes' section below
-- user tags have now aliases and can be easily added/removed
-- options to display substaks and sort events by alpanumeric order (default) or block order
-- a lot of small fixes: see [changelog here for more details on updates and fixes](https://github.com/fbgallet/roam-extension-calendar/blob/main/CHANGELOG.md)
+See [changelog here for more details on updates and fixes](https://github.com/fbgallet/roam-extension-calendar/blob/main/CHANGELOG.md)
 
 ![Full calendar gif demo 1](https://github.com/fbgallet/roam-extension-calendar/assets/74436347/81e22cb5-9d4c-45c9-9f6f-36160d7e7631)
 
@@ -81,7 +75,7 @@ To define a duration you can:
 
 In the settings, you can change how timestamps are displayed in the calendar and inserted in blocks.
 
-## Events with date attributes (🆕 new in v.4)
+## Events with date attributes
 
 Using "date attribute" is a way to define a block as a calendar event (it will always be displayed in the calendar if matching filter tags), anywhere in your graph. The term "attribute" designates a broader category than roam `attributes::`, as it can also refer to `#tags`, `[[page mentions]]`, or specific keywords to defined a given type of date:
 
@@ -124,19 +118,35 @@ Here is an example of an event with date attributes and tags in direct children:
 
 **The selected tags' state (colors and choosen tags as filters) is retained from one session to another, and separately for the main page and the sidebar concerning the choosen tags.**
 
-## Future developments
+## Google Calendar support
 
-- Recursive events
-- Import from Google calendar and Outlook
-- Notifications
-- ...
+By connecting a Google account to Full Calendar, you can:
 
-## Support my work
+- view all events from multiple Google calendars in Full Calendar, with access to rich description, location, attendees and file attachments, including recurring events,
+- sync on demand any event to or from your Roam graph. It's a two-way sync for event title, status and of course date and time.
 
-This extension represents a significant amount of work. If you want to encourage me to develop further and enhance it, you can [buy me a coffee ☕ here](https://buymeacoffee.com/fbgallet). Thanks in advance for your support! 🙏
+Thanks to this integration, you can create events on your smartphone with the calendar app of your choice and see or update them in Roam, while benefiting from Google Calendar's reminder features. Or you can quickly create events in Roam and sync them instantly with your other calendar app!
 
----
+Any event created in Full Calendar can be easily synced with a given Google Calendar. Or you can use command palette or block context menu command `Full Calendar: Sync to default Google calendar" to sync any block, provided that it is on a daily note or mentions one, or that it mentions a start and/or end in its child blocks
 
-### For any question or suggestion, DM me on **Twitter** and follow me to be informed of updates and new extensions : [@fbgallet](https://twitter.com/fbgallet).
+### Configuration
+
+Connect a Google account by opening the Google Calendar configuration dialog in the Full calendar settings or by clicking on the "Google Calendar" tag in the filter bar, then the gear icon. A popup window should open, prompting you to choose your Google account (if it doesn't open, popup blocking is enabled in your browser; an icon should appear in the address bar to grant your browser permission). Check the authorization for Google Calendar and Google Tasks (also supported).
+
+If the connection was successful, it will show "✅ Connected to google" at the top of the dialog box. And in the calendar filter bar a green dot 🟢 will be displayed. The dot will be red 🔴 in case of disconnection (or when you are offline, for example). It can be sometimes necessary to reconnect your Google account if the connection token has expired.
+
+Once connected, the list of your calendars appears. Select a default calendar and customize the tags and aliases. The first tag will be automatically inserted into a block that you synchronize or will trigger synchronization if you insert it yourself.
+
+A calendar can be used as a "separate" tag (from the main Google calendar tag) to facilitate selective display or sorting or to assign it a specific color. By default, all calendars will be linked to the Google calendar tag
+
+You can use calendar colors as they are defined in Google calendar (with a wide palette) or use the more limited palette specific to Full Calendar.
+
+You can choose the default format for checkboxes in Google Calendar events: in other words, how `{{[[TODO]]}}` and `{{[[DONE]]}}` will appear (and how they can be manually set or updated from a Google calendar event). Either in standard Markdown format `[ ] / [x]`, or in Roam page format without the curly braces: `[[TODO]] / DONE`
+
+## If you want to support my work
+
+If you want to encourage me to develop further and enhance Full Calendar extension, you can [buy me a coffee ☕ here](https://buymeacoffee.com/fbgallet) or [sponsor me on Github](https://github.com/sponsors/fbgallet). Thanks in advance for your support! 🙏
+
+For any question or suggestion, DM me on **X/Twitter** and follow me to be informed of updates and new extensions : [@fbgallet](https://x.com/fbgallet), or on Bluesky: [@fbgallet.bsky.social](https://bsky.app/profile/fbgallet.bsky.social)
 
 Please report any issue [here](https://github.com/fbgallet/roam-extension-calendar/issues).

@@ -976,7 +976,21 @@
 
 /* GCal config dialog */
 .fc-gcal-config-dialog {
+  height: 95vh;
   min-width: 400px;
+}
+
+.fc-gcal-config-dialog .bp3-dialog-body {
+  overflow: auto;
+  margin: 10px;
+}
+
+.fc-gcal-config-dialog .bp3-dialog-body .bp3-card {
+  padding: 10px;
+}
+
+.fc-gcal-config-dialog .bp3-dialog-body .bp3-card .bp3-form-group {
+  margin: 0;
 }
 
 .fc-gcal-calendar-list {
