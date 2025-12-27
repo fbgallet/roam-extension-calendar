@@ -219,18 +219,29 @@ export const displayGCalConfigDialog = () => {
   container.classList.add("fc-gcal-config-dialog-container");
   targetElt.appendChild(container);
 
-  function unmountGCalConfigDialog() {
+  function unmountGCalConfigDialog(options = {}) {
     const node = document.querySelector(".fc-gcal-config-dialog-container");
     if (node) {
       ReactDOM.unmountComponentAtNode(node);
       node.remove();
     }
+
+    // Trigger config change notification if calendar settings changed
+    // The listener pattern will handle updating all mounted calendar components
+    if (options?.shouldRemountCalendar) {
+      const { notifyCalendarConfigChanged } = require("../contexts/CalendarConfigContext");
+      notifyCalendarConfigChanged();
+    }
   }
+
+  const handleDialogClose = (options) => {
+    unmountGCalConfigDialog(options);
+  };
 
   ReactDOM.render(
     <GCalConfigDialog
       isOpen={true}
-      onClose={() => unmountGCalConfigDialog()}
+      onClose={handleDialogClose}
     />,
     container
   );

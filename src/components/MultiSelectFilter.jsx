@@ -11,6 +11,7 @@ import {
 import { MultiSelect } from "@blueprintjs/select";
 import { useState, useEffect, useRef } from "react";
 import { calendarTag, mapOfTags } from "..";
+import { useCalendarConfigVersion } from "../contexts/CalendarConfigContext";
 
 import { unmountApp } from "./App";
 import { saveViewSetting } from "../util/data";
@@ -37,10 +38,12 @@ const MultiSelectFilter = ({
   initialSticky,
   initialMinimized,
 }) => {
+  const configVersion = useCalendarConfigVersion();
   const [popoverToOpen, setPopoverToOpen] = useState("");
   const [queryStr, setQueryStr] = useState("");
   const [isSticky, setIsSticky] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [availableTags, setAvailableTags] = useState([...mapOfTags]);
   const doubleClick = useRef(false);
 
   useEffect(() => {
@@ -48,10 +51,23 @@ const MultiSelectFilter = ({
     if (initialMinimized) handleMinimize();
   }, []);
 
+  // Listen for calendar config changes and refresh available tags
+  const isFirstMount = useRef(true);
+  useEffect(() => {
+    // Skip first mount - only react to actual config changes
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      return;
+    }
+    // Update available tags list to reflect new tags from config
+    setAvailableTags([...mapOfTags]);
+  }, [configVersion]);
+
   const handleTagSelect = (tag) => {
     // if new tag
     if (!mapOfTags.find((existingTag) => existingTag.name === tag.name)) {
       mapOfTags.push(tag);
+      setAvailableTags([...mapOfTags]); // Update available tags when adding new tag
       setTagsToDisplay((prev) => [...prev, tag]);
       isDataToReload.current = true;
     } else {
@@ -106,8 +122,8 @@ const MultiSelectFilter = ({
 
   const handleAddAllTags = (e) => {
     e.stopPropagation();
-    mapOfTags.forEach((tag) => tag.display(isInSidebar));
-    setTagsToDisplay([...mapOfTags]);
+    availableTags.forEach((tag) => tag.display(isInSidebar));
+    setTagsToDisplay([...availableTags]);
   };
 
   const handleMinimize = () => {
@@ -252,7 +268,7 @@ const MultiSelectFilter = ({
       <MultiSelect
         placeholder="Click to Multiselect"
         fill={true}
-        items={mapOfTags}
+        items={availableTags}
         menuProps={{
           className: "fc-filter-menu",
         }}
@@ -299,11 +315,11 @@ const MultiSelectFilter = ({
           ),
           tagProps: ({ props }) => {
             // console.log("props :>> ", props);
-            // console.log("mapOfTags :>> ", mapOfTags);
+            // console.log("availableTags :>> ", availableTags);
             const tag =
               props.children === "• not tagged"
                 ? calendarTag
-                : mapOfTags.find((tag) => tag.pages[0] === props.children);
+                : availableTags.find((tag) => tag.pages[0] === props.children);
             if (!tag) return;
 
             // Add connection status styling to Google Calendar tags

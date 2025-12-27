@@ -312,7 +312,7 @@ const updateStoredView = (period, isTimeGrid, suffix = "") => {
 
 const updateTagPagesWithUserList = (tagName, pageList) => {
   if (!notNullOrCommaRegex.test(pageList)) {
-    mapOfTags = deleteTagByName(tagName);
+    deleteTagByName(tagName);
     return;
   }
   const tag = getTagFromName(tagName);
@@ -425,27 +425,32 @@ const initializeMapOfTags = () => {
 
 const updageUserTags = (list) => {
   if (!list.trim()) return;
-  const defaultTags = mapOfTags.filter((tag) => !tag.isUserDefined);
-  // console.log("defaultTags :>> ", defaultTags);
+
+  // Remove all user-defined tags first (mutate in place)
+  for (let i = mapOfTags.length - 1; i >= 0; i--) {
+    if (mapOfTags[i].isUserDefined) {
+      mapOfTags.splice(i, 1);
+    }
+  }
+
   const userTagsNameArr = getTrimedArrayFromList(list);
   const userTags = userTagsNameArr.map(
     (tagName) =>
       new EventTag({
         name: tagName,
-        // color: getStoredTagColor(tagName) || Colors.GRAY3,
         color: Colors.GRAY3,
         ...getStoredTagInfos(tagName),
         isUserDefined: true,
       })
   );
-  // console.log("userTags :>> ", userTags);
+
+  // Find insert position (before TODO if it exists at end)
+  const lastTag = mapOfTags.at(-1);
   const indexToInsert =
-    defaultTags.at(-1).name === "TODO"
-      ? defaultTags.length - 1
-      : defaultTags.length;
-  mapOfTags = defaultTags;
+    lastTag && lastTag.name === "TODO"
+      ? mapOfTags.length - 1
+      : mapOfTags.length;
   mapOfTags.splice(indexToInsert, 0, ...userTags);
-  // console.log("mapOfTags with user tags :>> ", mapOfTags);
 };
 
 // const getStoredTagColor = (tagName) => {
@@ -484,8 +489,9 @@ const setTimeFormat = (example) => {
 // Initialize EventTags for connected Google Calendars
 // - Calendars with showAsSeparateTag: false are grouped under the main "Google Calendar" tag
 // - Calendars with showAsSeparateTag: true get their own EventTag with displayName as the tag name
-export const initializeGCalTags = () => {
-  const connectedCalendars = getConnectedCalendars();
+// Optional: pass calendars directly to avoid potential async storage timing issues
+export const initializeGCalTags = (calendarsOverride = null) => {
+  const connectedCalendars = calendarsOverride || getConnectedCalendars();
   if (!connectedCalendars || !connectedCalendars.length) return;
 
   // Get the main "Google Calendar" tag
@@ -493,6 +499,23 @@ export const initializeGCalTags = () => {
   if (!mainGCalTag) {
     console.warn("Main 'Google calendar' tag not found");
     return;
+  }
+
+  // First, remove any GCal separate tags that are no longer configured as separate
+  const separateCalendarNames = connectedCalendars
+    .filter((cal) => cal.showAsSeparateTag)
+    .map((cal) => cal.displayName || cal.name);
+
+  // Remove GCal tags that are no longer separate (but keep non-GCal tags)
+  for (let i = mapOfTags.length - 1; i >= 0; i--) {
+    const tag = mapOfTags[i];
+    if (
+      tag.isGCalTag &&
+      tag.gCalCalendarId &&
+      !separateCalendarNames.includes(tag.name)
+    ) {
+      mapOfTags.splice(i, 1);
+    }
   }
 
   // Initialize arrays for the main tag
@@ -621,16 +644,34 @@ export const initializeGCalTags = () => {
 // Initialize EventTags for connected Google Task Lists
 // - Task lists with showAsSeparateTag: false are grouped under the main "Google Tasks" tag
 // - Task lists with showAsSeparateTag: true get their own EventTag with displayName as the tag name
-export const initializeGTaskTags = () => {
+// Optional: pass taskLists directly to avoid potential async storage timing issues
+export const initializeGTaskTags = (taskListsOverride = null) => {
   if (!getTasksEnabled()) {
     console.log("Google Tasks: Integration disabled");
     return;
   }
 
-  const connectedTaskLists = getConnectedTaskLists();
+  const connectedTaskLists = taskListsOverride || getConnectedTaskLists();
   if (!connectedTaskLists || !connectedTaskLists.length) {
     console.log("Google Tasks: No task lists configured");
     return;
+  }
+
+  // First, remove any GTask separate tags that are no longer configured as separate
+  const separateTaskListNames = connectedTaskLists
+    .filter((list) => list.showAsSeparateTag)
+    .map((list) => list.displayName || list.name);
+
+  // Remove GTask tags that are no longer separate (but keep non-GTask tags and main tag)
+  for (let i = mapOfTags.length - 1; i >= 0; i--) {
+    const tag = mapOfTags[i];
+    if (
+      tag.isGTaskTag &&
+      tag.gTaskListId &&
+      !separateTaskListNames.includes(tag.name)
+    ) {
+      mapOfTags.splice(i, 1);
+    }
   }
 
   // Check if main "Google Tasks" tag exists, create if not

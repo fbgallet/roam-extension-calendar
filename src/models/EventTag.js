@@ -90,10 +90,8 @@ export function getTagColorFromName(name) {
 
 export function deleteTagByName(name) {
   const tagIndex = mapOfTags.findIndex((tag) => tag.name === name);
-  if (tagIndex === -1) return mapOfTags;
-  const clone = [...mapOfTags];
-  clone.splice(tagIndex, 1);
-  return clone;
+  if (tagIndex === -1) return;
+  mapOfTags.splice(tagIndex, 1);
 }
 
 export function refreshTagsUids() {

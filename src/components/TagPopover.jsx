@@ -5,6 +5,7 @@ import { extensionStorage, mapOfTags } from "..";
 import { getTrimedArrayFromList, updateStoredTags } from "../util/data";
 import DeleteDialog from "./DeleteDialog";
 import GCalConfigDialog from "./GCalConfigDialog";
+import { notifyCalendarConfigChanged } from "../contexts/CalendarConfigContext";
 import {
   isAuthenticated,
   getConnectedCalendars,
@@ -181,10 +182,14 @@ const TagPopover = ({
 
         <GCalConfigDialog
           isOpen={isGCalDialogOpen}
-          onClose={() => {
+          onClose={(options) => {
             setIsGCalDialogOpen(false);
             setConnectedCalendars(getConnectedCalendars());
             setUseOriginalColors(getUseOriginalColors());
+            // If config changed, notify components to refresh
+            if (options?.shouldRemountCalendar) {
+              notifyCalendarConfigChanged();
+            }
           }}
         />
 
@@ -269,10 +274,14 @@ const TagPopover = ({
 
         <GCalConfigDialog
           isOpen={isGCalDialogOpen}
-          onClose={() => {
+          onClose={(options) => {
             setIsGCalDialogOpen(false);
             setConnectedCalendars(getConnectedCalendars());
             setUseOriginalColors(getUseOriginalColors());
+            // If config changed, notify components to refresh
+            if (options?.shouldRemountCalendar) {
+              notifyCalendarConfigChanged();
+            }
           }}
         />
 

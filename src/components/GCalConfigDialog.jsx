@@ -50,6 +50,7 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [userEmail, setUserEmail] = useState("");
+  const [configChanged, setConfigChanged] = useState(false);
 
   // Calendars
   const [availableCalendars, setAvailableCalendars] = useState([]);
@@ -80,6 +81,8 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
     const unsubscribe = onAuthStateChange(async (authenticated) => {
       setIsConnected(authenticated);
       if (authenticated) {
+        // Mark as changed since connecting affects the calendar
+        setConfigChanged(true);
         // Only fetch if dialog is open to avoid unnecessary API calls
         if (isOpen) {
           try {
@@ -275,6 +278,7 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
       setUserEmail("");
       setAvailableCalendars([]);
       setAvailableTaskLists([]);
+      setConfigChanged(true);
     } catch (err) {
       setError("Failed to disconnect");
       console.error(err);
@@ -284,14 +288,18 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
   };
 
   const handleCalendarConfigChange = (calendarId, updates) => {
+    setConfigChanged(true);
+
+    let finalConfigs;
+
     // Handle default calendar - only one can be default
     if (updates.isDefault === true) {
-      const updatedConfigs = calendarConfigs.map((cal) => ({
+      finalConfigs = calendarConfigs.map((cal) => ({
         ...cal,
         isDefault: cal.id === calendarId,
       }));
-      saveConnectedCalendars(updatedConfigs);
-      setCalendarConfigs(updatedConfigs);
+      saveConnectedCalendars(finalConfigs);
+      setCalendarConfigs(finalConfigs);
     } else {
       const updated = updateConnectedCalendar(calendarId, updates);
 
@@ -301,34 +309,41 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
 
         // If only one calendar is enabled, automatically set it as default
         if (enabledCalendars.length === 1) {
-          const updatedWithDefault = updated.map((cal) => ({
+          finalConfigs = updated.map((cal) => ({
             ...cal,
             isDefault: cal.syncEnabled,
           }));
-          saveConnectedCalendars(updatedWithDefault);
-          setCalendarConfigs(updatedWithDefault);
+          saveConnectedCalendars(finalConfigs);
+          setCalendarConfigs(finalConfigs);
         } else {
+          finalConfigs = updated;
           setCalendarConfigs(updated);
         }
       } else {
+        finalConfigs = updated;
         setCalendarConfigs(updated);
       }
     }
-    initializeGCalTags();
+    // Pass calendars directly to avoid async storage timing issues
+    initializeGCalTags(finalConfigs);
   };
 
   const handleTasksEnabledChange = (enabled) => {
+    setConfigChanged(true);
     setTasksEnabledState(enabled);
     setTasksEnabled(enabled);
     if (enabled) {
-      initializeGTaskTags();
+      // Pass current task list configs directly
+      initializeGTaskTags(taskListConfigs);
     }
   };
 
   const handleTaskListConfigChange = (taskListId, updates) => {
+    setConfigChanged(true);
     const updated = updateConnectedTaskList(taskListId, updates);
     setTaskListConfigs(updated);
-    initializeGTaskTags();
+    // Pass updated task lists directly to avoid async storage timing issues
+    initializeGTaskTags(updated);
   };
 
   const handleSyncIntervalChange = (value) => {
@@ -358,6 +373,7 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
   };
 
   const handleUseOriginalColorsChange = (enabled) => {
+    setConfigChanged(true);
     setUseOriginalColorsState(enabled);
     setUseOriginalColors(enabled);
 
@@ -408,10 +424,15 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
     setCheckboxFormat(format);
   };
 
+  const handleClose = () => {
+    // Always pass options object, with shouldRemountCalendar flag
+    onClose({ shouldRemountCalendar: configChanged });
+  };
+
   return (
     <Dialog
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       title="Google Integration"
       icon="cloud"
       className="fc-gcal-config-dialog"
@@ -633,7 +654,7 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
 
       <div className={Classes.DIALOG_FOOTER}>
         <div className={Classes.DIALOG_FOOTER_ACTIONS}>
-          <Button onClick={onClose}>Close</Button>
+          <Button onClick={handleClose}>Close</Button>
         </div>
       </div>
     </Dialog>

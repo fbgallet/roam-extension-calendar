@@ -19,6 +19,7 @@ import {
 import { useState, useEffect, useRef } from "react";
 import Event from "./Event";
 import MultiSelectFilter from "./MultiSelectFilter";
+import { useCalendarConfigVersion } from "../contexts/CalendarConfigContext";
 import {
   createChildBlock,
   createNewPageIfNotExisting,
@@ -89,6 +90,7 @@ const Calendar = ({
   const [filterLogic, setFilterLogic] = useState(
     initialSettings.logic !== null ? initialSettings.logic : "Or"
   );
+  const configVersion = useCalendarConfigVersion();
   const [tagsToDisplay, setTagsToDisplay] = useState(
     mapOfTags.filter((tag) => tag["isToDisplay" + (isInSidebar ? "InSb" : "")])
   );
@@ -127,6 +129,23 @@ const Calendar = ({
       isDataToReload.current = true;
     };
   }, [isInSidebar]);
+
+  // Listen for calendar config changes and update tags
+  const isFirstMount = useRef(true);
+  useEffect(() => {
+    // Skip first mount - only react to actual config changes
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      return;
+    }
+    // Update tagsToDisplay with the new mapOfTags whenever config changes
+    const updatedTags = mapOfTags.filter((tag) => tag["isToDisplay" + (isInSidebar ? "InSb" : "")]);
+    setTagsToDisplay(updatedTags);
+    // Reload calendar data to apply new configs
+    isDataToReload.current = true;
+    invalidateAllEventsCache();
+    setForceToReload((prev) => !prev);
+  }, [configVersion, isInSidebar]);
 
   async function updateSize() {
     const calendarApi = calendarRef.current.getApi();
