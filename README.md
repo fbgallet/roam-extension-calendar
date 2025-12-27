@@ -9,7 +9,8 @@
 
 See [changelog here for more details on updates and fixes](https://github.com/fbgallet/roam-extension-calendar/blob/main/CHANGELOG.md)
 
-![Full calendar gif demo 1](https://github.com/fbgallet/roam-extension-calendar/assets/74436347/81e22cb5-9d4c-45c9-9f6f-36160d7e7631)
+![Demo FC](https://github.com/user-attachments/assets/58b75071-def5-48f2-83fc-e9e9384a24ff)
+
 
 ## Open the calendar view
 
