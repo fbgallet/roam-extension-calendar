@@ -144,6 +144,7 @@ Connect a Google account by opening the Google Calendar configuration dialog in 
 
 ⚠️ During the Google account connection authorization process, you may encounter the warning below if the app verification request has not yet been approved by Google. Follow the instructions to force authorization if you want to use Google Calendar synchronization. Full Calendar's privacy policy is detailed [here](https://github.com/fbgallet/roam-extension-calendar/blob/main/PRIVACY_POLICY.md) and the code of the backend is open source (see [here](https://github.com/fbgallet/roam-calendar--auth-backend)). No personal data is stored on a remote server and your event data is only temporarily saved in the browser's local storage to ensure faster display.
 
+<img width="1280" height="538" alt="image" src="https://github.com/user-attachments/assets/789f7141-3f28-4da3-9249-71a622bc08cd" />
 
 
 If the connection was successful, it will show "✅ Connected to google" at the top of the dialog box. And in the calendar filter bar a green dot 🟢 will be displayed. The dot will be red 🔴 in case of disconnection (or when you are offline, for example). It can be sometimes necessary to reconnect your Google account if the connection token has expired.
