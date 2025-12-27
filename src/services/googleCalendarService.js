@@ -12,7 +12,7 @@ const DISCOVERY_DOCS = [
   "https://www.googleapis.com/discovery/v1/apis/tasks/v1/rest",
 ];
 const SCOPES =
-  "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/tasks";
+  "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.calendarlist.readonly https://www.googleapis.com/auth/tasks";
 const BACKEND_URL =
   "https://site--roam-calendar-auth-backend--2bhrm4wg9nqn.code.run";
 
@@ -46,15 +46,15 @@ export const STORAGE_KEYS = {
  */
 export const DEFAULT_CALENDAR_CONFIG = {
   id: "",
-  name: "",                    // Original Google Calendar name
-  displayName: "",             // Custom display name (used as tag name if showAsSeparateTag)
-  triggerTags: [],             // Alias trigger tags only (displayName is the implicit primary tag)
-  showAsSeparateTag: false,    // If true, appears as separate tag in MultiSelect
+  name: "", // Original Google Calendar name
+  displayName: "", // Custom display name (used as tag name if showAsSeparateTag)
+  triggerTags: [], // Alias trigger tags only (displayName is the implicit primary tag)
+  showAsSeparateTag: false, // If true, appears as separate tag in MultiSelect
   isDefault: true,
   syncEnabled: true,
   syncDirection: "both",
   lastSyncTime: 0,
-  backgroundColor: null,       // Original Google Calendar color (hex)
+  backgroundColor: null, // Original Google Calendar color (hex)
 };
 
 /**
@@ -62,10 +62,10 @@ export const DEFAULT_CALENDAR_CONFIG = {
  */
 export const DEFAULT_TASK_LIST_CONFIG = {
   id: "",
-  name: "",                    // Original Google Task List name
-  displayName: "",             // Custom display name (used as tag name if showAsSeparateTag)
-  triggerTags: [],             // First one defaults to list name, rest are aliases
-  showAsSeparateTag: false,    // If true, appears as separate tag in MultiSelect
+  name: "", // Original Google Task List name
+  displayName: "", // Custom display name (used as tag name if showAsSeparateTag)
+  triggerTags: [], // First one defaults to list name, rest are aliases
+  showAsSeparateTag: false, // If true, appears as separate tag in MultiSelect
   syncEnabled: true,
   lastSyncTime: 0,
 };
@@ -144,13 +144,17 @@ const initTokenClient = () => {
  */
 const isBackendAvailable = async () => {
   try {
-    console.log(`[Auth] Checking backend availability at ${BACKEND_URL}/health`);
+    console.log(
+      `[Auth] Checking backend availability at ${BACKEND_URL}/health`
+    );
     const response = await fetch(`${BACKEND_URL}/health`, {
       method: "GET",
       signal: AbortSignal.timeout(3000), // 3 second timeout
     });
     const isAvailable = response.ok;
-    console.log(`[Auth] Backend ${isAvailable ? '✓ AVAILABLE' : '✗ UNAVAILABLE'}`);
+    console.log(
+      `[Auth] Backend ${isAvailable ? "✓ AVAILABLE" : "✗ UNAVAILABLE"}`
+    );
     return isAvailable;
   } catch (error) {
     console.warn(`[Auth] ✗ Backend not reachable: ${error.message}`);
@@ -276,7 +280,9 @@ export const silentRefresh = async () => {
   }
 
   // Fallback to GIS silent refresh
-  console.log("[Auth] 🔄 Attempting fallback silent refresh (requires active Google session)...");
+  console.log(
+    "[Auth] 🔄 Attempting fallback silent refresh (requires active Google session)..."
+  );
   return new Promise((resolve) => {
     if (!tokenClient) {
       initTokenClient();
@@ -284,7 +290,9 @@ export const silentRefresh = async () => {
 
     tokenClient.callback = (tokenResponse) => {
       if (tokenResponse.error !== undefined) {
-        console.warn("[Auth] ✗ Silent refresh failed - user needs to re-authenticate");
+        console.warn(
+          "[Auth] ✗ Silent refresh failed - user needs to re-authenticate"
+        );
         resolve(false);
         return;
       }
@@ -374,14 +382,20 @@ export const authenticate = async () => {
   // First check if we already have a refresh token - try silent refresh
   const refreshToken = extensionStorage.get(STORAGE_KEYS.REFRESH_TOKEN);
   if (refreshToken) {
-    console.log("[Auth] 🔄 Refresh token found - attempting silent authentication...");
+    console.log(
+      "[Auth] 🔄 Refresh token found - attempting silent authentication..."
+    );
     const refreshed = await silentRefresh();
     if (refreshed) {
-      console.log("[Auth] ✅ Successfully authenticated using existing refresh token");
+      console.log(
+        "[Auth] ✅ Successfully authenticated using existing refresh token"
+      );
       startTokenRefreshMonitoring();
       return { access_token: extensionStorage.get(STORAGE_KEYS.ACCESS_TOKEN) };
     } else {
-      console.warn("[Auth] ✗ Silent refresh failed - refresh token may be invalid");
+      console.warn(
+        "[Auth] ✗ Silent refresh failed - refresh token may be invalid"
+      );
       console.log("[Auth] → Proceeding with full authentication flow");
     }
   }
@@ -391,11 +405,17 @@ export const authenticate = async () => {
 
   if (backendAvailable) {
     try {
-      console.log("[Auth] 🔐 Using BACKEND OAuth flow (persistent authentication)");
-      console.log("[Auth] → This will provide a refresh token for permanent access");
+      console.log(
+        "[Auth] 🔐 Using BACKEND OAuth flow (persistent authentication)"
+      );
+      console.log(
+        "[Auth] → This will provide a refresh token for permanent access"
+      );
 
       // Step 1: Get authorization code from Google
-      console.log("[Auth] Step 1/3: Requesting authorization code from Google...");
+      console.log(
+        "[Auth] Step 1/3: Requesting authorization code from Google..."
+      );
       const code = await getAuthorizationCode();
       console.log("[Auth] ✓ Authorization code received");
 
@@ -454,7 +474,10 @@ export const authenticate = async () => {
 
     tokenClient.callback = (tokenResponse) => {
       if (tokenResponse.error !== undefined) {
-        console.error("[Auth] ✗ Fallback authentication failed:", tokenResponse.error);
+        console.error(
+          "[Auth] ✗ Fallback authentication failed:",
+          tokenResponse.error
+        );
         reject(new Error(tokenResponse.error));
         return;
       }
@@ -864,7 +887,7 @@ export const getConnectedCalendars = () => {
   const parsedCalendars = JSON.parse(calendars);
 
   // Ensure all calendars have the new properties (migration for existing users)
-  return parsedCalendars.map(cal => ({
+  return parsedCalendars.map((cal) => ({
     ...DEFAULT_CALENDAR_CONFIG,
     ...cal,
     // Ensure showAsSeparateTag defaults to false if not set
@@ -1039,7 +1062,7 @@ export const getConnectedTaskLists = () => {
   const parsedLists = JSON.parse(taskLists);
 
   // Ensure all task lists have the default properties
-  return parsedLists.map(list => ({
+  return parsedLists.map((list) => ({
     ...DEFAULT_TASK_LIST_CONFIG,
     ...list,
     showAsSeparateTag: list.showAsSeparateTag ?? false,
@@ -1061,7 +1084,7 @@ export const saveConnectedTaskLists = (taskLists) => {
  */
 export const updateConnectedTaskList = (taskListId, updates) => {
   const taskLists = getConnectedTaskLists();
-  const index = taskLists.findIndex(list => list.id === taskListId);
+  const index = taskLists.findIndex((list) => list.id === taskListId);
   if (index !== -1) {
     taskLists[index] = { ...taskLists[index], ...updates };
     saveConnectedTaskLists(taskLists);
@@ -1075,7 +1098,7 @@ export const updateConnectedTaskList = (taskListId, updates) => {
  */
 export const initializeTaskListConfigs = (availableLists) => {
   const existingConfigs = getConnectedTaskLists();
-  const existingIds = new Set(existingConfigs.map(c => c.id));
+  const existingIds = new Set(existingConfigs.map((c) => c.id));
 
   const newConfigs = [...existingConfigs];
 
@@ -1093,8 +1116,8 @@ export const initializeTaskListConfigs = (availableLists) => {
   }
 
   // Remove configs for lists that no longer exist
-  const availableIds = new Set(availableLists.map(l => l.id));
-  const filteredConfigs = newConfigs.filter(c => availableIds.has(c.id));
+  const availableIds = new Set(availableLists.map((l) => l.id));
+  const filteredConfigs = newConfigs.filter((c) => availableIds.has(c.id));
 
   saveConnectedTaskLists(filteredConfigs);
   return filteredConfigs;

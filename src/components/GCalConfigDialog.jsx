@@ -294,7 +294,25 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
       setCalendarConfigs(updatedConfigs);
     } else {
       const updated = updateConnectedCalendar(calendarId, updates);
-      setCalendarConfigs(updated);
+
+      // If syncEnabled is being changed, check if we need to auto-set default
+      if (updates.hasOwnProperty('syncEnabled')) {
+        const enabledCalendars = updated.filter(cal => cal.syncEnabled);
+
+        // If only one calendar is enabled, automatically set it as default
+        if (enabledCalendars.length === 1) {
+          const updatedWithDefault = updated.map((cal) => ({
+            ...cal,
+            isDefault: cal.syncEnabled,
+          }));
+          saveConnectedCalendars(updatedWithDefault);
+          setCalendarConfigs(updatedWithDefault);
+        } else {
+          setCalendarConfigs(updated);
+        }
+      } else {
+        setCalendarConfigs(updated);
+      }
     }
     initializeGCalTags();
   };

@@ -501,6 +501,9 @@ const Event = ({
 
     let description = event.extendedProps.description;
 
+    // Convert HTML breaks to newlines for regex matching, but preserve other HTML
+    description = description.replace(/<br\s*\/?>/gi, "\n");
+
     // Remove the Roam block link section (e.g., "---\nRoam block: https://...")
     description = description.replace(/\n*---\s*\nRoam block:.*$/s, "").trim();
 
@@ -510,6 +513,9 @@ const Event = ({
       .trim();
 
     if (!description) return null;
+
+    // Convert newlines back to <br> tags for HTML parsing
+    description = description.replace(/\n/g, "<br>");
 
     // Parse HTML description to React elements
     return parseHtmlToReact(description);
