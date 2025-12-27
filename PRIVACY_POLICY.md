@@ -143,8 +143,8 @@ This Extension is open source. You can review our code to verify our privacy pra
 
 If you have questions or concerns about this Privacy Policy or our data practices, please contact us at:
 
-**Email**: [Your Contact Email]
-**GitHub Issues**: [Your GitHub Repository Issues URL]
+**Email**: fbgallet@gmail.com
+**GitHub Issues**: https://github.com/fbgallet/roam-extension-calendar/issues
 
 ## Technical Details for Transparency
 
