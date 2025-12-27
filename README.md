@@ -125,6 +125,11 @@ By connecting a Google account to Full Calendar, you can:
 - view all events from multiple Google calendars in Full Calendar, with access to rich description, location, attendees and file attachments, including recurring events,
 - sync on demand any event to or from your Roam graph. It's a two-way sync for event title, status and of course date and time.
 
+Example of Google calendar event (not synced):
+<img width="348" height="310" alt="image" src="https://github.com/user-attachments/assets/96c22308-d7c3-473a-8219-f3d45e4e0b85" />
+
+
+
 Thanks to this integration, you can create events on your smartphone with the calendar app of your choice and see or update them in Roam, while benefiting from Google Calendar's reminder features. Or you can quickly create events in Roam and sync them instantly with your other calendar app!
 
 Any event created in Full Calendar can be easily synced with a given Google Calendar. Or you can use command palette or block context menu command `Full Calendar: Sync to default Google calendar" to sync any block, provided that it is on a daily note or mentions one, or that it mentions a start and/or end in its child blocks
