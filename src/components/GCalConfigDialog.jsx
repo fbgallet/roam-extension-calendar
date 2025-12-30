@@ -10,6 +10,9 @@ import {
   InputGroup,
   Spinner,
   Switch,
+  Toaster,
+  Position,
+  Intent,
 } from "@blueprintjs/core";
 import { useState, useEffect } from "react";
 import {
@@ -44,6 +47,12 @@ import {
   cleanupAllPastMetadata,
   clearAllSyncMetadata,
 } from "../models/SyncMetadata";
+import {
+  deduplicateAllEvents,
+  resetDeduplicationCooldown,
+} from "../services/deduplicationService";
+import { getEvents as getGCalEvents } from "../services/googleCalendarService";
+import { invalidateAllEventsCache } from "../services/eventCacheService";
 
 const GCalConfigDialog = ({ isOpen, onClose }) => {
   const [isConnected, setIsConnected] = useState(false);
@@ -51,6 +60,12 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
   const [error, setError] = useState("");
   const [userEmail, setUserEmail] = useState("");
   const [configChanged, setConfigChanged] = useState(false);
+
+  // Toast helper
+  const showToast = (message, intent = Intent.PRIMARY) => {
+    const toaster = Toaster.create({ position: Position.TOP });
+    toaster.show({ message, intent, timeout: 3000 });
+  };
 
   // Calendars
   const [availableCalendars, setAvailableCalendars] = useState([]);
@@ -66,8 +81,16 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
   const [useOriginalColors, setUseOriginalColorsState] = useState(false);
   const [checkboxFormat, setCheckboxFormatState] = useState("roam");
 
+  // Deduplication preview
+  const [dedupPreview, setDedupPreview] = useState(null);
+  const [isScanning, setIsScanning] = useState(false);
+
   // Sync stats
   const [syncStats, setSyncStats] = useState({ eventCount: 0, todoCount: 0 });
+
+  // Confirmation dialogs
+  const [confirmReinitSync, setConfirmReinitSync] = useState(false);
+  const [confirmClearCache, setConfirmClearCache] = useState(false);
 
   // Load initial state
   useEffect(() => {
@@ -357,18 +380,185 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
     setSyncStats(getStorageStats());
     if (result.removedCount > 0) {
       console.log(`Cleaned up ${result.removedCount} past event sync entries`);
+      showToast(`Cleaned up ${result.removedCount} past event sync entries`, Intent.SUCCESS);
+    } else {
+      showToast("No past events to clean up", Intent.PRIMARY);
     }
   };
 
   const handleReinitializeSync = () => {
-    if (
-      window.confirm(
-        "This will remove ALL sync metadata. Events will remain in both Roam and Google Calendar, but sync connections will be lost. Continue?"
-      )
-    ) {
-      clearAllSyncMetadata();
-      setSyncStats(getStorageStats());
-      console.log("All sync metadata has been cleared");
+    setConfirmReinitSync(true);
+  };
+
+  const handleConfirmReinitializeSync = () => {
+    clearAllSyncMetadata();
+    setSyncStats(getStorageStats());
+    console.log("All sync metadata has been cleared");
+    showToast("All sync metadata has been cleared", Intent.SUCCESS);
+    setConfirmReinitSync(false);
+  };
+
+  // Scan for duplicates and show preview
+  const handleScanForDuplicates = async () => {
+    setIsScanning(true);
+    try {
+      const duplicatesToRemove = [];
+      let totalScanned = 0;
+
+      // Get date range - check available cache to determine range
+      const now = new Date();
+      const startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const endDate = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+
+      const calendarNames = [];
+      const connectedCalendars = calendarConfigs;
+
+      for (const calendar of connectedCalendars) {
+        if (!calendar.syncEnabled) continue;
+
+        calendarNames.push(calendar.displayName || calendar.name);
+
+        console.log(`[Dedup] Scanning calendar: ${calendar.displayName || calendar.name}`);
+
+        try {
+          // Fetch events for this calendar
+          const events = await getGCalEvents(calendar.id, startDate, endDate);
+
+          if (!events || events.length === 0) {
+            console.log(`[Dedup] No events found in ${calendar.displayName || calendar.name}`);
+            continue;
+          }
+
+          totalScanned += events.length;
+
+          // Find duplicates without removing them
+          const processedIds = new Set();
+
+          for (const targetEvent of events) {
+            if (processedIds.has(targetEvent.id)) continue;
+            processedIds.add(targetEvent.id);
+
+            // Import deduplication functions inline to find duplicates
+            const { findDuplicatesForEvent, getDuplicatesToRemove, isEventSyncedToRoam } = await import("../services/deduplicationService");
+
+            const duplicates = findDuplicatesForEvent(targetEvent, events);
+            if (duplicates.length === 0) continue;
+
+            const targetIsSynced = isEventSyncedToRoam(targetEvent);
+            const toRemove = getDuplicatesToRemove(targetEvent, duplicates, targetIsSynced);
+
+            // Mark as processed
+            toRemove.forEach((evt) => processedIds.add(evt.id));
+
+            // Collect for preview
+            toRemove.forEach((evt) => {
+              duplicatesToRemove.push({
+                event: evt,
+                calendar: calendar.displayName || calendar.name,
+                calendarId: calendar.id,
+                keptEvent: targetEvent.summary,
+                keptEventIsSynced: targetIsSynced,
+              });
+            });
+          }
+        } catch (error) {
+          console.error(`[Dedup] Error scanning calendar ${calendar.name}:`, error);
+        }
+      }
+
+      setDedupPreview({
+        duplicates: duplicatesToRemove,
+        dateRange: {
+          start: startDate,
+          end: endDate,
+        },
+        calendars: calendarNames,
+        totalScanned,
+      });
+    } catch (error) {
+      console.error("[Dedup] Failed to scan for duplicates:", error);
+      showToast(`Failed to scan for duplicates: ${error.message}`, Intent.DANGER);
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  // Actually remove duplicates after preview confirmation
+  const handleConfirmRemoveDuplicates = async () => {
+    if (!dedupPreview) return;
+
+    setIsLoading(true);
+    try {
+      let totalRemoved = 0;
+      const errors = [];
+
+      // Group duplicates by calendar
+      const byCalendar = new Map();
+      for (const dup of dedupPreview.duplicates) {
+        if (!byCalendar.has(dup.calendarId)) {
+          byCalendar.set(dup.calendarId, []);
+        }
+        byCalendar.get(dup.calendarId).push(dup.event);
+      }
+
+      // Remove duplicates calendar by calendar
+      for (const [calendarId, events] of byCalendar) {
+        try {
+          const { removeDuplicateEvents } = await import("../services/deduplicationService");
+          const result = await removeDuplicateEvents(calendarId, events);
+          totalRemoved += result.removed;
+
+          if (result.failed > 0) {
+            const calendar = calendarConfigs.find((c) => c.id === calendarId);
+            errors.push(`${calendar?.displayName || calendar?.name || calendarId}: ${result.failed} failed`);
+          }
+        } catch (error) {
+          console.error(`[Dedup] Error removing duplicates from ${calendarId}:`, error);
+          errors.push(`${calendarId}: ${error.message}`);
+        }
+      }
+
+      // Reset cooldown and invalidate cache
+      resetDeduplicationCooldown();
+      invalidateAllEventsCache();
+
+      // Show results
+      console.log(`[Dedup] ✅ Removed ${totalRemoved} duplicates`);
+
+      if (errors.length > 0) {
+        showToast(
+          `Removed ${totalRemoved} duplicates but ${errors.length} error(s) occurred`,
+          Intent.WARNING
+        );
+      } else {
+        showToast(`Removed ${totalRemoved} duplicate events`, Intent.SUCCESS);
+      }
+
+      // Close preview
+      setDedupPreview(null);
+    } catch (error) {
+      console.error("[Dedup] Failed to remove duplicates:", error);
+      showToast(`Failed to remove duplicates: ${error.message}`, Intent.DANGER);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Clear cache
+  const handleClearCache = () => {
+    setConfirmClearCache(true);
+  };
+
+  const handleConfirmClearCache = () => {
+    try {
+      invalidateAllEventsCache();
+      console.log("[Cache] Cleared all cached events");
+      showToast("Cache cleared successfully", Intent.SUCCESS);
+      setConfirmClearCache(false);
+    } catch (error) {
+      console.error("[Cache] Failed to clear cache:", error);
+      showToast(`Failed to clear cache: ${error.message}`, Intent.DANGER);
+      setConfirmClearCache(false);
     }
   };
 
@@ -381,6 +571,7 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
     if (enabled) {
       const calendars = getConnectedCalendars();
       let tagsUpdated = false;
+      let defaultCalendarColor = null;
 
       for (const calendarConfig of calendars) {
         if (!calendarConfig.syncEnabled || !calendarConfig.backgroundColor)
@@ -394,22 +585,19 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
             tag.setColor(calendarConfig.backgroundColor);
             tagsUpdated = true;
           }
-        } else {
-          // Update the main "Google calendar" tag's color
-          // Use the first enabled calendar's color as the default
-          const mainGCalTag = getTagFromName("Google calendar");
-          if (mainGCalTag && !mainGCalTag._originalColorSet) {
-            mainGCalTag.setColor(calendarConfig.backgroundColor);
-            mainGCalTag._originalColorSet = true; // Only set once (first enabled calendar)
-            tagsUpdated = true;
-          }
+        } else if (calendarConfig.isDefault) {
+          // Store the default calendar's color for the main tag
+          defaultCalendarColor = calendarConfig.backgroundColor;
         }
       }
 
-      // Reset the flag for next time
-      const mainGCalTag = getTagFromName("Google calendar");
-      if (mainGCalTag) {
-        delete mainGCalTag._originalColorSet;
+      // Update the main "Google calendar" tag's color with the default calendar's color
+      if (defaultCalendarColor) {
+        const mainGCalTag = getTagFromName("Google calendar");
+        if (mainGCalTag) {
+          mainGCalTag.setColor(defaultCalendarColor);
+          tagsUpdated = true;
+        }
       }
 
       // Persist tag colors if any were updated
@@ -617,20 +805,32 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
                   (~{Math.round(syncStats.estimatedBytes / 1024)} KB)
                 </span>
               </div>
-              <div style={{ display: "flex", gap: "10px" }}>
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
                 <Button
                   icon="trash"
                   intent="none"
                   onClick={handleCleanupPastEvents}
                   disabled={syncStats.eventCount === 0}
+                  small
                 >
                   Unsync past events
+                </Button>
+                <Button
+                  icon="duplicate"
+                  intent="warning"
+                  onClick={handleScanForDuplicates}
+                  disabled={isScanning || !isConnected}
+                  loading={isScanning}
+                  small
+                >
+                  {isScanning ? "Scanning..." : "Remove duplicates"}
                 </Button>
                 <Button
                   icon="reset"
                   intent="danger"
                   onClick={handleReinitializeSync}
                   disabled={syncStats.eventCount === 0}
+                  small
                 >
                   Reinitialize sync
                 </Button>
@@ -644,8 +844,35 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
                 }}
               >
                 "Unsync past events" removes sync data for completed events.
-                "Reinitialize sync" clears all sync connections (events remain
-                in both Roam and Google Calendar).
+                "Remove duplicates" scans for and removes duplicate Google Calendar events.
+                "Reinitialize sync" clears all sync connections.
+              </p>
+            </Card>
+
+            {/* MAINTENANCE */}
+            <h4 style={{ marginBottom: "10px", marginTop: "30px" }}>
+              Maintenance
+            </h4>
+            <Card>
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                <Button
+                  icon="clean"
+                  intent="none"
+                  onClick={handleClearCache}
+                  small
+                >
+                  Clear cache
+                </Button>
+              </div>
+              <p
+                style={{
+                  fontSize: "12px",
+                  color: "#5c7080",
+                  marginTop: "10px",
+                  marginBottom: 0,
+                }}
+              >
+                "Clear cache" removes local cached event data. Your Roam blocks and Google Calendar events will NOT be affected. The calendar will reload more slowly on the next view until the cache rebuilds.
               </p>
             </Card>
           </>
@@ -657,6 +884,167 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
           <Button onClick={handleClose}>Close</Button>
         </div>
       </div>
+
+      {/* Deduplication Preview Dialog */}
+      {dedupPreview && (
+        <Dialog
+          isOpen={true}
+          onClose={() => setDedupPreview(null)}
+          title="Duplicate Events Found"
+          style={{ width: "600px", maxHeight: "80vh" }}
+        >
+          <div className={Classes.DIALOG_BODY} style={{ overflowY: "auto" }}>
+            <Callout intent="warning" icon="warning-sign" style={{ marginBottom: "15px" }}>
+              <strong>Warning:</strong> This will permanently delete {dedupPreview.duplicates.length} duplicate event(s) from Google Calendar.
+              <div style={{ marginTop: "8px", fontSize: "12px" }}>
+                <strong>Date range scanned:</strong>{" "}
+                {dedupPreview.dateRange.start.toLocaleDateString()} to{" "}
+                {dedupPreview.dateRange.end.toLocaleDateString()}
+                <br />
+                <strong>Calendars:</strong> {dedupPreview.calendars.join(", ")}
+                <br />
+                <strong>Total events scanned:</strong> {dedupPreview.totalScanned}
+              </div>
+            </Callout>
+
+            {dedupPreview.duplicates.length === 0 ? (
+              <Callout intent="success" icon="tick">
+                No duplicates found! Your calendars are clean.
+              </Callout>
+            ) : (
+              <>
+                <p style={{ marginBottom: "10px", fontWeight: "bold" }}>
+                  Events to be deleted ({dedupPreview.duplicates.length}):
+                </p>
+                <div
+                  style={{
+                    maxHeight: "400px",
+                    overflowY: "auto",
+                    border: "1px solid #ddd",
+                    borderRadius: "3px",
+                  }}
+                >
+                  {dedupPreview.duplicates.map((dup, index) => (
+                    <Card
+                      key={index}
+                      style={{
+                        margin: "8px",
+                        padding: "10px",
+                        backgroundColor: "#fff9e6",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "start", gap: "8px" }}>
+                        <Icon icon="trash" intent="warning" />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
+                            {dup.event.summary}
+                          </div>
+                          <div style={{ fontSize: "12px", color: "#5c7080" }}>
+                            {new Date(dup.event.start?.dateTime || dup.event.start?.date).toLocaleString()}
+                          </div>
+                          <div style={{ fontSize: "11px", color: "#738694", marginTop: "4px" }}>
+                            <strong>Calendar:</strong> {dup.calendar}
+                            <br />
+                            <strong>Keeping:</strong> "{dup.keptEvent}"
+                            {dup.keptEventIsSynced && (
+                              <span style={{ color: "#0f9960" }}> (synced to Roam)</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className={Classes.DIALOG_FOOTER}>
+            <div className={Classes.DIALOG_FOOTER_ACTIONS}>
+              <Button onClick={() => setDedupPreview(null)}>Cancel</Button>
+              {dedupPreview.duplicates.length > 0 && (
+                <Button
+                  intent="danger"
+                  onClick={handleConfirmRemoveDuplicates}
+                  disabled={isLoading}
+                  loading={isLoading}
+                >
+                  {isLoading ? "Deleting..." : `Delete ${dedupPreview.duplicates.length} Duplicate(s)`}
+                </Button>
+              )}
+            </div>
+          </div>
+        </Dialog>
+      )}
+
+      {/* Reinitialize Sync Confirmation Dialog */}
+      <Dialog
+        isOpen={confirmReinitSync}
+        onClose={() => setConfirmReinitSync(false)}
+        title="Reinitialize Sync?"
+        icon="warning-sign"
+        style={{ width: "500px" }}
+      >
+        <div className={Classes.DIALOG_BODY}>
+          <Callout intent="warning" icon="warning-sign">
+            <p>
+              This will remove <strong>ALL</strong> sync metadata.
+            </p>
+            <p>
+              Events will remain in both Roam and Google Calendar, but sync
+              connections will be lost. You'll need to resync events manually.
+            </p>
+            <p style={{ marginBottom: 0 }}>
+              <strong>This action cannot be undone.</strong>
+            </p>
+          </Callout>
+        </div>
+        <div className={Classes.DIALOG_FOOTER}>
+          <div className={Classes.DIALOG_FOOTER_ACTIONS}>
+            <Button onClick={() => setConfirmReinitSync(false)}>Cancel</Button>
+            <Button
+              intent="danger"
+              onClick={handleConfirmReinitializeSync}
+            >
+              Reinitialize Sync
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Clear Cache Confirmation Dialog */}
+      <Dialog
+        isOpen={confirmClearCache}
+        onClose={() => setConfirmClearCache(false)}
+        title="Clear Cache?"
+        icon="clean"
+        style={{ width: "500px" }}
+      >
+        <div className={Classes.DIALOG_BODY}>
+          <Callout intent="primary" icon="info-sign">
+            <p>
+              This will clear all cached event data from local storage.
+            </p>
+            <p>
+              Your Roam blocks and Google Calendar events will <strong>NOT</strong> be affected.
+            </p>
+            <p style={{ marginBottom: 0 }}>
+              The calendar will reload more slowly on the next view until the cache rebuilds.
+            </p>
+          </Callout>
+        </div>
+        <div className={Classes.DIALOG_FOOTER}>
+          <div className={Classes.DIALOG_FOOTER_ACTIONS}>
+            <Button onClick={() => setConfirmClearCache(false)}>Cancel</Button>
+            <Button
+              intent="primary"
+              onClick={handleConfirmClearCache}
+            >
+              Clear Cache
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </Dialog>
   );
 };

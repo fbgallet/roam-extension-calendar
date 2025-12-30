@@ -48,10 +48,13 @@ import {
   createEvent as createGCalEvent,
   updateEvent as updateGCalEvent,
   getAccessToken,
+  getConnectionStatus,
 } from "../services/googleCalendarService";
 import { gcalEventToFCEvent, fcEventToGCalEvent, mergeGCalDataToFCEvent, findCalendarForEvent } from "../util/gcalMapping";
 import { saveSyncMetadata, createSyncMetadata, getSyncMetadata, updateSyncMetadata, getRoamUidByGCalId, determineSyncStatus, SyncStatus } from "../models/SyncMetadata";
 import { applyGCalToRoamUpdate, syncEventToGCal } from "../services/syncService";
+import { recoverLostSyncs, isSafeToAutoSync } from "../services/syncRecoveryService";
+import { deduplicateAllEvents, shouldRunAutoDeduplication, markDeduplicationRun } from "../services/deduplicationService";
 import { enrichEventsWithTaskData } from "../services/taskService";
 import { getTasksEnabled, getConnectedTaskLists, getTasks } from "../services/googleCalendarService";
 import { fetchTasksForRange, importTaskToRoam, getExistingRoamBlockForTask } from "../services/googleTasksService";
@@ -480,13 +483,39 @@ const Calendar = ({
     viewRange.current.end = info.end;
 
     if (isDataToReload.current) {
-      // Step 0: Check cache for instant display
-      const allCacheResult = getAllCachedEventsForRange(info.start, info.end, false);
+      // Step 0: Check connection status to determine if we should accept stale cache
+      let connectionStatus = { isConnected: true, isOffline: false };
+      if (isAuthenticated()) {
+        try {
+          connectionStatus = await getConnectionStatus();
+        } catch (error) {
+          console.warn("[Calendar] Could not check connection status:", error);
+          connectionStatus = { isConnected: false, isOffline: true };
+        }
+      }
+
+      // Check cache - accept stale cache if offline/disconnected
+      const allCacheResult = getAllCachedEventsForRange(
+        info.start,
+        info.end,
+        !connectionStatus.isConnected // Accept stale cache if offline/disconnected
+      );
       const hasCachedEvents = allCacheResult.events.length > 0;
 
       if (hasCachedEvents) {
         // Return cached events IMMEDIATELY - don't wait for any async operations
         events = [...allCacheResult.events];
+
+        // Mark events as potentially stale if we're offline/disconnected
+        if (!connectionStatus.isConnected) {
+          events.forEach(evt => {
+            if (evt.extendedProps) {
+              evt.extendedProps.isStaleCache = true;
+              evt.extendedProps.connectionStatus = connectionStatus;
+            }
+          });
+          console.log(`[Calendar] Using stale cache (${connectionStatus.message}) - ${events.length} events`);
+        }
 
         // Enrich Roam events from cache with sync metadata (gCalId) to enable proper deduplication
         // This is critical - cached events may not have gCalId enrichment from when they were cached
@@ -508,22 +537,41 @@ const Calendar = ({
 
         filteredEvents = filterEvents(events, tagsToDisplay, filterLogic, isInSidebar);
 
-        // Trigger background refresh WITHOUT blocking - use Promise, not await
-        const doBackgroundRefresh = async () => {
-          await loadFreshData(info);
-          // Note: loadFreshData already caches via setAllCachedEventsForRange at line 687
-          // No need to re-cache here as it would overwrite with potentially incomplete data
-          isDataToFilterAgain.current = true;
-          setForceToReload((prev) => !prev);
-        };
-        doBackgroundRefresh(); // Fire and forget - no await!
+        // Only trigger background refresh if we're connected
+        if (connectionStatus.isConnected) {
+          const doBackgroundRefresh = async () => {
+            await loadFreshData(info);
+            // Note: loadFreshData already caches via setAllCachedEventsForRange at line 687
+            // No need to re-cache here as it would overwrite with potentially incomplete data
+            isDataToFilterAgain.current = true;
+            setForceToReload((prev) => !prev);
+          };
+          doBackgroundRefresh(); // Fire and forget - no await!
+        }
 
         isDataToReload.current = false; // Don't reload again when re-render happens
         return filteredEvents;
       }
 
-      // No cache - do synchronous load (first time or after cache clear)
-      await loadFreshData(info);
+      // No cache - try to load fresh data
+      // If this fails and we're offline, we'll have no events to display
+      try {
+        await loadFreshData(info);
+      } catch (error) {
+        console.error("[Calendar] Failed to load fresh data:", error);
+        // On first launch with no cache and API failure, try stale cache as last resort
+        const staleCacheResult = getAllCachedEventsForRange(info.start, info.end, true);
+        if (staleCacheResult.events.length > 0) {
+          console.log("[Calendar] Using stale cache as fallback after load failure");
+          events = [...staleCacheResult.events];
+          events.forEach(evt => {
+            if (evt.extendedProps) {
+              evt.extendedProps.isStaleCache = true;
+              evt.extendedProps.connectionStatus = connectionStatus;
+            }
+          });
+        }
+      }
     }
     if (isDataToFilterAgain.current) {
       filteredEvents = filterEvents(
@@ -574,48 +622,15 @@ const Calendar = ({
         }
       }
 
-      // Auto-sync Roam events with GCal trigger tags that aren't synced yet
-      if (isAuthenticated()) {
-        const connectedCalendars = getConnectedCalendars();
-
-        for (const evt of events) {
-          // Check if component is still mounted before syncing
-          if (!isMountedRef.current) break;
-
-          // Skip if already synced
-          if (evt.extendedProps?.gCalId) continue;
-
-          // Check if event has a GCal trigger tag
-          const targetCalendar = findCalendarForEvent(evt, connectedCalendars);
-
-          if (targetCalendar) {
-            try {
-              const result = await syncEventToGCal(evt.id, evt, targetCalendar.id);
-
-              // Check again after async operation completes
-              if (!isMountedRef.current) break;
-
-              if (result.success) {
-                // Update event with sync info for proper deduplication
-                evt.extendedProps = {
-                  ...evt.extendedProps,
-                  gCalId: result.gCalId,
-                  gCalCalendarId: targetCalendar.id,
-                };
-              }
-            } catch (error) {
-              console.error("[Auto-sync] Error syncing event:", evt.title, error);
-            }
-          }
-        }
-      }
-
       // Load events from all connected Google Calendars (with caching)
       // Strategy:
       // 1. Display cached events immediately for fast rendering
       // 2. ALWAYS fetch from API to get fresh data (unless offline)
       // 3. Update cache with fresh API data
       // 4. Update display with any new/changed events
+      // Collect all GCal events for sync recovery and duplicate detection
+      const allGCalEvents = [];
+
       if (isAuthenticated()) {
         const connectedCalendars = getConnectedCalendars();
         const enabledCalendars = connectedCalendars.filter(
@@ -642,6 +657,38 @@ const Calendar = ({
 
               // Check again after enrichment
               if (!isMountedRef.current) break;
+
+              // Collect all GCal events for later duplicate detection
+              allGCalEvents.push(...gCalEvents);
+
+              // CRITICAL: Recover lost sync relationships BEFORE processing events
+              // This prevents duplicate creation when extension storage is cleared
+              await recoverLostSyncs(gCalEvents, calendarConfig.id);
+
+              // Auto-deduplication: Run once per day on first load for current month
+              // This cleans up duplicates created before sync recovery was implemented
+              if (shouldRunAutoDeduplication()) {
+                console.log("[Dedup] Running auto-deduplication for current view...");
+                const dedupStats = await deduplicateAllEvents(
+                  calendarConfig.id,
+                  gCalEvents
+                );
+                if (dedupStats.removed > 0) {
+                  console.log(
+                    `[Dedup] ✅ Removed ${dedupStats.removed} duplicate events`
+                  );
+                  // Refetch events after deduplication
+                  gCalEvents = await getGCalEvents(
+                    calendarConfig.id,
+                    info.start,
+                    info.end
+                  );
+                  // Update collected events
+                  allGCalEvents.length = 0; // Clear array
+                  allGCalEvents.push(...gCalEvents);
+                }
+                markDeduplicationRun();
+              }
 
               for (const gcalEvent of gCalEvents) {
                 const fcEvent = gcalEventToFCEvent(gcalEvent, calendarConfig);
@@ -777,6 +824,51 @@ const Calendar = ({
           }
         }
 
+        // Auto-sync Roam events with GCal trigger tags that aren't synced yet
+        // This happens AFTER sync recovery to prevent duplicates
+        for (const evt of events) {
+          // Check if component is still mounted before syncing
+          if (!isMountedRef.current) break;
+
+          // Skip if already synced
+          if (evt.extendedProps?.gCalId) continue;
+
+          // Check if event has a GCal trigger tag
+          const targetCalendar = findCalendarForEvent(evt, connectedCalendars);
+
+          if (targetCalendar) {
+            // CRITICAL: Check if it's safe to auto-sync (no duplicate in GCal)
+            if (!isSafeToAutoSync(evt, allGCalEvents)) {
+              console.warn(`[Auto-sync] Skipping event "${evt.title}" - potential duplicate detected`);
+              continue;
+            }
+
+            try {
+              const result = await syncEventToGCal(evt.id, evt, targetCalendar.id);
+
+              // Check again after async operation completes
+              if (!isMountedRef.current) break;
+
+              if (result.success) {
+                // Update event with sync info for proper deduplication
+                evt.extendedProps = {
+                  ...evt.extendedProps,
+                  gCalId: result.gCalId,
+                  gCalCalendarId: targetCalendar.id,
+                };
+
+                // Add to allGCalEvents to prevent duplicate checks for subsequent events
+                allGCalEvents.push({
+                  id: result.gCalId,
+                  summary: evt.title,
+                  start: { dateTime: evt.start },
+                });
+              }
+            } catch (error) {
+              console.error("[Auto-sync] Error syncing event:", evt.title, error);
+            }
+          }
+        }
 
         // Load tasks from Google Tasks (if enabled)
         if (getTasksEnabled()) {

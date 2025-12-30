@@ -1237,8 +1237,10 @@
 /* ================================= */
 
 .fc-gcal-icon-inline {
-  width: 16px;
-  height: 16px;
+  width: 16px !important;
+  height: 16px !important;
+  max-width: 16px !important;
+  max-height: 16px !important;
   margin-right: 4px;
   vertical-align: middle;
   opacity: 0.85;
@@ -1246,8 +1248,10 @@
 }
 
 .fc-gcal-icon-small {
-  width: 14px;
-  height: 14px;
+  width: 14px !important;
+  height: 14px !important;
+  max-width: 14px !important;
+  max-height: 14px !important;
   vertical-align: middle;
   opacity: 0.9;
 }

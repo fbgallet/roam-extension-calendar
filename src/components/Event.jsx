@@ -9,6 +9,9 @@ import {
   Menu,
   MenuItem,
   MenuDivider,
+  Toaster,
+  Position,
+  Intent,
 } from "@blueprintjs/core";
 import {
   createChildBlock,
@@ -45,6 +48,7 @@ import {
   deleteEvent as deleteGCalEvent,
   createEvent as createGCalEvent,
   updateTask,
+  getEvents as getGCalEvents,
 } from "../services/googleCalendarService";
 import {
   syncTaskCompletionToGoogle,
@@ -64,10 +68,16 @@ import {
   invalidateAllEventsCache,
   updateEventInAllCache,
 } from "../services/eventCacheService";
+import {
+  findDuplicatesForEvent,
+  getDuplicatesToRemove,
+  removeDuplicateEvents,
+  isEventSyncedToRoam,
+} from "../services/deduplicationService";
 import { parseHtmlToReact } from "../util/htmlParser";
 
 // Google Calendar icon for unimported GCal events
-import googleCalendarIcon from "../services/gcal-logo-64-white.png";
+import GoogleCalendarIconSvg from "../services/google-calendar.svg";
 // Google Tasks icon for unimported task events
 import GoogleTasksIconSvg from "../services/google-task-logo.svg";
 
@@ -87,6 +97,7 @@ const Event = ({
   );
   const [popoverIsOpen, setPopoverIsOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleteGCalDialogOpen, setIsDeleteGCalDialogOpen] = useState(false);
   const [isExisting, setIsExisting] = useState(true);
   const popoverRef = useRef(null);
   const initialContent = useRef(null);
@@ -240,23 +251,31 @@ const Event = ({
         // All-day event - end date is exclusive in Google Calendar
         const startDate = new Date(event.start);
         // Get the date string in local timezone format (YYYY-MM-DD)
-        const startDateStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
+        const startDateStr = `${startDate.getFullYear()}-${String(
+          startDate.getMonth() + 1
+        ).padStart(2, "0")}-${String(startDate.getDate()).padStart(2, "0")}`;
 
         // For all-day events, if there's no end or end equals start, set end to next day
         let endDateStr;
         if (!event.end) {
           // No end date - single day event, end should be next day
           const endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
-          endDateStr = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+          endDateStr = `${endDate.getFullYear()}-${String(
+            endDate.getMonth() + 1
+          ).padStart(2, "0")}-${String(endDate.getDate()).padStart(2, "0")}`;
         } else {
           const endDate = new Date(event.end);
-          const endDateStrTmp = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+          const endDateStrTmp = `${endDate.getFullYear()}-${String(
+            endDate.getMonth() + 1
+          ).padStart(2, "0")}-${String(endDate.getDate()).padStart(2, "0")}`;
 
           // Check if it's a single-day event (start and end are same day)
           if (startDateStr === endDateStrTmp) {
             // Single day event - end should be next day
             const nextDay = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
-            endDateStr = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, '0')}-${String(nextDay.getDate()).padStart(2, '0')}`;
+            endDateStr = `${nextDay.getFullYear()}-${String(
+              nextDay.getMonth() + 1
+            ).padStart(2, "0")}-${String(nextDay.getDate()).padStart(2, "0")}`;
           } else {
             endDateStr = endDateStrTmp;
           }
@@ -589,6 +608,121 @@ const Event = ({
     }
   };
 
+  // Delete a non-synced GCal event
+  const handleDeleteGCalEvent = async () => {
+    if (!isGCalEvent) return;
+
+    try {
+      const gCalId = event.extendedProps?.gCalId;
+      const gCalCalendarId = event.extendedProps?.gCalCalendarId;
+
+      if (!gCalId || !gCalCalendarId) {
+        console.error("Missing GCal event data");
+        return;
+      }
+
+      await deleteGCalEvent(gCalCalendarId, gCalId);
+      console.log(`[GCal] Deleted event: ${event.title} (${gCalId})`);
+
+      // Remove from display
+      deleteEvent(event);
+
+      // Refresh calendar
+      invalidateAllEventsCache();
+      refreshCalendar();
+
+      setIsDeleteGCalDialogOpen(false);
+      setPopoverIsOpen(false);
+    } catch (error) {
+      console.error("Failed to delete GCal event:", error);
+      const toaster = Toaster.create({ position: Position.TOP });
+      toaster.show({
+        message: `Failed to delete event: ${error.message}`,
+        intent: Intent.DANGER,
+        icon: "error",
+        timeout: 5000,
+      });
+    }
+  };
+
+  // Remove duplicate events (keep this synced event, remove duplicates)
+  const handleRemoveDuplicates = async () => {
+    try {
+      const metadata = getSyncMetadata(event.id);
+      if (!metadata?.gCalId || !metadata?.gCalCalendarId) {
+        console.warn("Event is not synced, cannot remove duplicates");
+        return;
+      }
+
+      // Need to fetch all events to find duplicates
+      // This is a simple approach - could be optimized with caching
+      const allEvents = await getGCalEvents(
+        metadata.gCalCalendarId,
+        new Date(event.start.getFullYear(), event.start.getMonth(), 1),
+        new Date(event.start.getFullYear(), event.start.getMonth() + 1, 0)
+      );
+
+      // Create a GCal-formatted event object for comparison
+      const targetGCalEvent = {
+        id: metadata.gCalId,
+        summary: event.title,
+        start: event.start,
+        end: event.end,
+      };
+
+      // Find duplicates
+      const duplicates = findDuplicatesForEvent(
+        targetGCalEvent,
+        allEvents,
+        event.id
+      );
+
+      if (duplicates.length === 0) {
+        console.log("No duplicates found for this event");
+        const toaster = Toaster.create({ position: Position.TOP });
+        toaster.show({
+          message: "No duplicates found for this event",
+          intent: Intent.PRIMARY,
+          icon: "info-sign",
+          timeout: 3000,
+        });
+        setPopoverIsOpen(false);
+        return;
+      }
+
+      // Confirm removal
+      const confirmMsg = `Found ${duplicates.length} duplicate(s). Remove them?`;
+      if (!window.confirm(confirmMsg)) {
+        setPopoverIsOpen(false);
+        return;
+      }
+
+      // Remove duplicates (keep the synced one)
+      const toRemove = getDuplicatesToRemove(
+        targetGCalEvent,
+        duplicates,
+        true // target is synced
+      );
+
+      const result = await removeDuplicateEvents(
+        metadata.gCalCalendarId,
+        toRemove
+      );
+
+      console.log(
+        `[Dedup] Removed ${result.removed} duplicates, ${result.failed} failed`
+      );
+
+      // Refresh calendar to show changes
+      invalidateAllEventsCache();
+      refreshCalendar();
+
+      setPopoverIsOpen(false);
+    } catch (error) {
+      console.error("Failed to remove duplicates:", error);
+    }
+  };
+
   // Sync a non-synced event to a specific Google Calendar
   const handleSyncToCalendar = async (targetCalendar) => {
     if (!targetCalendar || !isAuthenticated()) return;
@@ -766,6 +900,33 @@ const Event = ({
             icon="small-cross"
             onClick={() => setPopoverIsOpen((prev) => !prev)}
           />
+          {/* Show warning if using stale cache (offline/disconnected) */}
+          {event.extendedProps?.isStaleCache &&
+            event.extendedProps?.connectionStatus && (
+              <div
+                className="fc-cache-warning"
+                style={{
+                  backgroundColor: "#FFF4CE",
+                  padding: "8px",
+                  marginBottom: "8px",
+                  borderRadius: "3px",
+                  fontSize: "12px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+              >
+                <Icon
+                  icon="warning-sign"
+                  size={14}
+                  style={{ color: "#D9822B" }}
+                />
+                <span style={{ color: "#5C4813" }}>
+                  {event.extendedProps.connectionStatus.message} - showing
+                  cached data (may not be up-to-date)
+                </span>
+              </div>
+            )}
           {isGCalEvent || isGTaskEvent ? (
             // Google Calendar/Task event details
             <div className="fc-gcal-event-details">
@@ -936,10 +1097,9 @@ const Event = ({
               {/* Show original calendar/task list name */}
               {event.extendedProps?.gCalCalendarName && (
                 <div className="fc-gcal-calendar-source">
-                  <img
-                    src={googleCalendarIcon}
-                    alt=""
+                  <GoogleCalendarIconSvg
                     className="fc-gcal-icon-small"
+                    style={{ width: "16px", height: "16px" }}
                   />
                   <span>{event.extendedProps.gCalCalendarName}</span>
                 </div>
@@ -973,7 +1133,44 @@ const Event = ({
                   {eventTagList?.[0]?.name ||
                     (isGTaskEvent ? "Google Tasks" : "Google Calendar")}
                 </Tag>
+                {/* Only show delete button for calendars with "both" sync direction */}
+                {(() => {
+                  const connectedCalendars = getConnectedCalendars();
+                  const calendar = connectedCalendars.find(
+                    (c) => c.id === event.extendedProps?.gCalCalendarId
+                  );
+                  return calendar?.syncDirection === "both" ? (
+                    <>
+                      <Button
+                        small
+                        icon="trash"
+                        intent="danger"
+                        minimal
+                        onClick={() => setIsDeleteGCalDialogOpen(true)}
+                        title="Delete event from Google Calendar"
+                      />
+                      <DeleteDialog
+                        title="Delete Google Calendar event"
+                        message={
+                          <p>
+                            Delete this event from Google Calendar?
+                            <br />
+                            <br />
+                            <strong>"{event.title}"</strong>
+                            <br />
+                            <br />
+                            This cannot be undone.
+                          </p>
+                        }
+                        callback={handleDeleteGCalEvent}
+                        isDeleteDialogOpen={isDeleteGCalDialogOpen}
+                        setIsDeleteDialogOpen={setIsDeleteGCalDialogOpen}
+                      />
+                    </>
+                  ) : null;
+                })()}
               </div>
+              {/* <div style={{ flex: 1 }} /> */}
             </div>
           ) : (
             // Regular Roam event
@@ -1006,10 +1203,9 @@ const Event = ({
                           }
                         }}
                       >
-                        <img
-                          src={googleCalendarIcon}
-                          alt=""
+                        <GoogleCalendarIconSvg
                           className="fc-gcal-icon-small"
+                          style={{ width: "16px", height: "16px" }}
                         />
                         <span>
                           {getSyncedCalendarInfo().calendar.displayName}
@@ -1119,6 +1315,11 @@ const Event = ({
                           text="Open in Google Calendar"
                           onClick={handleOpenInGCal}
                         />
+                        <MenuItem
+                          icon="duplicate"
+                          text="Remove duplicates"
+                          onClick={handleRemoveDuplicates}
+                        />
                         <MenuDivider />
                         <MenuItem
                           icon="disable"
@@ -1137,10 +1338,9 @@ const Event = ({
                     <div className="fc-sync-status fc-sync-status-clickable">
                       <Icon icon="automatic-updates" size={12} />
                       <span>Synced to</span>
-                      <img
-                        src={googleCalendarIcon}
-                        alt=""
+                      <GoogleCalendarIconSvg
                         className="fc-gcal-icon-small"
+                        style={{ width: "16px", height: "16px" }}
                       />
                       <Icon icon="chevron-down" size={10} />
                     </div>
@@ -1156,10 +1356,9 @@ const Event = ({
                         <Menu>
                           <MenuItem
                             icon={
-                              <img
-                                src={googleCalendarIcon}
-                                alt=""
+                              <GoogleCalendarIconSvg
                                 className="fc-gcal-icon-menu"
+                                style={{ width: "16px", height: "16px" }}
                               />
                             }
                             text="Sync to Google Calendar"
@@ -1413,10 +1612,9 @@ const Event = ({
               )}
               {isGCalEvent && event.extendedProps?.gCalCalendarName && (
                 <div className="fc-gcal-calendar-hint">
-                  <img
-                    src={googleCalendarIcon}
-                    alt=""
+                  <GoogleCalendarIconSvg
                     className="fc-gcal-icon-small"
+                    style={{ width: "16px", height: "16px" }}
                   />
                   <span>{event.extendedProps.gCalCalendarName}</span>
                 </div>
@@ -1454,10 +1652,9 @@ const Event = ({
         >
           <span className={taskCompleted ? "fc-task-completed" : ""}>
             {isGCalEvent && (
-              <img
-                src={googleCalendarIcon}
-                alt=""
+              <GoogleCalendarIconSvg
                 className="fc-gcal-icon-inline"
+                style={{ width: "12px", height: "12px", marginRight: "4px" }}
               />
             )}
             {isGTaskEvent && (

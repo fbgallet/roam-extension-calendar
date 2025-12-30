@@ -374,6 +374,50 @@ export const isAuthenticated = () => {
 };
 
 /**
+ * Check if Google Calendar is currently connected and accessible
+ * Returns connection status object
+ */
+export const getConnectionStatus = async () => {
+  // Check if authenticated
+  if (!isAuthenticated()) {
+    return {
+      isConnected: false,
+      isOffline: false,
+      reason: 'not_authenticated',
+      message: 'Google Calendar not connected'
+    };
+  }
+
+  // Check if we're online
+  if (!navigator.onLine) {
+    return {
+      isConnected: false,
+      isOffline: true,
+      reason: 'offline',
+      message: 'You are offline'
+    };
+  }
+
+  // Try a lightweight API call to verify connection
+  try {
+    await getAccessToken(); // This will refresh token if needed
+    return {
+      isConnected: true,
+      isOffline: false,
+      reason: null,
+      message: 'Connected'
+    };
+  } catch (error) {
+    return {
+      isConnected: false,
+      isOffline: true, // Assume network issue if auth check fails
+      reason: 'api_error',
+      message: 'Google Calendar connection failed'
+    };
+  }
+};
+
+/**
  * Request user authentication
  * Primary: Use authorization code flow with backend (gets refresh token)
  * Fallback: Use GIS token client (session-based only)
@@ -1142,6 +1186,7 @@ export const findTaskListByTag = (tagName) => {
 export default {
   initGoogleCalendarService,
   isAuthenticated,
+  getConnectionStatus,
   authenticate,
   signOut,
   silentRefresh,

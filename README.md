@@ -1,6 +1,6 @@
 # Full Calendar
 
-### A comprehensive calendar to handle your tasks and have an overview of events or any tagged content in your Daily Note Pages.
+### A comprehensive calendar, with Google Calendar two-way sync option, to handle your tasks and have an overview of events or any tagged content in your Daily Note Pages or Google Calendars.
 
 🆕 New in v.6 (January 2026):
 
@@ -10,7 +10,6 @@
 See [changelog here for more details on updates and fixes](https://github.com/fbgallet/roam-extension-calendar/blob/main/CHANGELOG.md)
 
 ![Demo FC](https://github.com/user-attachments/assets/58b75071-def5-48f2-83fc-e9e9384a24ff)
-
 
 ## Open the calendar view
 
@@ -134,19 +133,18 @@ By connecting a Google account to Full Calendar, you can:
 
 <img width="360" height="475" alt="image" src="https://github.com/user-attachments/assets/6fc50a15-0962-4639-9bc0-febbddd9c181" />
 
-
 Thanks to this integration, you can create events on your smartphone with the calendar app of your choice and see or update them in Roam, while benefiting from Google Calendar's reminder features. Or you can quickly create events in Roam and sync them instantly with your other calendar app!
 
-Any event created in Full Calendar can be easily synced with a given Google Calendar. Or you can use command palette or block context menu command `Full Calendar: Sync to default Google calendar" to sync any block, provided that it is on a daily note or mentions one, or that it mentions a start and/or end in its child blocks
+Any event created in Full Calendar can be easily synced with a given Google Calendar. Or you can use command palette or block context menu command `Full Calendar: Sync to default Google calendar" to sync any block, provided that it is on a daily note or mentions one, or that it mentions a start and/or end in its child blocks.
+
+You have also basic control on events displayed from Google Calendar but not imported/sync to Roam:
+
+- you can move/expand them to change their date/time
+- you can check/uncheck them if they include `[ ] / [x]` or `[[TODO]] / DONE` at the beginning of their title.
 
 ### Configuration
 
-Connect a Google account by opening the Google Calendar configuration dialog in the Full calendar settings or by clicking on the "Google Calendar" tag in the filter bar, then the gear icon. A popup window should open, prompting you to choose your Google account (if it doesn't open, popup blocking is enabled in your browser; an icon should appear in the address bar to grant your browser permission). Check the authorization for Google Calendar and Google Tasks (also supported).
-
-⚠️ During the Google account connection authorization process, you may encounter the warning below if the app verification request has not yet been approved by Google. Follow the instructions to force authorization if you want to use Google Calendar synchronization. Full Calendar's privacy policy is detailed [here](https://github.com/fbgallet/roam-extension-calendar/blob/main/PRIVACY_POLICY.md) and the code of the backend is open source (see [here](https://github.com/fbgallet/roam-calendar--auth-backend)). No personal data is stored on a remote server and your event data is only temporarily saved in the browser's local storage to ensure faster display.
-
-<img width="1280" height="538" alt="image" src="https://github.com/user-attachments/assets/789f7141-3f28-4da3-9249-71a622bc08cd" />
-
+Connect a Google account by opening the Google Calendar configuration dialog in the Full calendar settings or by clicking on the "Google Calendar" tag in the filter bar, then the gear icon. A popup window should open, prompting you to choose your Google account (if it doesn't open, popup blocking is enabled in your browser; an icon should appear in the address bar to grant your browser permission). Full Calendar's privacy policy is detailed [here](https://www.the-thought-experimenter.com/roam-extensions/full-calendar/privacy) and the code of the backend is open source (see [here](https://github.com/fbgallet/roam-calendar--auth-backend)). No personal data is stored on a remote server and your event data is only temporarily saved in the browser's local storage to ensure faster display.
 
 If the connection was successful, it will show "✅ Connected to google" at the top of the dialog box. And in the calendar filter bar a green dot 🟢 will be displayed. The dot will be red 🔴 in case of disconnection (or when you are offline, for example). It can be sometimes necessary to reconnect your Google account if the connection token has expired.
 

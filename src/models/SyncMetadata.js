@@ -6,11 +6,51 @@
  */
 
 import { extensionStorage } from "..";
+import { removeTagsFromBlock, isExistingNode } from "../util/roamApi";
+import { getConnectedCalendars } from "../services/googleCalendarService";
 
 const STORAGE_KEY = "gcal-sync-metadata";
 
 // In-memory cache of sync metadata
 let syncMetadataCache = null;
+
+/**
+ * Get all trigger tags from all connected calendars
+ * @returns {string[]} Array of all trigger tags (including displayNames)
+ */
+const getAllTriggerTags = () => {
+  const calendars = getConnectedCalendars();
+  const allTags = [];
+
+  for (const calendar of calendars) {
+    // Add display name as a tag (used as primary tag)
+    if (calendar.displayName) {
+      allTags.push(calendar.displayName);
+    }
+    // Add all trigger tag aliases
+    if (calendar.triggerTags && calendar.triggerTags.length > 0) {
+      allTags.push(...calendar.triggerTags);
+    }
+  }
+
+  // Return unique tags
+  return [...new Set(allTags)];
+};
+
+/**
+ * Remove all calendar trigger tags from a Roam block
+ * @param {string} roamUid - Roam block UID
+ */
+const removeTriggerTagsFromBlock = (roamUid) => {
+  if (!isExistingNode(roamUid)) {
+    return; // Block no longer exists
+  }
+
+  const allTriggerTags = getAllTriggerTags();
+  if (allTriggerTags.length > 0) {
+    removeTagsFromBlock(roamUid, allTriggerTags);
+  }
+};
 
 /**
  * Sync metadata structure for a single event
@@ -181,11 +221,20 @@ export const getSyncedEventsForCalendar = (calendarId) => {
 };
 
 /**
- * Clear all sync metadata (useful for disconnecting)
+ * Clear all sync metadata (useful for disconnecting/reinitializing)
+ * Also removes trigger tags from all synced blocks to prevent auto-resync.
  */
 export const clearAllSyncMetadata = () => {
+  loadSyncMetadata();
+
+  // Remove trigger tags from all synced blocks before clearing metadata
+  for (const roamUid of Object.keys(syncMetadataCache)) {
+    removeTriggerTagsFromBlock(roamUid);
+  }
+
   syncMetadataCache = {};
   persistSyncMetadata();
+  console.log(`[SyncMetadata] Cleared all sync metadata and removed trigger tags`);
 };
 
 /**
@@ -262,6 +311,7 @@ export const getStorageStats = () => {
  * Cleanup old sync metadata for past events
  * Removes metadata for events that ended more than N days ago,
  * unless the event still has TODO status.
+ * Also removes trigger tags from blocks to prevent auto-resync.
  * @param {number} daysThreshold - Days after which to cleanup (default: 7)
  * @returns {object} { removedCount, keptTodoCount }
  */
@@ -296,8 +346,10 @@ export const cleanupOldMetadata = (daysThreshold = 7) => {
     }
   }
 
-  // Remove old entries
+  // Remove old entries and their trigger tags
   for (const roamUid of toRemove) {
+    // Remove trigger tags from block to prevent auto-resync
+    removeTriggerTagsFromBlock(roamUid);
     delete syncMetadataCache[roamUid];
     removedCount++;
   }
@@ -312,7 +364,8 @@ export const cleanupOldMetadata = (daysThreshold = 7) => {
 
 /**
  * Cleanup ALL past events (manual cleanup)
- * Removes metadata for all events that have ended, regardless of TODO status
+ * Removes metadata for all events that have ended, regardless of TODO status.
+ * Also removes trigger tags from blocks to prevent auto-resync.
  * @returns {object} { removedCount }
  */
 export const cleanupAllPastMetadata = () => {
@@ -338,8 +391,10 @@ export const cleanupAllPastMetadata = () => {
     }
   }
 
-  // Remove entries
+  // Remove entries and their trigger tags
   for (const roamUid of toRemove) {
+    // Remove trigger tags from block to prevent auto-resync
+    removeTriggerTagsFromBlock(roamUid);
     delete syncMetadataCache[roamUid];
     removedCount++;
   }

@@ -609,7 +609,7 @@ export const initializeGCalTags = (calendarsOverride = null) => {
 
   // If "Use Original Colors" is enabled, apply calendar colors to tags on initialization
   if (getUseOriginalColors()) {
-    let firstEnabledCalendarColor = null;
+    let defaultCalendarColor = null;
 
     for (const calendarConfig of connectedCalendars) {
       if (!calendarConfig.syncEnabled || !calendarConfig.backgroundColor)
@@ -625,17 +625,17 @@ export const initializeGCalTags = (calendarsOverride = null) => {
             `Applied original color to tag "${tagName}": ${calendarConfig.backgroundColor}`
           );
         }
-      } else if (!firstEnabledCalendarColor) {
-        // Store the first enabled calendar's color for the main tag
-        firstEnabledCalendarColor = calendarConfig.backgroundColor;
+      } else if (calendarConfig.isDefault) {
+        // Store the default calendar's color for the main tag
+        defaultCalendarColor = calendarConfig.backgroundColor;
       }
     }
 
-    // Apply the first enabled calendar's color to the main "Google calendar" tag
-    if (firstEnabledCalendarColor && mainGCalTag) {
-      mainGCalTag.setColor(firstEnabledCalendarColor);
+    // Apply the default calendar's color to the main "Google calendar" tag
+    if (defaultCalendarColor && mainGCalTag) {
+      mainGCalTag.setColor(defaultCalendarColor);
       console.log(
-        `Applied original color to main GCal tag: ${firstEnabledCalendarColor}`
+        `Applied original color to main GCal tag: ${defaultCalendarColor}`
       );
     }
   }
