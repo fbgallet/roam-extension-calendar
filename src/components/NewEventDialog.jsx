@@ -17,6 +17,7 @@ import {
   isAuthenticated,
   getConnectedCalendars,
 } from "../services/googleCalendarService";
+import GoogleCalendarIconSvg from "../services/google-calendar.svg";
 
 const NewEventDialog = ({
   newEventDialogIsOpen,
@@ -197,10 +198,9 @@ const NewEventDialog = ({
               <div className="fc-gcal-sync-controls">
                 <div className="fc-gcal-sync-label">
                   Sync to
-                  <img
-                    src="https://ssl.gstatic.com/calendar/images/dynamiclogo_2020q4/calendar_31_2x.png"
-                    alt="Google Calendar"
-                    style={{ height: '16px', width: '16px', marginLeft: '4px', verticalAlign: 'middle' }}
+                  <GoogleCalendarIconSvg
+                    className="fc-gcal-icon-inline"
+                    style={{ width: '16px', height: '16px', marginLeft: '4px', verticalAlign: 'middle' }}
                   />
                 </div>
                 <div className="fc-gcal-sync-row">
