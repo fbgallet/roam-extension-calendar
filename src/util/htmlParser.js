@@ -3,6 +3,8 @@
  * Converts HTML strings to React elements for safe rendering
  */
 
+import DOMPurify from 'dompurify';
+
 /**
  * Parse HTML string and convert to React elements
  * Handles common HTML tags from Google Calendar descriptions
@@ -12,9 +14,17 @@
 export const parseHtmlToReact = (html) => {
   if (!html) return null;
 
+  // Sanitize HTML to prevent XSS attacks
+  const sanitizedHtml = DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['b', 'strong', 'i', 'em', 'u', 'br', 'p', 'ul', 'ol', 'li', 'a', 'div', 'span'],
+    ALLOWED_ATTR: ['href', 'target', 'rel'],
+    KEEP_CONTENT: true,
+    RETURN_TRUSTED_TYPE: false,
+  });
+
   // Create a temporary div to parse HTML
   const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = html;
+  tempDiv.innerHTML = sanitizedHtml;
 
   // Convert HTML nodes to React elements recursively
   const convertNodeToReact = (node, key = 0) => {
@@ -92,7 +102,14 @@ export const parseHtmlToReact = (html) => {
  */
 export const stripHtmlTags = (html) => {
   if (!html) return '';
+
+  // Sanitize first to prevent XSS, then extract text
+  const sanitizedHtml = DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [],
+    KEEP_CONTENT: true,
+  });
+
   const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = html;
+  tempDiv.innerHTML = sanitizedHtml;
   return tempDiv.textContent || tempDiv.innerText || '';
 };

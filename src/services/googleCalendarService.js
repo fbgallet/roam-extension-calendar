@@ -4,6 +4,8 @@
  */
 
 import { extensionStorage } from "..";
+import { encryptToken, decryptToken, migrateToken } from "../util/tokenEncryption";
+import { generateCSRFToken, storeCSRFToken, validateCSRFToken, clearExpiredCSRFTokens } from "../util/csrfProtection";
 
 const CLIENT_ID =
   "743270704845-jvqg91e6bk03jbnu1qcdnrh9r3ohgact.apps.googleusercontent.com";
@@ -37,6 +39,33 @@ export const STORAGE_KEYS = {
   // Google Tasks storage keys
   TASKS_ENABLED: "gtasks-enabled",
   CONNECTED_TASK_LISTS: "gtasks-connected-lists",
+};
+
+/**
+ * Secure token storage helpers
+ * These wrap extensionStorage to automatically encrypt/decrypt tokens
+ */
+const setToken = async (key, token) => {
+  if (!token) {
+    extensionStorage.set(key, null);
+    return;
+  }
+  const encrypted = await encryptToken(token);
+  extensionStorage.set(key, encrypted);
+};
+
+const getToken = async (key) => {
+  const stored = extensionStorage.get(key);
+  if (!stored) return null;
+
+  // Attempt to migrate old unencrypted tokens
+  const migrated = await migrateToken(stored);
+  if (migrated !== stored) {
+    // Token was migrated, save the encrypted version
+    extensionStorage.set(key, migrated);
+  }
+
+  return await decryptToken(migrated);
 };
 
 /**
@@ -165,6 +194,7 @@ const isBackendAvailable = async () => {
 
 /**
  * Get authorization code from Google (for backend flow)
+ * Includes CSRF protection via state parameter
  */
 const getAuthorizationCode = () => {
   return new Promise((resolve, reject) => {
@@ -173,15 +203,29 @@ const getAuthorizationCode = () => {
       return;
     }
 
+    // Generate CSRF protection state token
+    const csrfState = generateCSRFToken();
+    storeCSRFToken(csrfState);
+
     const client = window.google.accounts.oauth2.initCodeClient({
       client_id: CLIENT_ID,
       scope: SCOPES,
       ux_mode: "popup",
+      state: csrfState, // Add CSRF state parameter
       callback: (response) => {
         if (response.error) {
           reject(new Error(response.error));
           return;
         }
+
+        // Validate CSRF state token
+        if (!response.state || !validateCSRFToken(response.state)) {
+          reject(new Error("CSRF validation failed - possible attack detected"));
+          console.error("[Auth] CSRF validation failed!");
+          return;
+        }
+
+        console.log("[Auth] ✓ CSRF validation passed");
         resolve(response.code);
       },
     });
@@ -354,7 +398,7 @@ const startTokenRefreshMonitoring = () => {
 /**
  * Stop monitoring token expiry
  */
-const stopTokenRefreshMonitoring = () => {
+export const stopTokenRefreshMonitoring = () => {
   if (tokenRefreshInterval) {
     clearInterval(tokenRefreshInterval);
     tokenRefreshInterval = null;

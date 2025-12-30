@@ -1,6 +1,7 @@
 // import { addObserver, disconnectObserver } from "./observers";
 import { Colors, Toaster, Position, Intent } from "@blueprintjs/core";
 import { EventTag, deleteTagByName, getTagFromName } from "./models/EventTag";
+import ErrorBoundary from "./components/ErrorBoundary";
 import {
   getNormalizedDisjunctionForRegex,
   getTrimedArrayFromList,
@@ -954,6 +955,10 @@ export default {
   onunload: () => {
     disconnectObserver();
     removeListeners();
+
+    // Stop token refresh monitoring to prevent memory leaks
+    const { stopTokenRefreshMonitoring } = require("./services/googleCalendarService");
+    stopTokenRefreshMonitoring();
 
     // Properly unmount all Calendar instances to prevent zombie components
     const allCalendarInstances = document.querySelectorAll(

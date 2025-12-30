@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom";
 import Calendar from "./Calendar";
+import ErrorBoundary from "./ErrorBoundary";
 import { calendarTag, extensionStorage, mapOfTags } from "..";
 
 export function renderApp(inSidebar, periodFromDatepicker) {
@@ -63,12 +64,20 @@ export function renderApp(inSidebar, periodFromDatepicker) {
   }
 
   ReactDOM.render(
-    <Calendar
-      parentElt={parentElt}
-      isInSidebar={inSidebar}
-      initialSettings={initialSettings}
-      {...periodFromDatepicker}
-    />,
+    <ErrorBoundary
+      componentName={inSidebar ? "Sidebar Calendar" : "Main Calendar"}
+      onReset={() => {
+        // Re-render calendar on error recovery
+        renderApp(inSidebar, periodFromDatepicker);
+      }}
+    >
+      <Calendar
+        parentElt={parentElt}
+        isInSidebar={inSidebar}
+        initialSettings={initialSettings}
+        {...periodFromDatepicker}
+      />
+    </ErrorBoundary>,
     root
   );
 }

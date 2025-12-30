@@ -111,21 +111,34 @@ function simulateClick(el, isTouch) {
   }
 }
 
+// Store listener references for proper cleanup
+let contextMenuHandler = null;
+
 export const addListeners = () => {
   removeListeners();
   const calendarBtnElt = getCalendarButtonElt();
+
+  // Add dragstart listener
   document.addEventListener("dragstart", onDragStart);
-  calendarBtnElt.addEventListener("contextmenu", (e) => {
+
+  // Create and store contextmenu handler for proper cleanup
+  contextMenuHandler = (e) => {
     handleRightClickOnCalendarBtn(e);
-  });
+  };
+  calendarBtnElt.addEventListener("contextmenu", contextMenuHandler);
 };
 
 export const removeListeners = () => {
   const calendarBtnElt = getCalendarButtonElt();
+
+  // Remove dragstart listener
   document.removeEventListener("dragstart", onDragStart);
-  calendarBtnElt.removeEventListener("contextmenu", (e) => {
-    handleRightClickOnCalendarBtn(e);
-  });
+
+  // Remove contextmenu listener if it exists
+  if (contextMenuHandler) {
+    calendarBtnElt.removeEventListener("contextmenu", contextMenuHandler);
+    contextMenuHandler = null;
+  }
 };
 
 let runners = {
@@ -238,11 +251,15 @@ export const displayGCalConfigDialog = () => {
     unmountGCalConfigDialog(options);
   };
 
+  const ErrorBoundary = require("../components/ErrorBoundary").default;
+
   ReactDOM.render(
-    <GCalConfigDialog
-      isOpen={true}
-      onClose={handleDialogClose}
-    />,
+    <ErrorBoundary componentName="Google Calendar Settings">
+      <GCalConfigDialog
+        isOpen={true}
+        onClose={handleDialogClose}
+      />
+    </ErrorBoundary>,
     container
   );
 };
