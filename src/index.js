@@ -898,7 +898,7 @@ export default {
           // Initialize EventTags for connected task lists (if Tasks enabled)
           initializeGTaskTags();
 
-          // Cleanup old sync metadata (events > 7 days old, except TODOs)
+          // Cleanup old sync metadata (events > 90 days old, except TODOs)
           const cleanupResult = cleanupOldMetadata();
           if (cleanupResult.removedCount > 0) {
             console.log(
@@ -906,7 +906,7 @@ export default {
             );
           }
 
-          // Cleanup old task sync metadata (tasks > 7 days old, except pending TODOs)
+          // Cleanup old task sync metadata (tasks > 90 days old, except pending TODOs)
           const taskCleanupResult = cleanupOldTaskMetadata();
           if (taskCleanupResult.removedCount > 0) {
             console.log(

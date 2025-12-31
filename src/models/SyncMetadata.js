@@ -312,10 +312,10 @@ export const getStorageStats = () => {
  * Removes metadata for events that ended more than N days ago,
  * unless the event still has TODO status.
  * Also removes trigger tags from blocks to prevent auto-resync.
- * @param {number} daysThreshold - Days after which to cleanup (default: 7)
+ * @param {number} daysThreshold - Days after which to cleanup (default: 90 days / ~3 months)
  * @returns {object} { removedCount, keptTodoCount }
  */
-export const cleanupOldMetadata = (daysThreshold = 7) => {
+export const cleanupOldMetadata = (daysThreshold = 90) => {
   loadSyncMetadata();
 
   const now = new Date();

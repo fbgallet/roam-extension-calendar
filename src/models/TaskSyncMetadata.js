@@ -268,10 +268,10 @@ export const getTaskStorageStats = () => {
  * Cleanup old task sync metadata for past tasks
  * Removes metadata for tasks whose due date is > N days ago,
  * unless the task still has TODO status.
- * @param {number} daysThreshold - Days after which to cleanup (default: 7)
+ * @param {number} daysThreshold - Days after which to cleanup (default: 90 days / ~3 months)
  * @returns {object} { removedCount, keptTodoCount }
  */
-export const cleanupOldTaskMetadata = (daysThreshold = 7) => {
+export const cleanupOldTaskMetadata = (daysThreshold = 90) => {
   loadTaskSyncMetadata();
 
   const now = new Date();
