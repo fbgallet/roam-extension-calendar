@@ -123,7 +123,7 @@ Here is an example of an event with date attributes and tags in direct children:
 By connecting a Google account to Full Calendar (see configuration below), you can:
 
 - **view all events from multiple Google calendars** in Full Calendar, with access to rich description, location, attendees and file attachments, including recurring events,
-- **sync on demand** any event Google calendar event to your Roam graph. It's a two-way sync for event title, status and of course date and time. Description, attendees, location and attachments will be imported as children blocks (but not synced)
+- **sync on demand** any event Google calendar event to your Roam graph. It's a two-way sync for event title, status and of course date and time. Description, attendees, location and attachments will be imported as children blocks (but not synced),
 - **create new event** and sync the corresponding block with a Google calendar or create it only on Google calendar side (no Roam block) and display it as non-synced event in Full Calendar
 
 #### Choose to sync or export to a Google calendar when creating a new event:
@@ -149,6 +149,8 @@ You have also basic control on events displayed from Google Calendar but not imp
 - delete them (with confirmation dialog)
 
 The current month and any subsequent month that has been viewed are stored in cache (browser local storage) for instant display and for offline display. A warning message will be displayed in the event popover when you are offline (since the Google calendar event is possibily not up-to-date).
+
+NB: synced events are automatically unsynced when they are older than 90 days, unless they contain a TODO
 
 ### Configuration
 
