@@ -32,7 +32,7 @@ If you press Shift at the same time, it will be opened in the sidebar.
 
 ## Events and tasks displayed in the calendar
 
-By default, the events and tasks displayed in the calendar are the first children block of `#calendar` block (nb: only its first mention is taken into account), in each Daily Notes Pages (DNP). This calendar tag can be customized.
+By default, the events and tasks displayed in the calendar are the first children block of `#calendar` block (nb: only its first mention is taken into account), in each Daily Notes Pages (DNP). This calendar tag can be customized. If you have connected your Google calendar account (see [section below](https://github.com/fbgallet/roam-extension-calendar?tab=readme-ov-file#google-calendar-support)), the events of your selected calendar will also appear with a Google calendar icon, and two-way synced events with a sync icon. You can also connect your Google Task lists.
 
 ⚠️ All blocks with a date defined as a start or end date or any other specific tag, in its content or in its direct children, will always be considered as a calendar event and be displayed (if matching filter tags), regardless of the state of the options below, and whether it is a reference or anywhere on a DNP. See **'Events with date attributes'** section for more informations.
 
@@ -66,7 +66,7 @@ In the calendar header, you have the following options:
 
 ## Handle events with timestamp and duration
 
-If the block contain a timestamp, the corresponding event will automatically have a start time and, by default, one-hour duration. A timestamp can be in 24h or 12h format (🆕 new in v.5), e.g. `14:00`, `14h`, `9:05`, `9:5`, `9h05`, `2:00pm`, `2pm`, `9:05 PM`, etc. (only `:` and `h` are supported as separator between hours and minutes).
+If the block contains a timestamp, the corresponding event will automatically have a start time and, by default, one-hour duration. A timestamp can be in 24h or 12h format (🆕 new in v.5), e.g. `14:00`, `14h`, `9:05`, `9:5`, `9h05`, `2:00pm`, `2pm`, `9:05 PM`, etc. (only `:` and `h` are supported as separator between hours and minutes).
 
 To define a duration you can:
 
@@ -120,11 +120,11 @@ Here is an example of an event with date attributes and tags in direct children:
 
 ## Google Calendar support
 
-By connecting a Google account to Full Calendar, you can:
+By connecting a Google account to Full Calendar (see configuration below), you can:
 
-- view all events from multiple Google calendars in Full Calendar, with access to rich description, location, attendees and file attachments, including recurring events,
-- sync on demand any event Google calendar event to your Roam graph. It's a two-way sync for event title, status and of course date and time. Description, attendees, location and attachments will be imported as children blocks (but not synced)
-- create new event and sync it with a Google calendar or create it only on Google calendar side and display it as non-synced event in Full Calendar
+- **view all events from multiple Google calendars** in Full Calendar, with access to rich description, location, attendees and file attachments, including recurring events,
+- **sync on demand** any event Google calendar event to your Roam graph. It's a two-way sync for event title, status and of course date and time. Description, attendees, location and attachments will be imported as children blocks (but not synced)
+- **create new event** and sync the corresponding block with a Google calendar or create it only on Google calendar side (no Roam block) and display it as non-synced event in Full Calendar
 
 #### Choose to sync or export to a Google calendar when creating a new event:
 
@@ -145,16 +145,18 @@ Any event created in Full Calendar can be easily synced with a given Google Cale
 You have also basic control on events displayed from Google Calendar but not imported/sync to Roam. You can:
 
 - move/expand them to change their date/time
-- check/uncheck them if they include `[ ] / [x]` or `[[TODO]] / DONE` at the beginning of their title,
+- check/uncheck them if they include `[ ] / [x]` or `[[TODO]] / [[DONE]]` at the beginning of their title,
 - delete them (with confirmation dialog)
+
+The current month and any subsequent month that has been viewed are stored in cache (browser local storage) for instant display and for offline display. A warning message will be displayed in the event popover when you are offline (since the Google calendar event is possibily not up-to-date).
 
 ### Configuration
 
-Connect a Google account by opening the Google Calendar configuration dialog in the Full calendar settings or by clicking on the "Google Calendar" tag in the filter bar, then the gear icon. A popup window should open, prompting you to choose your Google account (if it doesn't open, popup blocking is enabled in your browser; an icon should appear in the address bar to grant your browser permission). Full Calendar's privacy policy is detailed [here](https://www.the-thought-experimenter.com/roam-extensions/full-calendar/privacy) and the code of the backend is open source (see [here](https://github.com/fbgallet/roam-calendar--auth-backend)). No personal data is stored on a remote server and your event data is only temporarily saved in the browser's local storage to ensure faster display.
+Connect a Google account by opening the Google Calendar configuration dialog in the Full calendar settings or by clicking on the "Google Calendar" tag in the filter bar, and click the gear icon, then "Connect". A popup window should open, prompting you to choose your Google account (if it doesn't open, popup blocking is enabled in your browser; an icon should appear in the address bar to grant your browser permission). Full Calendar's privacy policy is detailed [here](https://www.the-thought-experimenter.com/roam-extensions/full-calendar/privacy) and the code of the backend is open source (see [here](https://github.com/fbgallet/roam-calendar--auth-backend)). No personal data is stored on a remote server, only a token is used for automatic reconnexion and encrypted to be stored locally. Your event data is only temporarily saved in the browser's local storage to ensure faster display (you can clean cache on demand in the Google Calendar settings dialog).
 
 If the connection was successful, it will show "✅ Connected to google" at the top of the dialog box. And in the calendar filter bar a green dot 🟢 will be displayed. The dot will be red 🔴 in case of disconnection (or when you are offline, for example). It can be sometimes necessary to reconnect your Google account if the connection token has expired.
 
-Once connected, the list of your calendars appears. Select a default calendar and customize the tags and aliases. The first tag will be automatically inserted into a block that you synchronize or will trigger synchronization if you insert it yourself.
+Once connected, the list of your calendars appears. Select a default calendar and customize the tags and aliases. The first tag will be automatically inserted into a block that you synchronize or will trigger synchronization if you insert it yourself. By default, an enabled calendar can be synced both way, but you can limit to only import (view only its events, not synced to any block) or export (create a new events on this calendar, but never sync it with any block.
 
 A calendar can be used as a "separate" tag (from the main Google calendar tag) to facilitate selective display or sorting or to assign it a specific color. By default, all calendars will be linked to the Google calendar tag
 
