@@ -139,7 +139,7 @@ export function getFlattenedContentOfParentAndFirstChildren(uid) {
   return flattenedContent;
 }
 
-function getOrderedDirectChildren(uid) {
+export function getOrderedDirectChildren(uid) {
   if (!uid) return null;
   let result = window.roamAlphaAPI.q(`[:find (pull ?page
                       [:block/uid :block/string :block/children :block/order

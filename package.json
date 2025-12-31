@@ -1,6 +1,6 @@
 {
   "name": "full-calendar",
-  "version": "3.0",
+  "version": "6.0",
   "description": "Full Calendar extension for Roam Research",
   "main": "extension.js",
   "scripts": {

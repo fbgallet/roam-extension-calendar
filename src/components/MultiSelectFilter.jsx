@@ -323,10 +323,11 @@ const MultiSelectFilter = ({
             if (!tag) return;
 
             // Add connection status styling to Google Calendar tags
+            // Show red dot when: not authenticated OR offline (can't sync even if authenticated)
             const isGCalTag = tag.name === "Google calendar" || tag.isGCalTag;
-            const connected = isGCalTag ? isAuthenticated() : true;
+            const canSync = isGCalTag ? (isAuthenticated() && navigator.onLine) : true;
             const gCalClassName = isGCalTag
-              ? (connected ? "fc-gcal-tag-connected" : "fc-gcal-tag-disconnected")
+              ? (canSync ? "fc-gcal-tag-connected" : "fc-gcal-tag-disconnected")
               : "";
 
             return {

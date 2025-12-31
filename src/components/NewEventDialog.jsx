@@ -1,4 +1,4 @@
-import { Button, Popover, HTMLSelect, Switch } from "@blueprintjs/core";
+import { Button, Popover, HTMLSelect, ButtonGroup } from "@blueprintjs/core";
 import {
   createChildBlock,
   deleteBlock,
@@ -19,6 +19,13 @@ import {
 } from "../services/googleCalendarService";
 import GoogleCalendarIconSvg from "../services/google-calendar.svg";
 
+// Sync mode constants
+const SYNC_MODE = {
+  ROAM_ONLY: "roam-only",
+  GCAL_ONLY: "gcal-only",
+  SYNC_BOTH: "sync-both",
+};
+
 const NewEventDialog = ({
   newEventDialogIsOpen,
   setNewEventDialogIsOpen,
@@ -35,9 +42,16 @@ const NewEventDialog = ({
   const [selectedCalendarId, setSelectedCalendarId] = useState("");
   const [connectedCalendars, setConnectedCalendars] = useState([]);
   const [isGCalConnected, setIsGCalConnected] = useState(false);
-  const [syncToGCal, setSyncToGCal] = useState(false);
+  const [syncMode, setSyncMode] = useState(SYNC_MODE.ROAM_ONLY);
   const renderRef = useRef(null);
   const popoverRef = useRef(null);
+
+  // Get the selected calendar object
+  const selectedCalendar = connectedCalendars.find(
+    (c) => c.id === selectedCalendarId
+  );
+  // Check if selected calendar is export-only (no 2-way sync available)
+  const isExportOnly = selectedCalendar?.syncDirection === "export";
 
   // Load connected calendars when dialog opens
   useEffect(() => {
@@ -77,8 +91,13 @@ const NewEventDialog = ({
       // Only auto-enable if a calendar tag is found
       // Don't auto-disable if tag is removed (user might have manually enabled)
       if (foundCalendar) {
-        setSyncToGCal(true);
         setSelectedCalendarId(foundCalendar.id);
+        // Set sync mode based on calendar's syncDirection
+        if (foundCalendar.syncDirection === "export") {
+          setSyncMode(SYNC_MODE.GCAL_ONLY);
+        } else {
+          setSyncMode(SYNC_MODE.SYNC_BOTH);
+        }
       }
     };
 
@@ -149,8 +168,16 @@ const NewEventDialog = ({
   const handleConfirm = async () => {
     setIsBlockRendering(false);
     setNewEventDialogIsOpen(false);
-    // If sync is enabled, pass the calendar ID
-    await addEvent(eventUid, pageUid, syncToGCal, syncToGCal ? selectedCalendarId : null);
+    // Pass the sync mode and calendar ID
+    const shouldSyncToGcal = syncMode !== SYNC_MODE.ROAM_ONLY;
+    const gcalOnly = syncMode === SYNC_MODE.GCAL_ONLY;
+    await addEvent(
+      eventUid,
+      pageUid,
+      shouldSyncToGcal,
+      shouldSyncToGcal ? selectedCalendarId : null,
+      gcalOnly
+    );
   };
 
   return (
@@ -196,37 +223,68 @@ const NewEventDialog = ({
             ></div>
             {isGCalConnected && connectedCalendars.length > 0 && (
               <div className="fc-gcal-sync-controls">
-                <div className="fc-gcal-sync-label">
-                  Sync to
-                  <GoogleCalendarIconSvg
-                    className="fc-gcal-icon-inline"
-                    style={{ width: '16px', height: '16px', marginLeft: '4px', verticalAlign: 'middle' }}
-                  />
-                </div>
-                <div className="fc-gcal-sync-row">
-                  <Switch
-                    checked={syncToGCal}
-                    onChange={(e) => setSyncToGCal(e.target.checked)}
-                    label={
-                      <span className="bp5-icon bp5-icon-refresh"></span>
+                {/* Calendar selector - visible when not Roam only */}
+                {syncMode !== SYNC_MODE.ROAM_ONLY && (
+                  <div className="fc-gcal-selector">
+                    <HTMLSelect
+                      value={selectedCalendarId}
+                      onChange={(e) => {
+                        setSelectedCalendarId(e.target.value);
+                        // If switching to an export-only calendar while in sync-both mode,
+                        // switch to gcal-only mode
+                        const newCal = connectedCalendars.find(
+                          (c) => c.id === e.target.value
+                        );
+                        if (
+                          newCal?.syncDirection === "export" &&
+                          syncMode === SYNC_MODE.SYNC_BOTH
+                        ) {
+                          setSyncMode(SYNC_MODE.GCAL_ONLY);
+                        }
+                      }}
+                      minimal
+                    >
+                      {connectedCalendars.map((cal) => (
+                        <option key={cal.id} value={cal.id}>
+                          {cal.displayName || cal.name}{" "}
+                          {cal.isDefault ? "(default)" : ""}
+                        </option>
+                      ))}
+                    </HTMLSelect>
+                  </div>
+                )}
+                {/* Sync mode segmented control */}
+                <ButtonGroup className="fc-sync-mode-buttons">
+                  <Button
+                    small
+                    active={syncMode === SYNC_MODE.ROAM_ONLY}
+                    onClick={() => setSyncMode(SYNC_MODE.ROAM_ONLY)}
+                  >
+                    Roam only
+                  </Button>
+                  <Button
+                    small
+                    active={syncMode === SYNC_MODE.GCAL_ONLY}
+                    onClick={() => setSyncMode(SYNC_MODE.GCAL_ONLY)}
+                    icon={
+                      <GoogleCalendarIconSvg
+                        style={{ width: "14px", height: "14px" }}
+                      />
                     }
-                  />
-                  {syncToGCal && (
-                    <div className="fc-gcal-selector">
-                      <HTMLSelect
-                        value={selectedCalendarId}
-                        onChange={(e) => setSelectedCalendarId(e.target.value)}
-                        minimal
-                      >
-                        {connectedCalendars.map((cal) => (
-                          <option key={cal.id} value={cal.id}>
-                            {cal.displayName || cal.name} {cal.isDefault ? "(default)" : ""}
-                          </option>
-                        ))}
-                      </HTMLSelect>
-                    </div>
+                  >
+                    GCal only
+                  </Button>
+                  {!isExportOnly && (
+                    <Button
+                      small
+                      active={syncMode === SYNC_MODE.SYNC_BOTH}
+                      onClick={() => setSyncMode(SYNC_MODE.SYNC_BOTH)}
+                      icon="refresh"
+                    >
+                      2-way sync
+                    </Button>
                   )}
-                </div>
+                </ButtonGroup>
               </div>
             )}
             <div>

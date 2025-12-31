@@ -246,15 +246,48 @@ const notifyAuthStateChange = (isAuthenticated) => {
  * Should be called on extension load
  */
 export const initGoogleCalendarService = async () => {
+  // Check if we have stored credentials - if so, we're a "returning user"
+  const savedToken = extensionStorage.get(STORAGE_KEYS.ACCESS_TOKEN);
+  const tokenExpiry = extensionStorage.get(STORAGE_KEYS.TOKEN_EXPIRY);
+  const refreshToken = extensionStorage.get(STORAGE_KEYS.REFRESH_TOKEN);
+  const hasStoredCredentials = savedToken || refreshToken;
+
+  // If offline and we have stored credentials, skip script loading
+  // and just mark as authenticated for cache access
+  if (!navigator.onLine && hasStoredCredentials) {
+    console.log("[Auth] Offline with stored credentials - enabling cache-only mode");
+    notifyAuthStateChange(true);
+
+    // Set up listener to fully initialize when back online
+    const onlineHandler = async () => {
+      console.log("[Auth] Back online - completing initialization");
+      window.removeEventListener('online', onlineHandler);
+      try {
+        await loadGoogleScripts();
+        await initGapiClient();
+        initTokenClient();
+
+        // Now try to refresh the token
+        if (savedToken) {
+          window.gapi.client.setToken({ access_token: savedToken });
+        }
+        const refreshed = await silentRefresh();
+        if (refreshed && refreshToken) {
+          startTokenRefreshMonitoring();
+        }
+      } catch (error) {
+        console.error("[Auth] Failed to initialize after coming online:", error);
+      }
+    };
+    window.addEventListener('online', onlineHandler);
+
+    return true; // Return true so cached events can be displayed
+  }
+
   try {
     await loadGoogleScripts();
     await initGapiClient();
     initTokenClient();
-
-    // Try to restore existing session
-    const savedToken = extensionStorage.get(STORAGE_KEYS.ACCESS_TOKEN);
-    const tokenExpiry = extensionStorage.get(STORAGE_KEYS.TOKEN_EXPIRY);
-    const refreshToken = extensionStorage.get(STORAGE_KEYS.REFRESH_TOKEN);
 
     if (savedToken && tokenExpiry && Date.now() < tokenExpiry) {
       // Token still valid, set it
@@ -269,6 +302,29 @@ export const initGoogleCalendarService = async () => {
       return true;
     } else if (savedToken) {
       // Token expired, try silent refresh
+      // But first check if we're offline - if so, keep the session "alive"
+      // so cached events can be displayed
+      if (!navigator.onLine) {
+        console.log("[Auth] Offline - keeping session alive with expired token for cache access");
+        // Set the expired token anyway so isAuthenticated() returns true for cache access
+        // API calls will fail but cache will work
+        window.gapi.client.setToken({ access_token: savedToken });
+        notifyAuthStateChange(true);
+
+        // Set up listener to refresh when back online
+        const onlineHandler = async () => {
+          console.log("[Auth] Back online - attempting token refresh");
+          window.removeEventListener('online', onlineHandler);
+          const refreshed = await silentRefresh();
+          if (refreshed && refreshToken) {
+            startTokenRefreshMonitoring();
+          }
+        };
+        window.addEventListener('online', onlineHandler);
+
+        return true; // Return true so cached events can be displayed
+      }
+
       const refreshed = await silentRefresh();
 
       // Start monitoring if refresh was successful and we have a refresh token
@@ -281,6 +337,13 @@ export const initGoogleCalendarService = async () => {
 
     return false;
   } catch (error) {
+    // If script loading fails (e.g., offline) but we have credentials,
+    // still allow cache access
+    if (hasStoredCredentials) {
+      console.warn("[Auth] Script loading failed but have stored credentials - enabling cache-only mode");
+      notifyAuthStateChange(true);
+      return true;
+    }
     console.error("Failed to initialize Google Calendar service:", error);
     return false;
   }
@@ -408,13 +471,26 @@ export const stopTokenRefreshMonitoring = () => {
 
 /**
  * Check if user is currently authenticated
+ * When offline with a refresh token, we consider the user "authenticated" for cache access
  */
 export const isAuthenticated = () => {
   const token = window.gapi?.client?.getToken();
   const savedToken = extensionStorage.get(STORAGE_KEYS.ACCESS_TOKEN);
   const tokenExpiry = extensionStorage.get(STORAGE_KEYS.TOKEN_EXPIRY);
+  const refreshToken = extensionStorage.get(STORAGE_KEYS.REFRESH_TOKEN);
 
-  return (token?.access_token || savedToken) && Date.now() < (tokenExpiry || 0);
+  // Standard check: valid non-expired token
+  if ((token?.access_token || savedToken) && Date.now() < (tokenExpiry || 0)) {
+    return true;
+  }
+
+  // Offline with refresh token: consider authenticated for cache access
+  // The token may be expired but we have credentials to refresh when online
+  if (!navigator.onLine && (savedToken || refreshToken)) {
+    return true;
+  }
+
+  return false;
 };
 
 /**

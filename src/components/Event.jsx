@@ -62,7 +62,7 @@ import {
   updateSyncMetadata,
   deleteSyncMetadata,
 } from "../models/SyncMetadata";
-import { fcEventToGCalEvent, convertGCalTodoToRoam } from "../util/gcalMapping";
+import { fcEventToGCalEvent, convertGCalTodoToRoam, parseGCalDataToRoamBlocks } from "../util/gcalMapping";
 import { clearTasksCache } from "../services/taskService";
 import {
   invalidateAllEventsCache,
@@ -433,18 +433,11 @@ const Event = ({
       const calendarBlockUid = await getCalendarUidFromPage(dnpUid);
       const newBlockUid = await createChildBlock(calendarBlockUid, content);
 
-      // Add description as child block if present
-      if (newBlockUid && event.extendedProps?.description) {
-        let description = event.extendedProps.description
-          .replace(/<[^>]*>/g, "") // Remove HTML tags
-          .replace(/&nbsp;/g, " ")
-          .trim();
-        // Filter out any existing Roam link from GCal description
-        description = description
-          .replace(/\n*---\n*Roam block:.*$/s, "")
-          .trim();
-        if (description) {
-          await createChildBlock(newBlockUid, description);
+      // Add description, location, attendees, and attachments as child blocks
+      if (newBlockUid) {
+        const childBlocks = parseGCalDataToRoamBlocks(event);
+        for (const blockContent of childBlocks) {
+          await createChildBlock(newBlockUid, blockContent);
         }
       }
 

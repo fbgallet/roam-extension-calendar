@@ -592,6 +592,123 @@ export const gcalEventToRoamContent = (gcalEvent, calendarConfig, hadOriginalTim
   return content;
 };
 
+/**
+ * Parse HTML description from GCal into an array of Roam block contents
+ * @param {string} htmlDescription - HTML description from GCal
+ * @returns {string[]} Array of block contents (each becomes a child block)
+ */
+export const parseGCalDescriptionToBlocks = (htmlDescription) => {
+  if (!htmlDescription) return [];
+
+  let text = htmlDescription;
+
+  // Remove any existing Roam link section
+  text = text.replace(/\n*---\n*Roam block:.*$/s, "").trim();
+  text = text.replace(/\n*---\n*Block references:[\s\S]*?(?=\n---\n|$)/s, "").trim();
+
+  // Convert <br>, <br/>, <br /> to newlines
+  text = text.replace(/<br\s*\/?>/gi, "\n");
+
+  // Convert </p> and </div> to newlines (block-level elements)
+  text = text.replace(/<\/p>/gi, "\n");
+  text = text.replace(/<\/div>/gi, "\n");
+
+  // Convert <li> to bullet points
+  text = text.replace(/<li[^>]*>/gi, "\n• ");
+  text = text.replace(/<\/li>/gi, "");
+
+  // Convert <a href="...">text</a> to [text](url) markdown
+  text = text.replace(/<a\s+[^>]*href=["']([^"']+)["'][^>]*>([^<]*)<\/a>/gi, "[$2]($1)");
+
+  // Remove remaining HTML tags
+  text = text.replace(/<[^>]*>/g, "");
+
+  // Decode HTML entities
+  text = text.replace(/&nbsp;/g, " ");
+  text = text.replace(/&amp;/g, "&");
+  text = text.replace(/&lt;/g, "<");
+  text = text.replace(/&gt;/g, ">");
+  text = text.replace(/&quot;/g, '"');
+  text = text.replace(/&#39;/g, "'");
+  text = text.replace(/&apos;/g, "'");
+
+  // Split into lines and clean up
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  return lines;
+};
+
+/**
+ * Parse GCal event metadata into Roam child blocks
+ * @param {object} event - FullCalendar event with extendedProps
+ * @returns {string[]} Array of block contents for metadata (Location::, Attendees::, Attachments::)
+ */
+export const parseGCalMetadataToBlocks = (event) => {
+  const blocks = [];
+  const extendedProps = event.extendedProps || {};
+  const gCalEventData = extendedProps.gCalEventData || {};
+
+  // Location
+  if (extendedProps.location) {
+    blocks.push(`Location:: ${extendedProps.location}`);
+  }
+
+  // Attendees - use display name as Roam page reference
+  if (gCalEventData.attendees && gCalEventData.attendees.length > 0) {
+    const attendeesList = gCalEventData.attendees
+      .map((attendee) => {
+        const displayName = attendee.displayName || attendee.email;
+        // Use page reference format with display name
+        if (attendee.displayName) {
+          return `[[${attendee.displayName}]]`;
+        } else {
+          return `[[${attendee.email}]]`;
+        }
+      })
+      .join(", ");
+    blocks.push(`Attendees:: ${attendeesList}`);
+  }
+
+  // Attachments - as markdown links
+  if (extendedProps.attachments && extendedProps.attachments.length > 0) {
+    const attachmentLinks = extendedProps.attachments
+      .map((attachment) => {
+        const title = attachment.title || attachment.fileUrl || "Attachment";
+        const url = attachment.fileUrl || attachment.iconLink;
+        return `[${title}](${url})`;
+      })
+      .join(", ");
+    blocks.push(`Attachments:: ${attachmentLinks}`);
+  }
+
+  return blocks;
+};
+
+/**
+ * Parse all GCal event data into an array of Roam child blocks
+ * Combines description parsing and metadata extraction
+ * @param {object} event - FullCalendar event with extendedProps
+ * @returns {string[]} Array of all child block contents to create
+ */
+export const parseGCalDataToRoamBlocks = (event) => {
+  const blocks = [];
+
+  // Parse description into blocks
+  const descriptionBlocks = parseGCalDescriptionToBlocks(
+    event.extendedProps?.description
+  );
+  blocks.push(...descriptionBlocks);
+
+  // Add metadata blocks
+  const metadataBlocks = parseGCalMetadataToBlocks(event);
+  blocks.push(...metadataBlocks);
+
+  return blocks;
+};
+
 export default {
   // Task detection
   isGCalTask,
@@ -608,4 +725,8 @@ export default {
   hasSyncTriggerTag,
   gcalEventToRoamContent,
   convertGCalTodoToRoam,
+  // GCal to Roam parsing
+  parseGCalDescriptionToBlocks,
+  parseGCalMetadataToBlocks,
+  parseGCalDataToRoamBlocks,
 };

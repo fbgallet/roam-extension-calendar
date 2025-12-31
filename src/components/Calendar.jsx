@@ -23,8 +23,12 @@ import { useCalendarConfigVersion } from "../contexts/CalendarConfigContext";
 import {
   createChildBlock,
   createNewPageIfNotExisting,
+  deleteBlock,
+  deleteBlockIfNoChild,
   getBlockContentByUid,
   getBlocksUidReferencedInThisBlock,
+  getOrderedDirectChildren,
+  getParentBlock,
   updateBlock,
 } from "../util/roamApi";
 import NewEventDialog from "./NewEventDialog";
@@ -318,7 +322,7 @@ const Calendar = ({
     );
   };
 
-  const addEvent = async (eventUid, pageUid, isGcal, targetCalendarId = null) => {
+  const addEvent = async (eventUid, pageUid, isGcal, targetCalendarId = null, gcalOnly = false) => {
     let eventContent = getBlockContentByUid(eventUid);
     const currentDate = new Date(pageUid);
     const dateStr = dateToISOString(currentDate);
@@ -331,8 +335,8 @@ const Calendar = ({
         ? connectedCalendars.find((c) => c.id === targetCalendarId)
         : connectedCalendars.find((c) => c.isDefault) || connectedCalendars[0];
 
-      if (targetCalendar && targetCalendar.syncDirection !== "import") {
-        // Add trigger tag to Roam block if not already present
+      if (targetCalendar && targetCalendar.syncDirection !== "import" && !gcalOnly) {
+        // Add trigger tag to Roam block if not already present (only for 2-way sync)
         const triggerTag = targetCalendar.triggerTags?.[0];
         if (triggerTag) {
           const tagPattern = triggerTag.includes(" ")
@@ -343,6 +347,56 @@ const Calendar = ({
             await updateBlock(eventUid, eventContent);
           }
         }
+      }
+    }
+
+    // Handle GCal-only mode: create event on GCal and delete the Roam block
+    if (gcalOnly && targetCalendar && targetCalendar.syncDirection !== "import") {
+      try {
+        // Get children blocks to include in GCal description
+        const children = getOrderedDirectChildren(eventUid);
+        let childrenDescription = "";
+        if (children && children.length > 0) {
+          childrenDescription = children.map((child) => `• ${child.string}`).join("\n");
+        }
+
+        // Create a temporary FC event to convert to GCal format
+        const tempFcEvent = parseEventObject({
+          id: eventUid,
+          title: eventContent,
+          date: dateStr,
+          matchingTags: [],
+        });
+
+        // Add children content to the description
+        if (childrenDescription) {
+          tempFcEvent.extendedProps = tempFcEvent.extendedProps || {};
+          tempFcEvent.extendedProps.description = childrenDescription;
+        }
+
+        const gcalEventData = fcEventToGCalEvent(tempFcEvent, targetCalendar.id, null);
+        const createdEvent = await createGCalEvent(targetCalendar.id, gcalEventData);
+
+        console.log("Created GCal-only event:", createdEvent);
+
+        // Delete the Roam block since we don't want it synced
+        const parentUid = getParentBlock(eventUid);
+        await deleteBlock(eventUid);
+        deleteBlockIfNoChild(parentUid);
+
+        // Create an FC event that looks like a pure GCal event
+        const fcEvent = gcalEventToFCEvent(createdEvent, targetCalendar);
+        events.push(fcEvent);
+
+        // Update all-events cache with new event
+        addEventToAllCache(fcEvent);
+
+        isDataToFilterAgain.current = true;
+        setForceToReload((prev) => !prev);
+        return;
+      } catch (error) {
+        console.error("Failed to create GCal-only event:", error);
+        return;
       }
     }
 
@@ -360,7 +414,7 @@ const Calendar = ({
       matchingTags,
     });
 
-    // Complete the GCal sync if needed
+    // Complete the GCal sync if needed (2-way sync mode)
     if (targetCalendar && targetCalendar.syncDirection !== "import") {
       try {
         const gcalEventData = fcEventToGCalEvent(fcEvent, targetCalendar.id, eventUid);
