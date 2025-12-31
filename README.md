@@ -1,10 +1,10 @@
 # Full Calendar
 
-### A comprehensive calendar, with Google Calendar two-way sync option, to handle your tasks and have an overview of events or any tagged content in your Daily Note Pages or Google Calendars.
+### A comprehensive calendar interface, supporting Google Calendar two-way sync, to handle your tasks and have an overview of events or any tagged content in your Daily Note Pages or Google Calendars.
 
 🆕 New in v.6 (January 2026):
 
-- Two-way sync with **Google calendar** (see [section below](https://github.com/fbgallet/roam-extension-calendar?tab=readme-ov-file#google-calendar-support) for detailed instructions)
+- Complete support of **Google calendar** import, export or two-way sync (see [section below](https://github.com/fbgallet/roam-extension-calendar?tab=readme-ov-file#google-calendar-support) for detailed instructions)
 - a lot of fixes
 
 See [changelog here for more details on updates and fixes](https://github.com/fbgallet/roam-extension-calendar/blob/main/CHANGELOG.md)
@@ -123,7 +123,12 @@ Here is an example of an event with date attributes and tags in direct children:
 By connecting a Google account to Full Calendar, you can:
 
 - view all events from multiple Google calendars in Full Calendar, with access to rich description, location, attendees and file attachments, including recurring events,
-- sync on demand any event to or from your Roam graph. It's a two-way sync for event title, status and of course date and time.
+- sync on demand any event Google calendar event to your Roam graph. It's a two-way sync for event title, status and of course date and time. Description, attendees, location and attachments will be imported as children blocks (but not synced)
+- create new event and sync it with a Google calendar or create it only on Google calendar side and display it as non-synced event in Full Calendar
+
+#### Choose to sync or export to a Google calendar when creating a new event:
+
+<img width="350" height="210" alt="image" src="https://github.com/user-attachments/assets/5f1bb77a-20ac-4161-bd0e-fe76c1509163" />
 
 #### Example of Google calendar event (not synced):
 
@@ -133,14 +138,15 @@ By connecting a Google account to Full Calendar, you can:
 
 <img width="360" height="475" alt="image" src="https://github.com/user-attachments/assets/6fc50a15-0962-4639-9bc0-febbddd9c181" />
 
-Thanks to this integration, you can create events on your smartphone with the calendar app of your choice and see or update them in Roam, while benefiting from Google Calendar's reminder features. Or you can quickly create events in Roam and sync them instantly with your other calendar app!
+Thanks to this integration, you can create events on your smartphone with the calendar app of your choice and see or update them in Roam, while benefiting from Google Calendar's reminder features. Or you can quickly create events in Roam and sync them instantly with your other calendar app on mobile or any device!
 
 Any event created in Full Calendar can be easily synced with a given Google Calendar. Or you can use command palette or block context menu command `Full Calendar: Sync to default Google calendar" to sync any block, provided that it is on a daily note or mentions one, or that it mentions a start and/or end in its child blocks.
 
-You have also basic control on events displayed from Google Calendar but not imported/sync to Roam:
+You have also basic control on events displayed from Google Calendar but not imported/sync to Roam. You can:
 
-- you can move/expand them to change their date/time
-- you can check/uncheck them if they include `[ ] / [x]` or `[[TODO]] / DONE` at the beginning of their title.
+- move/expand them to change their date/time
+- check/uncheck them if they include `[ ] / [x]` or `[[TODO]] / DONE` at the beginning of their title,
+- delete them (with confirmation dialog)
 
 ### Configuration
 
@@ -154,7 +160,7 @@ A calendar can be used as a "separate" tag (from the main Google calendar tag) t
 
 You can use calendar colors as they are defined in Google calendar (with a wide palette) or use the more limited palette specific to Full Calendar.
 
-You can choose the default format for checkboxes in Google Calendar events: in other words, how `{{[[TODO]]}}` and `{{[[DONE]]}}` will appear (and how they can be manually set or updated from a Google calendar event). Either in standard Markdown format `[ ] / [x]`, or in Roam page format without the curly braces: `[[TODO]] / DONE`
+You can choose the default format for checkboxes in Google Calendar events: in other words, how `{{[[TODO]]}}` and `{{[[DONE]]}}` will appear (and how they can be manually set or updated from a Google calendar event). Either in standard Markdown format `[ ] / [x]`, or in Roam page format without the curly braces: `[[TODO]] / DONE`.
 
 ## If you want to support my work
 
