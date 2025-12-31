@@ -99,6 +99,8 @@ const Event = ({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleteGCalDialogOpen, setIsDeleteGCalDialogOpen] = useState(false);
   const [isExisting, setIsExisting] = useState(true);
+  const [hasDuplicates, setHasDuplicates] = useState(false);
+  const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
   const popoverRef = useRef(null);
   const initialContent = useRef(null);
 
@@ -637,6 +639,59 @@ const Event = ({
       });
     }
   };
+
+  // Check if duplicates exist for this event
+  const checkForDuplicates = async () => {
+    try {
+      const metadata = getSyncMetadata(event.id);
+      if (!metadata?.gCalId || !metadata?.gCalCalendarId) {
+        setHasDuplicates(false);
+        return;
+      }
+
+      setIsCheckingDuplicates(true);
+
+      // Fetch events for the current day
+      const eventDate = new Date(event.start);
+      const startOfDay = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+      const endOfDay = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate() + 1);
+
+      const allEvents = await getGCalEvents(
+        metadata.gCalCalendarId,
+        startOfDay,
+        endOfDay
+      );
+
+      // Create a GCal-formatted event object for comparison
+      const targetGCalEvent = {
+        id: metadata.gCalId,
+        summary: event.title,
+        start: event.start,
+        end: event.end,
+      };
+
+      // Find duplicates
+      const duplicates = findDuplicatesForEvent(
+        targetGCalEvent,
+        allEvents,
+        event.id
+      );
+
+      setHasDuplicates(duplicates.length > 0);
+    } catch (error) {
+      console.error("Failed to check for duplicates:", error);
+      setHasDuplicates(false);
+    } finally {
+      setIsCheckingDuplicates(false);
+    }
+  };
+
+  // Check for duplicates when popover opens for synced events
+  useEffect(() => {
+    if (popoverIsOpen && isSyncedToGCal && !isCheckingDuplicates) {
+      checkForDuplicates();
+    }
+  }, [popoverIsOpen, isSyncedToGCal]);
 
   // Remove duplicate events (keep this synced event, remove duplicates)
   const handleRemoveDuplicates = async () => {
@@ -1308,11 +1363,13 @@ const Event = ({
                           text="Open in Google Calendar"
                           onClick={handleOpenInGCal}
                         />
-                        <MenuItem
-                          icon="duplicate"
-                          text="Remove duplicates"
-                          onClick={handleRemoveDuplicates}
-                        />
+                        {hasDuplicates && (
+                          <MenuItem
+                            icon="duplicate"
+                            text="Remove duplicates"
+                            onClick={handleRemoveDuplicates}
+                          />
+                        )}
                         <MenuDivider />
                         <MenuItem
                           icon="disable"

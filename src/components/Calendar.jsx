@@ -721,7 +721,9 @@ const Calendar = ({
 
               // Auto-deduplication: Run once per day on first load for current month
               // This cleans up duplicates created before sync recovery was implemented
-              if (shouldRunAutoDeduplication()) {
+              // Skip for year view to avoid performance issues and duplicate risk
+              const isYearView = periodView.current === "multiMonthYear";
+              if (shouldRunAutoDeduplication() && !isYearView) {
                 console.log("[Dedup] Running auto-deduplication for current view...");
                 const dedupStats = await deduplicateAllEvents(
                   calendarConfig.id,
@@ -744,13 +746,22 @@ const Calendar = ({
                 markDeduplicationRun();
               }
 
+              // Build lookup Map for O(1) event lookups instead of O(n) findIndex
+              const eventIndexByGCalId = new Map();
+              for (let i = 0; i < events.length; i++) {
+                const gCalId = events[i].extendedProps?.gCalId;
+                if (gCalId) {
+                  eventIndexByGCalId.set(gCalId, i);
+                }
+              }
+
               for (const gcalEvent of gCalEvents) {
                 const fcEvent = gcalEventToFCEvent(gcalEvent, calendarConfig);
 
-                // Check if this event is already displayed
-                const existingEventIndex = events.findIndex(
-                  (evt) => evt.extendedProps?.gCalId === gcalEvent.id
-                );
+                // Check if this event is already displayed - O(1) lookup
+                const existingEventIndex = eventIndexByGCalId.has(gcalEvent.id)
+                  ? eventIndexByGCalId.get(gcalEvent.id)
+                  : -1;
 
                 if (existingEventIndex !== -1) {
                   // Event already displayed - check for updates
@@ -880,46 +891,50 @@ const Calendar = ({
 
         // Auto-sync Roam events with GCal trigger tags that aren't synced yet
         // This happens AFTER sync recovery to prevent duplicates
-        for (const evt of events) {
-          // Check if component is still mounted before syncing
-          if (!isMountedRef.current) break;
+        // Skip for year view to avoid performance issues and duplicate risk
+        const isYearViewForAutoSync = periodView.current === "multiMonthYear";
+        if (!isYearViewForAutoSync) {
+          for (const evt of events) {
+            // Check if component is still mounted before syncing
+            if (!isMountedRef.current) break;
 
-          // Skip if already synced
-          if (evt.extendedProps?.gCalId) continue;
+            // Skip if already synced
+            if (evt.extendedProps?.gCalId) continue;
 
-          // Check if event has a GCal trigger tag
-          const targetCalendar = findCalendarForEvent(evt, connectedCalendars);
+            // Check if event has a GCal trigger tag
+            const targetCalendar = findCalendarForEvent(evt, connectedCalendars);
 
-          if (targetCalendar) {
-            // CRITICAL: Check if it's safe to auto-sync (no duplicate in GCal)
-            if (!isSafeToAutoSync(evt, allGCalEvents)) {
-              console.warn(`[Auto-sync] Skipping event "${evt.title}" - potential duplicate detected`);
-              continue;
-            }
-
-            try {
-              const result = await syncEventToGCal(evt.id, evt, targetCalendar.id);
-
-              // Check again after async operation completes
-              if (!isMountedRef.current) break;
-
-              if (result.success) {
-                // Update event with sync info for proper deduplication
-                evt.extendedProps = {
-                  ...evt.extendedProps,
-                  gCalId: result.gCalId,
-                  gCalCalendarId: targetCalendar.id,
-                };
-
-                // Add to allGCalEvents to prevent duplicate checks for subsequent events
-                allGCalEvents.push({
-                  id: result.gCalId,
-                  summary: evt.title,
-                  start: { dateTime: evt.start },
-                });
+            if (targetCalendar) {
+              // CRITICAL: Check if it's safe to auto-sync (no duplicate in GCal)
+              if (!isSafeToAutoSync(evt, allGCalEvents)) {
+                console.warn(`[Auto-sync] Skipping event "${evt.title}" - potential duplicate detected`);
+                continue;
               }
-            } catch (error) {
-              console.error("[Auto-sync] Error syncing event:", evt.title, error);
+
+              try {
+                const result = await syncEventToGCal(evt.id, evt, targetCalendar.id);
+
+                // Check again after async operation completes
+                if (!isMountedRef.current) break;
+
+                if (result.success) {
+                  // Update event with sync info for proper deduplication
+                  evt.extendedProps = {
+                    ...evt.extendedProps,
+                    gCalId: result.gCalId,
+                    gCalCalendarId: targetCalendar.id,
+                  };
+
+                  // Add to allGCalEvents to prevent duplicate checks for subsequent events
+                  allGCalEvents.push({
+                    id: result.gCalId,
+                    summary: evt.title,
+                    start: { dateTime: evt.start },
+                  });
+                }
+              } catch (error) {
+                console.error("[Auto-sync] Error syncing event:", evt.title, error);
+              }
             }
           }
         }

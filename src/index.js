@@ -30,7 +30,10 @@ import {
 import { cleanupOldMetadata } from "./models/SyncMetadata";
 import { cleanupOldTaskMetadata } from "./models/TaskSyncMetadata";
 import { cleanupOldAllEventsCache } from "./services/eventCacheService";
-import { syncBlockToDefaultCalendar, showSyncResultToast } from "./services/syncService";
+import {
+  syncBlockToDefaultCalendar,
+  showSyncResultToast,
+} from "./services/syncService";
 
 export let mapOfTags = [];
 export let extensionStorage;
@@ -571,10 +574,10 @@ export const initializeGCalTags = (calendarsOverride = null) => {
           existingTag.updatePages(newPages);
         }
 
-        console.log(
-          `Updated separate EventTag for GCal calendar: ${tagName} with pages:`,
-          existingTag.pages
-        );
+        // console.log(
+        //   `Updated separate EventTag for GCal calendar: ${tagName} with pages:`,
+        //   existingTag.pages
+        // );
       }
     } else {
       // Calendar is grouped under main "Google Calendar" tag
@@ -592,21 +595,13 @@ export const initializeGCalTags = (calendarsOverride = null) => {
           ...new Set([...currentPages, ...calendarConfig.triggerTags]),
         ];
         mainGCalTag.updatePages(newPages);
-        console.log(
-          `Added trigger tags to main GCal tag. Pages:`,
-          mainGCalTag.pages
-        );
+        // console.log(
+        //   `Added trigger tags to main GCal tag. Pages:`,
+        //   mainGCalTag.pages
+        // );
       }
-
-      console.log(
-        `Grouped calendar under main GCal tag: ${calendarConfig.name}`
-      );
     }
   }
-
-  console.log(
-    `Main GCal tag now has ${mainGCalTag.gCalCalendarIds.length} grouped calendars`
-  );
 
   // If "Use Original Colors" is enabled, apply calendar colors to tags on initialization
   if (getUseOriginalColors()) {
@@ -622,9 +617,6 @@ export const initializeGCalTags = (calendarsOverride = null) => {
         const tag = getTagFromName(tagName);
         if (tag) {
           tag.setColor(calendarConfig.backgroundColor);
-          console.log(
-            `Applied original color to tag "${tagName}": ${calendarConfig.backgroundColor}`
-          );
         }
       } else if (calendarConfig.isDefault) {
         // Store the default calendar's color for the main tag
@@ -635,9 +627,6 @@ export const initializeGCalTags = (calendarsOverride = null) => {
     // Apply the default calendar's color to the main "Google calendar" tag
     if (defaultCalendarColor && mainGCalTag) {
       mainGCalTag.setColor(defaultCalendarColor);
-      console.log(
-        `Applied original color to main GCal tag: ${defaultCalendarColor}`
-      );
     }
   }
 };
@@ -687,7 +676,7 @@ export const initializeGTaskTags = (taskListsOverride = null) => {
       disabledTaskListIds: [],
     });
     mapOfTags.push(mainGTaskTag);
-    console.log("Created main 'Google Tasks' tag");
+    // console.log("Created main 'Google Tasks' tag");
   }
 
   // Initialize arrays for the main tag
@@ -719,10 +708,6 @@ export const initializeGTaskTags = (taskListsOverride = null) => {
           isToDisplayInSb: true,
         });
         mapOfTags.push(gtaskTag);
-        console.log(
-          `Created separate EventTag for task list: ${tagName} with pages:`,
-          pages
-        );
       } else {
         // Update existing tag with GTask properties
         existingTag.gTaskListId = listConfig.id;
@@ -736,8 +721,6 @@ export const initializeGTaskTags = (taskListsOverride = null) => {
           ];
           existingTag.updatePages(newPages);
         }
-
-        console.log(`Updated separate EventTag for task list: ${tagName}`);
       }
     } else {
       // Task list is grouped under main "Google Tasks" tag
@@ -756,14 +739,8 @@ export const initializeGTaskTags = (taskListsOverride = null) => {
         ];
         mainGTaskTag.updatePages(newPages);
       }
-
-      console.log(`Grouped task list under main GTask tag: ${listConfig.name}`);
     }
   }
-
-  console.log(
-    `Main GTask tag now has ${mainGTaskTag.gTaskListIds.length} grouped task lists`
-  );
 };
 
 // clean calendarTag data, solve conflict from v.4 or from quit just after setting change
@@ -859,7 +836,8 @@ export default {
     extensionAPI.ui.commandPalette.addCommand({
       label: "Full Calendar: Sync to default Google calendar",
       callback: async () => {
-        const blockUid = window.roamAlphaAPI.ui.getFocusedBlock()?.["block-uid"];
+        const blockUid =
+          window.roamAlphaAPI.ui.getFocusedBlock()?.["block-uid"];
         if (!blockUid) {
           const toaster = Toaster.create({ position: Position.TOP });
           toaster.show({
@@ -957,7 +935,9 @@ export default {
     removeListeners();
 
     // Stop token refresh monitoring to prevent memory leaks
-    const { stopTokenRefreshMonitoring } = require("./services/googleCalendarService");
+    const {
+      stopTokenRefreshMonitoring,
+    } = require("./services/googleCalendarService");
     stopTokenRefreshMonitoring();
 
     // Properly unmount all Calendar instances to prevent zombie components

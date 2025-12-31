@@ -199,56 +199,125 @@ export const removeDuplicateEvents = async (calendarId, eventsToRemove) => {
 };
 
 /**
- * Deduplicate all events in a calendar
+ * Normalize title for duplicate comparison
+ * Extracted for reuse in hash-based deduplication
+ * @param {string} title - Event title/summary
+ * @returns {string} Normalized title
+ */
+const normalizeTitle = (title) => {
+  return (title || "")
+    .replace(/{{[[TODO]]}}\s*/g, "")
+    .replace(/{{[[DONE]]}}\s*/g, "")
+    .replace(/\[\[TODO\]\]\s*/g, "")
+    .replace(/\[\[DONE\]\]\s*/g, "")
+    .replace(/^\[\s*\]\s*/g, "")
+    .replace(/^\[x\]\s*/g, "")
+    .trim()
+    .toLowerCase();
+};
+
+/**
+ * Generate a hash key for an event based on duplicate-defining properties
+ * Events with the same key are potential duplicates
+ * @param {object} event - GCal event
+ * @returns {string} Hash key
+ */
+const getEventHashKey = (event) => {
+  const title = normalizeTitle(event.summary || event.title);
+  const startTime = new Date(
+    event.start?.dateTime || event.start?.date || event.start
+  ).getTime();
+  // Round to minute to handle 1-minute tolerance
+  const startMinute = Math.floor(startTime / 60000);
+  return `${title}|${startMinute}`;
+};
+
+/**
+ * Deduplicate all events in a calendar using hash-based O(n) algorithm
  * @param {string} calendarId - Google Calendar ID
  * @param {array} allEvents - Array of all GCal events
  * @returns {object} Stats: { scanned, duplicatesFound, removed, failed }
  */
 export const deduplicateAllEvents = async (calendarId, allEvents) => {
   const stats = {
-    scanned: 0,
+    scanned: allEvents.length,
     duplicatesFound: 0,
     removed: 0,
     failed: 0,
   };
 
-  console.log(`[Dedup] Starting deduplication for ${allEvents.length} events...`);
+  console.log(`[Dedup] Starting hash-based deduplication for ${allEvents.length} events...`);
 
-  // Track processed events to avoid double-processing
-  const processedIds = new Set();
-  const eventsToRemove = [];
-
-  for (const targetEvent of allEvents) {
-    stats.scanned++;
-
-    // Skip if already processed
-    if (processedIds.has(targetEvent.id)) continue;
-    processedIds.add(targetEvent.id);
-
-    // Find duplicates
-    const duplicates = findDuplicatesForEvent(targetEvent, allEvents);
-
-    if (duplicates.length === 0) continue;
-
-    // Found duplicates
-    stats.duplicatesFound += duplicates.length;
-
-    // Determine which to remove
-    const targetIsSynced = isEventSyncedToRoam(targetEvent);
-    const toRemove = getDuplicatesToRemove(
-      targetEvent,
-      duplicates,
-      targetIsSynced
-    );
-
-    // Mark duplicates as processed
-    toRemove.forEach((evt) => processedIds.add(evt.id));
-
-    // Collect for removal
-    eventsToRemove.push(...toRemove);
+  // Step 1: Group events by hash key - O(n)
+  const eventGroups = new Map();
+  for (const event of allEvents) {
+    const key = getEventHashKey(event);
+    if (!eventGroups.has(key)) {
+      eventGroups.set(key, []);
+    }
+    eventGroups.get(key).push(event);
   }
 
-  // Remove duplicates
+  // Step 2: Process only groups with potential duplicates - O(n) total
+  const eventsToRemove = [];
+
+  for (const [key, group] of eventGroups) {
+    // Skip groups with only one event (no duplicates)
+    if (group.length <= 1) continue;
+
+    // Also check end times to confirm duplicates (handles edge cases)
+    // Group by end time as well for more precise matching
+    const confirmedDuplicateGroups = new Map();
+    for (const event of group) {
+      const endTime = event.end?.dateTime || event.end?.date || event.end;
+      const endMinute = endTime ? Math.floor(new Date(endTime).getTime() / 60000) : 'none';
+      const endKey = `${key}|${endMinute}`;
+
+      if (!confirmedDuplicateGroups.has(endKey)) {
+        confirmedDuplicateGroups.set(endKey, []);
+      }
+      confirmedDuplicateGroups.get(endKey).push(event);
+    }
+
+    // Process each confirmed duplicate group
+    for (const [, duplicateGroup] of confirmedDuplicateGroups) {
+      if (duplicateGroup.length <= 1) continue;
+
+      stats.duplicatesFound += duplicateGroup.length - 1;
+
+      // Find which event to keep:
+      // Priority 1: Synced to Roam (has Roam block link)
+      // Priority 2: Oldest event (by created/updated time)
+      let eventToKeep = null;
+
+      // First, look for a synced event
+      for (const event of duplicateGroup) {
+        if (isEventSyncedToRoam(event)) {
+          eventToKeep = event;
+          break;
+        }
+      }
+
+      // If no synced event, keep the oldest
+      if (!eventToKeep) {
+        duplicateGroup.sort((a, b) => {
+          const timeA = new Date(a.created || a.updated || 0).getTime();
+          const timeB = new Date(b.created || b.updated || 0).getTime();
+          return timeA - timeB;
+        });
+        eventToKeep = duplicateGroup[0];
+      }
+
+      // Mark all others for removal
+      for (const event of duplicateGroup) {
+        if (event.id !== eventToKeep.id) {
+          eventsToRemove.push(event);
+        }
+      }
+    }
+  }
+
+  // Step 3: Remove duplicates
   if (eventsToRemove.length > 0) {
     console.log(`[Dedup] Removing ${eventsToRemove.length} duplicate events...`);
     const removeResults = await removeDuplicateEvents(

@@ -61,7 +61,9 @@ export const setCachedEvents = (year, month, events, calendarIds = []) => {
       fetchedAt: Date.now(),
     };
     localStorage.setItem(key, JSON.stringify(cacheData));
-    console.log(`[EventCache] Cached ${events.length} events for ${year}-${month + 1}`);
+    console.log(
+      `[EventCache] Cached ${events.length} events for ${year}-${month + 1}`
+    );
   } catch (error) {
     console.error("[EventCache] Error writing cache:", error);
     // If localStorage is full, try to clean up old cache entries
@@ -96,7 +98,11 @@ export const isCacheValid = (year, month, isOffline = false) => {
  * @param {boolean} isOffline - If true, accept stale cache
  * @returns {object} { events: array, isComplete: boolean, missingMonths: array }
  */
-export const getCachedEventsForRange = (startDate, endDate, isOffline = false) => {
+export const getCachedEventsForRange = (
+  startDate,
+  endDate,
+  isOffline = false
+) => {
   const events = [];
   const missingMonths = [];
   const seenEventIds = new Set();
@@ -160,7 +166,9 @@ export const invalidateCache = (year, month) => {
       for (const key of keysToRemove) {
         localStorage.removeItem(key);
       }
-      console.log(`[EventCache] Invalidated all cache (${keysToRemove.length} entries)`);
+      console.log(
+        `[EventCache] Invalidated all cache (${keysToRemove.length} entries)`
+      );
     }
   } catch (error) {
     console.error("[EventCache] Error invalidating cache:", error);
@@ -263,7 +271,9 @@ const cleanupOldCacheEntries = () => {
   }
 
   if (keysToRemove.length > 0) {
-    console.log(`[EventCache] Cleaned up ${keysToRemove.length} old cache entries`);
+    console.log(
+      `[EventCache] Cleaned up ${keysToRemove.length} old cache entries`
+    );
   }
 };
 
@@ -306,8 +316,10 @@ export const cleanupOldAllEventsCache = () => {
           const cacheMonth = parseInt(match[2], 10) - 1; // Convert to 0-11
 
           // Keep current month and next month
-          const isCurrentMonth = cacheYear === currentYear && cacheMonth === currentMonth;
-          const isNextMonth = cacheYear === nextYear && cacheMonth === nextMonth;
+          const isCurrentMonth =
+            cacheYear === currentYear && cacheMonth === currentMonth;
+          const isNextMonth =
+            cacheYear === nextYear && cacheMonth === nextMonth;
 
           // Remove if older than cutoff month (1 month before current)
           const cacheDate = new Date(cacheYear, cacheMonth, 1);
@@ -333,7 +345,9 @@ export const cleanupOldAllEventsCache = () => {
   }
 
   if (keysToRemove.length > 0) {
-    console.log(`[AllEventsCache] Cleaned up ${keysToRemove.length} old cache entries (keeping current and next month, removing older than 1 month ago)`);
+    console.log(
+      `[AllEventsCache] Cleaned up ${keysToRemove.length} old cache entries (keeping current and next month, removing older than 1 month ago)`
+    );
   }
 };
 
@@ -381,7 +395,6 @@ export const setAllCachedEvents = (year, month, events) => {
       fetchedAt: Date.now(),
     };
     localStorage.setItem(key, JSON.stringify(cacheData));
-    console.log(`[AllEventsCache] Cached ${events.length} total events for ${year}-${month + 1}`);
   } catch (error) {
     console.error("[AllEventsCache] Error writing cache:", error);
     cleanupOldCacheEntries();
@@ -410,7 +423,11 @@ export const isAllEventsCacheValid = (year, month, isOffline = false) => {
  * @param {boolean} isOffline - If true, accept stale cache
  * @returns {object} { events: array, isComplete: boolean, missingMonths: array }
  */
-export const getAllCachedEventsForRange = (startDate, endDate, isOffline = false) => {
+export const getAllCachedEventsForRange = (
+  startDate,
+  endDate,
+  isOffline = false
+) => {
   const events = [];
   const missingMonths = [];
   const seenEventIds = new Set();
@@ -458,7 +475,9 @@ export const invalidateAllEventsCache = (year, month) => {
     if (year !== undefined && month !== undefined) {
       const key = getAllEventsCacheKey(year, month);
       localStorage.removeItem(key);
-      console.log(`[AllEventsCache] Invalidated cache for ${year}-${month + 1}`);
+      console.log(
+        `[AllEventsCache] Invalidated cache for ${year}-${month + 1}`
+      );
     } else {
       const keysToRemove = [];
       for (let i = 0; i < localStorage.length; i++) {
@@ -470,7 +489,9 @@ export const invalidateAllEventsCache = (year, month) => {
       for (const key of keysToRemove) {
         localStorage.removeItem(key);
       }
-      console.log(`[AllEventsCache] Invalidated all cache (${keysToRemove.length} entries)`);
+      console.log(
+        `[AllEventsCache] Invalidated all cache (${keysToRemove.length} entries)`
+      );
     }
   } catch (error) {
     console.error("[AllEventsCache] Error invalidating cache:", error);
@@ -499,12 +520,12 @@ export const updateEventInAllCache = (event) => {
   if (eventIndex !== -1) {
     cached.events[eventIndex] = event;
     setAllCachedEvents(year, month, cached.events);
-    console.log(`[AllEventsCache] Updated event ${eventId}`);
+    // console.log(`[AllEventsCache] Updated event ${eventId}`);
   } else {
     // Event not in cache yet - add it
     cached.events.push(event);
     setAllCachedEvents(year, month, cached.events);
-    console.log(`[AllEventsCache] Added new event ${eventId}`);
+    //  console.log(`[AllEventsCache] Added new event ${eventId}`);
   }
 };
 
@@ -529,7 +550,7 @@ export const removeEventFromAllCache = (eventId, eventDate) => {
   if (eventIndex !== -1) {
     cached.events.splice(eventIndex, 1);
     setAllCachedEvents(year, month, cached.events);
-    console.log(`[AllEventsCache] Removed event ${eventId}`);
+    //  console.log(`[AllEventsCache] Removed event ${eventId}`);
   }
 };
 
@@ -551,7 +572,7 @@ export const addEventToAllCache = (event) => {
 
   cached.events.push(event);
   setAllCachedEvents(year, month, cached.events);
-  console.log(`[AllEventsCache] Added event to cache`);
+  //console.log(`[AllEventsCache] Added event to cache`);
 };
 
 /**
@@ -571,7 +592,9 @@ export const setAllCachedEventsForRange = (startDate, endDate, events) => {
   // This covers: day view (1 day), week view (7 days), month view (~35-42 days)
   // But skips: year view (365 days), multi-month view (90+ days)
   if (rangeDays > 60) {
-    console.log(`[AllEventsCache] Skipping cache for large range (${rangeDays} days) - likely year/multi-month view`);
+    console.log(
+      `[AllEventsCache] Skipping cache for large range (${rangeDays} days) - likely year/multi-month view`
+    );
     return false;
   }
 
@@ -599,8 +622,12 @@ export const setAllCachedEventsForRange = (startDate, endDate, events) => {
     }
   }
 
-  const [primaryYear, primaryMonth] = primaryMonthKey.split('-').map(Number);
-  console.log(`[AllEventsCache] Primary month being viewed: ${primaryYear}-${primaryMonth + 1}`);
+  const [primaryYear, primaryMonth] = primaryMonthKey.split("-").map(Number);
+  // console.log(
+  //   `[AllEventsCache] Primary month being viewed: ${primaryYear}-${
+  //     primaryMonth + 1
+  //   }`
+  // );
 
   // Group events by the months they belong to (based on event start date)
   const eventsByMonth = new Map();
@@ -612,7 +639,11 @@ export const setAllCachedEventsForRange = (startDate, endDate, events) => {
     const monthKey = `${eventYear}-${eventMonth}`;
 
     if (!eventsByMonth.has(monthKey)) {
-      eventsByMonth.set(monthKey, { year: eventYear, month: eventMonth, events: [] });
+      eventsByMonth.set(monthKey, {
+        year: eventYear,
+        month: eventMonth,
+        events: [],
+      });
     }
 
     // Create a deep copy to avoid reference issues and ensure all properties are preserved
@@ -623,13 +654,18 @@ export const setAllCachedEventsForRange = (startDate, endDate, events) => {
   // Only cache the primary month being viewed and the next month relative to today's current month
   // This prevents overwriting the current month's cache when viewing a different month
   const nextRealMonth = currentRealMonth === 11 ? 0 : currentRealMonth + 1;
-  const nextRealYear = currentRealMonth === 11 ? currentRealYear + 1 : currentRealYear;
+  const nextRealYear =
+    currentRealMonth === 11 ? currentRealYear + 1 : currentRealYear;
 
   let cachedMonthsCount = 0;
   for (const monthData of eventsByMonth.values()) {
-    const isPrimaryMonth = monthData.year === primaryYear && monthData.month === primaryMonth;
-    const isCurrentRealMonth = monthData.year === currentRealYear && monthData.month === currentRealMonth;
-    const isNextRealMonth = monthData.year === nextRealYear && monthData.month === nextRealMonth;
+    const isPrimaryMonth =
+      monthData.year === primaryYear && monthData.month === primaryMonth;
+    const isCurrentRealMonth =
+      monthData.year === currentRealYear &&
+      monthData.month === currentRealMonth;
+    const isNextRealMonth =
+      monthData.year === nextRealYear && monthData.month === nextRealMonth;
 
     // Only cache the primary month being viewed
     // Don't cache current/next months if they're not the primary month
@@ -638,17 +674,29 @@ export const setAllCachedEventsForRange = (startDate, endDate, events) => {
 
     if (shouldCache) {
       setAllCachedEvents(monthData.year, monthData.month, monthData.events);
-      console.log(`[AllEventsCache] Cached ${monthData.events.length} events for ${monthData.year}-${monthData.month + 1} (primary month)`);
+      // console.log(
+      //   `[AllEventsCache] Cached ${monthData.events.length} events for ${
+      //     monthData.year
+      //   }-${monthData.month + 1} (primary month)`
+      // );
       cachedMonthsCount++;
     } else {
-      const reason = isCurrentRealMonth ? "current real month but not primary" :
-                     isNextRealMonth ? "next real month but not primary" :
-                     "not primary month";
-      console.log(`[AllEventsCache] Skipped caching ${monthData.events.length} events for ${monthData.year}-${monthData.month + 1} (${reason})`);
+      const reason = isCurrentRealMonth
+        ? "current real month but not primary"
+        : isNextRealMonth
+        ? "next real month but not primary"
+        : "not primary month";
+      // console.log(
+      //   `[AllEventsCache] Skipped caching ${
+      //     monthData.events.length
+      //   } events for ${monthData.year}-${monthData.month + 1} (${reason})`
+      // );
     }
   }
 
-  console.log(`[AllEventsCache] Saved events to ${cachedMonthsCount} months (${rangeDays} days range)`);
+  // console.log(
+  //   `[AllEventsCache] Saved events to ${cachedMonthsCount} months (${rangeDays} days range)`
+  // );
   return true;
 };
 
