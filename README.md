@@ -145,6 +145,7 @@ An event in Full calendar can be either:
 - a Roam block whose content and date/time matches an existing Google calendar event (if it has been unsynced, for example)
 
 Here are the distinctive icons for each of them:
+
 <img width="246" height="102" alt="image" src="https://github.com/user-attachments/assets/72a3c2de-1ed5-4367-acc8-2bf62f3a75f9" />
 
 Thanks to this integration, you can create events on your smartphone with the calendar app of your choice and see or update them in Roam, while benefiting from Google Calendar's reminder features. Or you can quickly create events in Roam and sync them instantly with your other calendar app on mobile or any device!
