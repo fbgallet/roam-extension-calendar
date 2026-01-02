@@ -138,9 +138,22 @@ By connecting a Google account to Full Calendar (see configuration below), you c
 
 <img width="360" height="475" alt="image" src="https://github.com/user-attachments/assets/6fc50a15-0962-4639-9bc0-febbddd9c181" />
 
+An event in Full calendar can be either:
+- a simple Roam block event (eventually as block reference)
+- a two-way synced event: Roam block + Google calendar event
+- a Google calendar event (only displayed, not linked to any Roam block)
+- a Roam block whose content and date/time matches an existing Google calendar event (if it has been unsynced, for example)
+
+Here are the distinctive icons for each of them:
+<img width="246" height="102" alt="image" src="https://github.com/user-attachments/assets/72a3c2de-1ed5-4367-acc8-2bf62f3a75f9" />
+
 Thanks to this integration, you can create events on your smartphone with the calendar app of your choice and see or update them in Roam, while benefiting from Google Calendar's reminder features. Or you can quickly create events in Roam and sync them instantly with your other calendar app on mobile or any device!
 
-Any event created in Full Calendar can be easily synced with a given Google Calendar. Or you can use command palette or block context menu command `Full Calendar: Sync to default Google calendar" to sync any block, provided that it is on a daily note or mentions one, or that it mentions a start and/or end in its child blocks.
+Any event created in Full Calendar can be easily synced with a given Google Calendar (via '...' menu at bottom right of an event popover). Or you can use command palette or block context menu command `Full Calendar: Sync to default Google calendar` to sync any block, provided that it is on a daily note or mentions one, or that it mentions a start and/or end in its child blocks.
+
+You can also sync in batch events in the current calendar view for a given Google calendar: import all or selected Google calendar events, or export all or selected Roam events at once!
+
+<img width="424" height="379" alt="image" src="https://github.com/user-attachments/assets/60387761-b137-4a8f-83c6-36d7e0d9361a" />
 
 You have also basic control on events displayed from Google Calendar but not imported/sync to Roam. You can:
 
