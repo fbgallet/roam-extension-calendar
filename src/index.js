@@ -934,11 +934,13 @@ export default {
     disconnectObserver();
     removeListeners();
 
-    // Stop token refresh monitoring to prevent memory leaks
+    // Stop token refresh monitoring and cleanup event listeners to prevent memory leaks
     const {
       stopTokenRefreshMonitoring,
+      cleanupEventListeners,
     } = require("./services/googleCalendarService");
     stopTokenRefreshMonitoring();
+    cleanupEventListeners();
 
     // Properly unmount all Calendar instances to prevent zombie components
     const allCalendarInstances = document.querySelectorAll(

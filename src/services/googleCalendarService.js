@@ -23,6 +23,7 @@ let gapiInitialized = false;
 let tokenClient = null;
 let authStateListeners = [];
 let tokenRefreshInterval = null;
+let onlineHandlers = []; // Track online event listeners for cleanup
 
 /**
  * Storage keys for GCal data
@@ -36,6 +37,7 @@ export const STORAGE_KEYS = {
   SYNC_INTERVAL: "gcal-sync-interval",
   USE_ORIGINAL_COLORS: "gcal-use-original-colors",
   CHECKBOX_FORMAT: "gcal-checkbox-format",
+  AUTO_TOKEN_REFRESH: "gcal-auto-token-refresh",
   // Google Tasks storage keys
   TASKS_ENABLED: "gtasks-enabled",
   CONNECTED_TASK_LISTS: "gtasks-connected-lists",
@@ -262,6 +264,10 @@ export const initGoogleCalendarService = async () => {
     const onlineHandler = async () => {
       console.log("[Auth] Back online - completing initialization");
       window.removeEventListener('online', onlineHandler);
+      // Remove from tracking array
+      const index = onlineHandlers.indexOf(onlineHandler);
+      if (index > -1) onlineHandlers.splice(index, 1);
+
       try {
         await loadGoogleScripts();
         await initGapiClient();
@@ -280,6 +286,7 @@ export const initGoogleCalendarService = async () => {
       }
     };
     window.addEventListener('online', onlineHandler);
+    onlineHandlers.push(onlineHandler); // Track for cleanup
 
     return true; // Return true so cached events can be displayed
   }
@@ -315,12 +322,17 @@ export const initGoogleCalendarService = async () => {
         const onlineHandler = async () => {
           console.log("[Auth] Back online - attempting token refresh");
           window.removeEventListener('online', onlineHandler);
+          // Remove from tracking array
+          const index = onlineHandlers.indexOf(onlineHandler);
+          if (index > -1) onlineHandlers.splice(index, 1);
+
           const refreshed = await silentRefresh();
           if (refreshed && refreshToken) {
             startTokenRefreshMonitoring();
           }
         };
         window.addEventListener('online', onlineHandler);
+        onlineHandlers.push(onlineHandler); // Track for cleanup
 
         return true; // Return true so cached events can be displayed
       }
@@ -428,6 +440,14 @@ export const silentRefresh = async () => {
  * Checks every 10 minutes and refreshes if token expires within 15 minutes
  */
 const startTokenRefreshMonitoring = () => {
+  // Check if auto-refresh is enabled (default: true for backward compatibility)
+  const autoRefreshEnabled = extensionStorage.get(STORAGE_KEYS.AUTO_TOKEN_REFRESH) ?? true;
+
+  if (!autoRefreshEnabled) {
+    console.log("[Auth] ⏸ Token auto-refresh is disabled by user");
+    return;
+  }
+
   // Clear any existing interval
   if (tokenRefreshInterval) {
     clearInterval(tokenRefreshInterval);
@@ -467,6 +487,18 @@ export const stopTokenRefreshMonitoring = () => {
     tokenRefreshInterval = null;
     console.log("[Auth] Token refresh monitoring stopped");
   }
+};
+
+/**
+ * Cleanup all event listeners (call on extension unload)
+ */
+export const cleanupEventListeners = () => {
+  // Remove all online event listeners
+  onlineHandlers.forEach((handler) => {
+    window.removeEventListener('online', handler);
+  });
+  onlineHandlers = [];
+  console.log("[Auth] Cleaned up all online event listeners");
 };
 
 /**
@@ -1198,6 +1230,34 @@ export const setCheckboxFormat = (format) => {
   extensionStorage.set(STORAGE_KEYS.CHECKBOX_FORMAT, format);
 };
 
+/**
+ * Get auto token refresh setting
+ * Default is true for backward compatibility
+ */
+export const getAutoTokenRefresh = () => {
+  return extensionStorage.get(STORAGE_KEYS.AUTO_TOKEN_REFRESH) ?? true;
+};
+
+/**
+ * Set auto token refresh setting
+ * If disabled while monitoring is active, stop it
+ * If enabled while we have a refresh token, start it
+ */
+export const setAutoTokenRefresh = (enabled) => {
+  extensionStorage.set(STORAGE_KEYS.AUTO_TOKEN_REFRESH, enabled);
+
+  if (!enabled) {
+    // Disable monitoring
+    stopTokenRefreshMonitoring();
+  } else {
+    // Re-enable monitoring if we have a refresh token
+    const refreshToken = extensionStorage.get(STORAGE_KEYS.REFRESH_TOKEN);
+    if (refreshToken) {
+      startTokenRefreshMonitoring();
+    }
+  }
+};
+
 // ============================================
 // Connected Task Lists Management
 // ============================================
@@ -1340,6 +1400,8 @@ export default {
   setUseOriginalColors,
   getCheckboxFormat,
   setCheckboxFormat,
+  getAutoTokenRefresh,
+  setAutoTokenRefresh,
   // Connected Task Lists
   getTasksEnabled,
   setTasksEnabled,
@@ -1348,6 +1410,9 @@ export default {
   updateConnectedTaskList,
   initializeTaskListConfigs,
   findTaskListByTag,
+  // Cleanup
+  stopTokenRefreshMonitoring,
+  cleanupEventListeners,
   // Constants
   STORAGE_KEYS,
   DEFAULT_CALENDAR_CONFIG,

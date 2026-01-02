@@ -35,6 +35,8 @@ import {
   setUseOriginalColors,
   getCheckboxFormat,
   setCheckboxFormat,
+  getAutoTokenRefresh,
+  setAutoTokenRefresh,
   DEFAULT_CALENDAR_CONFIG,
   DEFAULT_TASK_LIST_CONFIG,
   onAuthStateChange,
@@ -80,6 +82,7 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
   const [syncInterval, setSyncIntervalState] = useState(null);
   const [useOriginalColors, setUseOriginalColorsState] = useState(false);
   const [checkboxFormat, setCheckboxFormatState] = useState("roam");
+  const [autoTokenRefresh, setAutoTokenRefreshState] = useState(true);
 
   // Deduplication preview
   const [dedupPreview, setDedupPreview] = useState(null);
@@ -142,6 +145,7 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
       setSyncIntervalState(getSyncInterval());
       setUseOriginalColorsState(getUseOriginalColors());
       setCheckboxFormatState(getCheckboxFormat());
+      setAutoTokenRefreshState(getAutoTokenRefresh());
 
       // Load sync stats
       setSyncStats(getStorageStats());
@@ -612,6 +616,17 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
     setCheckboxFormat(format);
   };
 
+  const handleAutoTokenRefreshChange = (enabled) => {
+    setAutoTokenRefreshState(enabled);
+    setAutoTokenRefresh(enabled);
+
+    if (enabled) {
+      showToast("Auto token refresh enabled. Connection will be maintained automatically.", Intent.SUCCESS);
+    } else {
+      showToast("Auto token refresh disabled. You may need to reconnect after 1 hour of inactivity.", Intent.WARNING);
+    }
+  };
+
   const handleClose = () => {
     // Always pass options object, with shouldRemountCalendar flag
     onClose({ shouldRemountCalendar: configChanged });
@@ -777,6 +792,21 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
                     { value: "15", label: "Every 15 minutes" },
                     { value: "30", label: "Every 30 minutes" },
                   ]}
+                />
+              </FormGroup>
+
+              <FormGroup
+                label="Auto-refresh connection"
+                helperText="Automatically maintain Google Calendar connection. Disable if you experience unwanted popups."
+                inline
+                style={{ marginTop: "15px" }}
+              >
+                <Switch
+                  checked={autoTokenRefresh}
+                  onChange={(e) =>
+                    handleAutoTokenRefreshChange(e.target.checked)
+                  }
+                  style={{ marginBottom: 0 }}
                 />
               </FormGroup>
             </Card>

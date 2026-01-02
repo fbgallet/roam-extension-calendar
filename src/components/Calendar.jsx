@@ -57,8 +57,9 @@ import {
 import { gcalEventToFCEvent, fcEventToGCalEvent, mergeGCalDataToFCEvent, findCalendarForEvent } from "../util/gcalMapping";
 import { saveSyncMetadata, createSyncMetadata, getSyncMetadata, updateSyncMetadata, getRoamUidByGCalId, determineSyncStatus, SyncStatus } from "../models/SyncMetadata";
 import { applyGCalToRoamUpdate, syncEventToGCal } from "../services/syncService";
-import { recoverLostSyncs, isSafeToAutoSync } from "../services/syncRecoveryService";
-import { deduplicateAllEvents, shouldRunAutoDeduplication, markDeduplicationRun } from "../services/deduplicationService";
+// import { recoverLostSyncs, isSafeToAutoSync } from "../services/syncRecoveryService"; // Commented out with sync recovery
+// import { deduplicateAllEvents, shouldRunAutoDeduplication, markDeduplicationRun } from "../services/deduplicationService"; // Commented out with auto-dedup
+import { areEventsDuplicate } from "../services/deduplicationService";
 import { enrichEventsWithTaskData } from "../services/taskService";
 import { getTasksEnabled, getConnectedTaskLists, getTasks } from "../services/googleCalendarService";
 import { fetchTasksForRange, importTaskToRoam, getExistingRoamBlockForTask } from "../services/googleTasksService";
@@ -90,6 +91,7 @@ const Calendar = ({
   const [focusedPageTitle, setFocusedPageTitle] = useState(null);
   const [tagToInsert, setTagToInsert] = useState(null);
   // const [events, setEvents] = useState([]);
+  const eventsInViewRef = useRef([]); // Track events in current view for batch sync (using ref to avoid infinite loops)
   const [forceToReload, setForceToReload] = useState(false);
   const [position, setPosition] = useState({ x: null, y: null });
   const [focusedTime, setFocusedTime] = useState(null);
@@ -136,6 +138,23 @@ const Calendar = ({
       isDataToReload.current = true;
     };
   }, [isInSidebar]);
+
+  // Re-establish connection when Calendar opens (if needed)
+  useEffect(() => {
+    const checkAndRefreshConnection = async () => {
+      if (!isAuthenticated()) return;
+
+      try {
+        // Try to get access token - this will trigger a silent refresh if token is expired
+        await getAccessToken();
+      } catch (error) {
+        // Silent failure - user can manually reconnect if needed
+        console.log("[Calendar] Connection check failed (will use cache):", error.message);
+      }
+    };
+
+    checkAndRefreshConnection();
+  }, []); // Run once on mount
 
   // Listen for calendar config changes and update tags
   const isFirstMount = useRef(true);
@@ -715,10 +734,19 @@ const Calendar = ({
               // Collect all GCal events for later duplicate detection
               allGCalEvents.push(...gCalEvents);
 
+              // BEGIN COMMENTED OUT - Sync recovery disabled with auto-sync removal
+              // With on-demand sync only, users explicitly choose when to link events
+              // Automatic recovery would interfere with intentional unsync operations
+              /*
               // CRITICAL: Recover lost sync relationships BEFORE processing events
               // This prevents duplicate creation when extension storage is cleared
               await recoverLostSyncs(gCalEvents, calendarConfig.id);
+              */
+              // END COMMENTED OUT - Sync recovery disabled
 
+              // BEGIN COMMENTED OUT - Auto-deduplication disabled (only needed for auto-sync cleanup)
+              // With auto-sync disabled, auto-deduplication is no longer necessary on load
+              /*
               // Auto-deduplication: Run once per day on first load for current month
               // This cleans up duplicates created before sync recovery was implemented
               // Skip for year view to avoid performance issues and duplicate risk
@@ -745,6 +773,8 @@ const Calendar = ({
                 }
                 markDeduplicationRun();
               }
+              */
+              // END COMMENTED OUT - Auto-deduplication disabled
 
               // Build lookup Map for O(1) event lookups instead of O(n) findIndex
               const eventIndexByGCalId = new Map();
@@ -889,6 +919,10 @@ const Calendar = ({
           }
         }
 
+        // BEGIN COMMENTED OUT - Auto-sync feature disabled in favor of on-demand sync
+        // Sync is now always user-initiated to prevent duplicate events in edge cases
+        // (extension reinstall, multiple sessions, etc.)
+        /*
         // Auto-sync Roam events with GCal trigger tags that aren't synced yet
         // This happens AFTER sync recovery to prevent duplicates
         // Skip for year view to avoid performance issues and duplicate risk
@@ -938,6 +972,8 @@ const Calendar = ({
             }
           }
         }
+        */
+        // END COMMENTED OUT - Auto-sync feature disabled
 
         // Load tasks from Google Tasks (if enabled)
         if (getTasksEnabled()) {
@@ -989,7 +1025,78 @@ const Calendar = ({
         }
       }
 
-      // Step 5: Cache ALL events (Roam + GCal + Tasks) for instant display on next view change
+      // Step 5: Filter duplicate GCal events that match non-synced Roam events with trigger tags
+      // When a Roam event has a trigger tag and matches a GCal event, hide the GCal event
+      // and mark the Roam event so it shows the "refresh-off" icon
+      const filterDuplicateGCalEvents = (allEvents) => {
+        // Get connected calendars for tag detection
+        const connectedCalendars = getConnectedCalendars();
+
+        // Find Roam events with trigger tags that are NOT yet synced
+        const roamEventsWithTriggerTags = allEvents.filter(evt => {
+          // Skip GCal-only events
+          if (evt.extendedProps?.isGCalEvent) return false;
+          // Skip Google Tasks
+          if (evt.extendedProps?.isGTaskEvent) return false;
+          // Skip already synced events
+          if (evt.extendedProps?.gCalId) return false;
+          // Check if has a trigger tag for any connected calendar
+          return findCalendarForEvent(evt, connectedCalendars) !== null;
+        });
+
+        // Find GCal-only events (not linked to any Roam block)
+        const gcalOnlyEvents = allEvents.filter(evt =>
+          evt.extendedProps?.isGCalEvent && !getRoamUidByGCalId(evt.extendedProps?.gCalId)
+        );
+
+        // Find GCal events that match Roam events with trigger tags
+        const gcalIdsToHide = new Set();
+
+        for (const roamEvt of roamEventsWithTriggerTags) {
+          // Create comparable format for the Roam event
+          const roamEventForComparison = {
+            id: roamEvt.id,
+            summary: roamEvt.title,
+            start: roamEvt.start,
+            end: roamEvt.end,
+          };
+
+          for (const gcalEvt of gcalOnlyEvents) {
+            // Create comparable format for the GCal event
+            const gcalEventForComparison = {
+              id: gcalEvt.extendedProps?.gCalId,
+              summary: gcalEvt.title,
+              start: gcalEvt.start,
+              end: gcalEvt.end,
+            };
+
+            if (areEventsDuplicate(roamEventForComparison, gcalEventForComparison)) {
+              gcalIdsToHide.add(gcalEvt.extendedProps?.gCalId);
+              // Mark the Roam event as having a matching GCal event (for refresh-off icon)
+              roamEvt.extendedProps = {
+                ...roamEvt.extendedProps,
+                hasMatchingGCalEvent: true,
+                matchingGCalEventId: gcalEvt.extendedProps?.gCalId,
+                matchingGCalCalendarId: gcalEvt.extendedProps?.gCalCalendarId,
+              };
+            }
+          }
+        }
+
+        // Filter out matching GCal events from display
+        if (gcalIdsToHide.size > 0) {
+          console.log(`[Calendar] Hiding ${gcalIdsToHide.size} duplicate GCal event(s) that match Roam events with trigger tags`);
+        }
+
+        return allEvents.filter(evt => {
+          if (!evt.extendedProps?.isGCalEvent) return true;
+          return !gcalIdsToHide.has(evt.extendedProps?.gCalId);
+        });
+      };
+
+      events = filterDuplicateGCalEvents(events);
+
+      // Step 6: Cache ALL events (Roam + GCal + Tasks) for instant display on next view change
       // Only cache if component is still mounted
       if (!isMountedRef.current) {
         return; // Don't cache data from zombie instance
@@ -1337,6 +1444,8 @@ const Calendar = ({
         initialMinimized={
           initialSettings.minimized !== null ? initialSettings.minimized : false
         }
+        eventsInViewRef={eventsInViewRef}
+        refreshCalendar={updateSize}
       />
       <FullCalendar
         plugins={[
@@ -1415,6 +1524,10 @@ const Calendar = ({
           //   eventDataTransform: parseGoogleCalendarEvent,
           // },
         ]}
+        eventsSet={(eventInfo) => {
+          // Update events in view for batch sync dialog (using ref to avoid infinite loops)
+          eventsInViewRef.current = eventInfo;
+        }}
         eventContent={(info, jsEvent) => renderEventContent(info, jsEvent)}
         eventClick={(info) => {
           // info.jsEvent.preventDefault();

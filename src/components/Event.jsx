@@ -12,6 +12,9 @@ import {
   Toaster,
   Position,
   Intent,
+  Dialog,
+  Radio,
+  RadioGroup,
 } from "@blueprintjs/core";
 import {
   createChildBlock,
@@ -39,6 +42,8 @@ import { getTagFromName } from "../models/EventTag";
 import { calendarTag, mapOfTags } from "..";
 import TagList from "./TagList";
 import DeleteDialog from "./DeleteDialog";
+import LinkConfirmDialog from "./LinkConfirmDialog";
+import GCalEventInfo from "./GCalEventInfo";
 import { getTimestampFromHM, getFormatedRange } from "../util/dates";
 import {
   getConnectedCalendars,
@@ -62,11 +67,15 @@ import {
   updateSyncMetadata,
   deleteSyncMetadata,
 } from "../models/SyncMetadata";
-import { fcEventToGCalEvent, convertGCalTodoToRoam, parseGCalDataToRoamBlocks } from "../util/gcalMapping";
+import {
+  fcEventToGCalEvent,
+  convertGCalTodoToRoam,
+  parseGCalDataToRoamBlocks,
+} from "../util/gcalMapping";
 import { clearTasksCache } from "../services/taskService";
 import {
   invalidateAllEventsCache,
-  updateEventInAllCache,
+  // updateEventInAllCache, // Commented out - causes circular reference errors with DOM refs
 } from "../services/eventCacheService";
 import {
   findDuplicatesForEvent,
@@ -75,6 +84,10 @@ import {
   isEventSyncedToRoam,
 } from "../services/deduplicationService";
 import { parseHtmlToReact } from "../util/htmlParser";
+import {
+  findMatchingGCalEvents,
+  linkEventToExistingGCal,
+} from "../services/syncService";
 
 // Google Calendar icon for unimported GCal events
 import GoogleCalendarIconSvg from "../services/google-calendar.svg";
@@ -101,6 +114,13 @@ const Event = ({
   const [isExisting, setIsExisting] = useState(true);
   const [hasDuplicates, setHasDuplicates] = useState(false);
   const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
+  const [isLinkConfirmDialogOpen, setIsLinkConfirmDialogOpen] = useState(false);
+  const [matchingGCalEventsForSync, setMatchingGCalEventsForSync] = useState(
+    []
+  );
+  const [pendingSyncCalendar, setPendingSyncCalendar] = useState(null);
+  const [selectedMatchIndex, setSelectedMatchIndex] = useState(0);
+  const [matchedGCalEventData, setMatchedGCalEventData] = useState(null); // For unsynced matching event
   const popoverRef = useRef(null);
   const initialContent = useRef(null);
 
@@ -117,6 +137,14 @@ const Event = ({
     !isGCalEvent &&
     !isGTaskEvent &&
     (event.extendedProps?.gCalId || getSyncMetadata(event.id)?.gCalId);
+
+  // Check if this non-synced Roam event matches an existing GCal event
+  // (set by Calendar.jsx filterDuplicateGCalEvents)
+  const hasMatchingGCalEvent =
+    !isGCalEvent &&
+    !isGTaskEvent &&
+    !isSyncedToGCal &&
+    event.extendedProps?.hasMatchingGCalEvent === true;
 
   // Check if this is a Google Task (has _taskData from enrichment - old pattern for calendar-based tasks)
   const isGoogleTask = !!event.extendedProps?._taskData;
@@ -553,11 +581,11 @@ const Event = ({
     try {
       await deleteSyncMetadata(event.id);
 
-      // Remove GCal trigger tags from Roam block
-      const connectedCalendars = getConnectedCalendars();
-      await removeGCalTagsFromBlock(event.id, connectedCalendars);
+      // COMMENTED OUT: Keep trigger tags when unsyncing (allows re-syncing later)
+      // const connectedCalendars = getConnectedCalendars();
+      // await removeGCalTagsFromBlock(event.id, connectedCalendars);
 
-      // Update event to remove sync status
+      // Update event to remove sync status (immediate UI feedback)
       updateEvent(event, {
         extendedProps: {
           ...event.extendedProps,
@@ -566,8 +594,13 @@ const Event = ({
           syncStatus: null,
         },
       });
-      console.log("Event unsynced from Google Calendar");
+      console.log("Event unsynced from Google Calendar (trigger tags kept)");
       setPopoverIsOpen(false);
+
+      // Refresh calendar to fully reflect unsynced state
+      if (refreshCalendar) {
+        await refreshCalendar();
+      }
     } catch (error) {
       console.error("Failed to unsync event:", error);
     }
@@ -583,11 +616,11 @@ const Event = ({
       }
       await deleteSyncMetadata(event.id);
 
-      // Remove GCal trigger tags from Roam block
-      const connectedCalendars = getConnectedCalendars();
-      await removeGCalTagsFromBlock(event.id, connectedCalendars);
+      // COMMENTED OUT: Keep trigger tags when unsyncing (allows re-syncing later)
+      // const connectedCalendars = getConnectedCalendars();
+      // await removeGCalTagsFromBlock(event.id, connectedCalendars);
 
-      // Update event to remove sync status
+      // Update event to remove sync status (immediate UI feedback)
       updateEvent(event, {
         extendedProps: {
           ...event.extendedProps,
@@ -596,8 +629,15 @@ const Event = ({
           syncStatus: null,
         },
       });
-      console.log("Event unsynced and deleted from Google Calendar");
+      console.log(
+        "Event unsynced and deleted from Google Calendar (trigger tags kept)"
+      );
       setPopoverIsOpen(false);
+
+      // Refresh calendar to fully reflect unsynced state
+      if (refreshCalendar) {
+        await refreshCalendar();
+      }
     } catch (error) {
       console.error("Failed to unsync and delete event:", error);
     }
@@ -653,8 +693,16 @@ const Event = ({
 
       // Fetch events for the current day
       const eventDate = new Date(event.start);
-      const startOfDay = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
-      const endOfDay = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate() + 1);
+      const startOfDay = new Date(
+        eventDate.getFullYear(),
+        eventDate.getMonth(),
+        eventDate.getDate()
+      );
+      const endOfDay = new Date(
+        eventDate.getFullYear(),
+        eventDate.getMonth(),
+        eventDate.getDate() + 1
+      );
 
       const allEvents = await getGCalEvents(
         metadata.gCalCalendarId,
@@ -692,6 +740,62 @@ const Event = ({
       checkForDuplicates();
     }
   }, [popoverIsOpen, isSyncedToGCal]);
+
+  // Fetch matching GCal event data when popover opens for matched-but-unsynced events
+  useEffect(() => {
+    const fetchMatchingGCalEventData = async () => {
+      if (!popoverIsOpen || !hasMatchingGCalEvent) {
+        setMatchedGCalEventData(null);
+        return;
+      }
+
+      const matchId = event.extendedProps?.matchingGCalEventId;
+      const matchCalendarId = event.extendedProps?.matchingGCalCalendarId;
+
+      if (!matchId || !matchCalendarId) return;
+
+      try {
+        // Fetch the matching GCal event
+        const eventDate = new Date(event.start);
+        const startOfDay = new Date(
+          eventDate.getFullYear(),
+          eventDate.getMonth(),
+          eventDate.getDate()
+        );
+        const endOfDay = new Date(
+          eventDate.getFullYear(),
+          eventDate.getMonth(),
+          eventDate.getDate() + 1
+        );
+
+        const gcalEvents = await getGCalEvents(
+          matchCalendarId,
+          startOfDay,
+          endOfDay
+        );
+        const matchingEvent = gcalEvents.find((e) => e.id === matchId);
+
+        if (matchingEvent) {
+          // Get calendar name
+          const connectedCalendars = getConnectedCalendars();
+          const calendar = connectedCalendars.find(
+            (c) => c.id === matchCalendarId
+          );
+
+          setMatchedGCalEventData({
+            ...matchingEvent,
+            calendarName:
+              calendar?.displayName || calendar?.name || "Google Calendar",
+            calendarId: matchCalendarId,
+          });
+        }
+      } catch (error) {
+        console.error("Failed to fetch matching GCal event data:", error);
+      }
+    };
+
+    fetchMatchingGCalEventData();
+  }, [popoverIsOpen, hasMatchingGCalEvent]);
 
   // Remove duplicate events (keep this synced event, remove duplicates)
   const handleRemoveDuplicates = async () => {
@@ -776,6 +880,86 @@ const Event = ({
     if (!targetCalendar || !isAuthenticated()) return;
 
     try {
+      // Check if event already has a known matching GCal event (from Calendar.jsx filtering)
+      const preknownMatchId = event.extendedProps?.matchingGCalEventId;
+      const preknownMatchCalendarId =
+        event.extendedProps?.matchingGCalCalendarId;
+
+      // If we have a pre-identified match for this calendar, link directly
+      if (preknownMatchId && preknownMatchCalendarId === targetCalendar.id) {
+        // Fetch the GCal event to get full data
+        const gcalEvents = await getGCalEvents(
+          targetCalendar.id,
+          event.start,
+          new Date(new Date(event.start).getTime() + 24 * 60 * 60 * 1000)
+        );
+        const matchingEvent = gcalEvents.find((e) => e.id === preknownMatchId);
+
+        if (matchingEvent) {
+          await performLinkToExistingGCal(targetCalendar, matchingEvent);
+          return;
+        }
+      }
+
+      // Check for matching GCal events dynamically
+      const matchingEvents = await findMatchingGCalEvents(
+        event,
+        targetCalendar.id
+      );
+
+      if (matchingEvents.length > 0) {
+        // Found matching events - show confirmation dialog
+        setMatchingGCalEventsForSync(matchingEvents);
+        setPendingSyncCalendar(targetCalendar);
+        setIsLinkConfirmDialogOpen(true);
+        return;
+      }
+
+      // No matches found - create new event
+      await performCreateNewGCalEvent(targetCalendar);
+    } catch (error) {
+      console.error("Failed to sync event to Google Calendar:", error);
+    }
+  };
+
+  // Helper: Link to an existing GCal event
+  const performLinkToExistingGCal = async (targetCalendar, gcalEvent) => {
+    try {
+      const result = await linkEventToExistingGCal(
+        event.id,
+        event,
+        gcalEvent,
+        targetCalendar.id
+      );
+
+      if (result.success) {
+        // Add trigger tag to Roam block if not already present
+        const tagToAdd =
+          targetCalendar.triggerTags?.[0] ||
+          targetCalendar.displayName ||
+          "Google Calendar";
+        await addTagToBlock(event.id, tagToAdd);
+
+        console.log(
+          "Event linked to existing Google Calendar event:",
+          gcalEvent.id
+        );
+        setPopoverIsOpen(false);
+
+        // Refresh calendar to reflect the linked state
+        // This avoids circular reference errors from trying to cache event objects with DOM refs
+        if (refreshCalendar) {
+          await refreshCalendar();
+        }
+      }
+    } catch (error) {
+      console.error("Failed to link event to existing GCal:", error);
+    }
+  };
+
+  // Helper: Create a new GCal event
+  const performCreateNewGCalEvent = async (targetCalendar) => {
+    try {
       // Get the actual block content for the title
       const blockContent = getBlockContentByUid(event.id);
 
@@ -829,6 +1013,9 @@ const Event = ({
           location: createdEvent.location || "",
           attachments: createdEvent.attachments || [],
           syncStatus: "synced",
+          hasMatchingGCalEvent: false, // Clear the matching flag
+          matchingGCalEventId: null,
+          matchingGCalCalendarId: null,
           gCalEventData: {
             htmlLink: createdEvent.htmlLink,
             creator: createdEvent.creator,
@@ -843,14 +1030,35 @@ const Event = ({
 
       updateEvent(event, updatedEvent);
 
-      // Also update in cache to persist the data
-      updateEventInAllCache(updatedEvent);
-
       console.log("Event synced to Google Calendar:", createdEvent.id);
       setPopoverIsOpen(false);
+
+      // Refresh calendar to fully reflect the synced state
+      // Don't call updateEventInAllCache - it can cause circular reference errors with DOM refs
+      if (refreshCalendar) {
+        await refreshCalendar();
+      }
     } catch (error) {
-      console.error("Failed to sync event to Google Calendar:", error);
+      console.error("Failed to create event in Google Calendar:", error);
     }
+  };
+
+  // Handle user's choice from the link confirmation dialog
+  const handleLinkConfirmChoice = async (choice, selectedEventIndex = 0) => {
+    setIsLinkConfirmDialogOpen(false);
+
+    if (!pendingSyncCalendar) return;
+
+    if (choice === "link" && matchingGCalEventsForSync.length > 0) {
+      const selectedEvent = matchingGCalEventsForSync[selectedEventIndex];
+      await performLinkToExistingGCal(pendingSyncCalendar, selectedEvent);
+    } else if (choice === "create") {
+      await performCreateNewGCalEvent(pendingSyncCalendar);
+    }
+
+    // Reset state
+    setMatchingGCalEventsForSync([]);
+    setPendingSyncCalendar(null);
   };
 
   // Get available calendars for syncing (excluding import-only calendars)
@@ -936,407 +1144,762 @@ const Event = ({
   };
 
   return isExisting ? (
-    <Popover
-      isOpen={popoverIsOpen}
-      autoFocus={false}
-      onInteraction={(e) => !e && setPopoverIsOpen(e)}
-      position="bottom"
-      popoverClassName={Classes.POPOVER_CONTENT_SIZING}
-      content={
-        <div className={"fc-event-popover popover" + event.id}>
-          <Icon
-            icon="small-cross"
-            onClick={() => setPopoverIsOpen((prev) => !prev)}
-          />
-          {/* Show warning if using stale cache (offline/disconnected) */}
-          {event.extendedProps?.isStaleCache &&
-            event.extendedProps?.connectionStatus && (
-              <div
-                className="fc-cache-warning"
-                style={{
-                  backgroundColor: "#FFF4CE",
-                  padding: "8px",
-                  marginBottom: "8px",
-                  borderRadius: "3px",
-                  fontSize: "12px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                }}
-              >
-                <Icon
-                  icon="warning-sign"
-                  size={14}
-                  style={{ color: "#D9822B" }}
-                />
-                <span style={{ color: "#5C4813" }}>
-                  {event.extendedProps.connectionStatus.message} - showing
-                  cached data (may not be up-to-date)
-                </span>
-              </div>
-            )}
-          {isGCalEvent || isGTaskEvent ? (
-            // Google Calendar/Task event details
-            <div className="fc-gcal-event-details">
-              <div className="fc-gcal-title-row">
-                {(isGoogleTask || isGTaskEvent || showGCalCheckbox) && (
-                  <Checkbox
-                    checked={
-                      taskCompleted ||
-                      (isGTaskEvent &&
-                        event.extendedProps?.gTaskData?.status ===
-                          "completed") ||
-                      (showGCalCheckbox && gCalTodoCompleted)
-                    }
-                    disabled={isUpdatingTask}
-                    onChange={
-                      isGTaskEvent
-                        ? handleGTaskEventToggle
-                        : showGCalCheckbox
-                        ? handleGCalTodoToggle
-                        : handleTaskToggle
-                    }
-                    className="fc-task-checkbox"
-                  />
-                )}
-                <h4
-                  className={
-                    taskCompleted || (hasGCalTodoMarker && gCalTodoCompleted)
-                      ? "fc-task-completed"
-                      : ""
-                  }
+    <>
+      <Popover
+        isOpen={popoverIsOpen}
+        autoFocus={false}
+        onInteraction={(e) => !e && setPopoverIsOpen(e)}
+        position="bottom"
+        popoverClassName={Classes.POPOVER_CONTENT_SIZING}
+        content={
+          <div className={"fc-event-popover popover" + event.id}>
+            <Icon
+              icon="small-cross"
+              onClick={() => setPopoverIsOpen((prev) => !prev)}
+            />
+            {/* Show warning if using stale cache (offline/disconnected) */}
+            {event.extendedProps?.isStaleCache &&
+              event.extendedProps?.connectionStatus && (
+                <div
+                  className="fc-cache-warning"
+                  style={{
+                    backgroundColor: "#FFF4CE",
+                    padding: "8px",
+                    marginBottom: "8px",
+                    borderRadius: "3px",
+                    fontSize: "12px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}
                 >
-                  {event.title
-                    .replace(/\{\{\[\[(TODO|DONE)\]\]\}\}\s*/g, "")
-                    .replace(/^\[\[TODO\]\]\s*/, "")
-                    .replace(/^\[\[DONE\]\]\s*/, "")
-                    .replace(/^\[\s*\]\s*/, "")
-                    .replace(/^\[x\]\s*/, "")}
-                </h4>
-              </div>
-              {isGoogleTask && (
-                <div className="fc-gcal-task-indicator">
-                  <Icon icon="tick" size={12} />
-                  <span>Google Task</span>
-                  {taskData?.taskListTitle && (
-                    <span className="fc-task-list-name">
-                      {" "}
-                      ({taskData.taskListTitle})
-                    </span>
-                  )}
-                </div>
-              )}
-              {isGTaskEvent && (
-                <div className="fc-gcal-task-indicator">
-                  <Icon icon="tick" size={12} />
-                  <span>Google Task</span>
-                  {event.extendedProps?.gTaskData && (
-                    <span className="fc-task-list-name">
-                      {" "}
-                      (
-                      {event.extendedProps.gTaskData.taskListTitle ||
-                        "Task List"}
-                      )
-                    </span>
-                  )}
-                </div>
-              )}
-              <div className="fc-gcal-time">
-                <Icon icon="time" size={12} />
-                <span>
-                  {event.extendedProps?.hasTime ? (
-                    <>
-                      {new Date(event.start).toLocaleString(undefined, {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                      {event.end && (
-                        <>
-                          {" - "}
-                          {new Date(event.end).toLocaleTimeString(undefined, {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </>
-                      )}
-                    </>
-                  ) : (
-                    // All-day event - just show date
-                    new Date(event.start).toLocaleDateString(undefined, {
-                      weekday: "short",
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })
-                  )}
-                </span>
-              </div>
-              {event.extendedProps?.location && (
-                <div className="fc-gcal-location">
-                  <Icon icon="map-marker" size={12} />
-                  <span>{event.extendedProps.location}</span>
-                </div>
-              )}
-              {event.extendedProps?.gCalEventData?.attendees?.length > 0 && (
-                <div className="fc-gcal-attendees">
-                  <Icon icon="people" size={12} />
-                  <span>
-                    {event.extendedProps.gCalEventData.attendees
-                      .slice(0, 3)
-                      .map((a) => a.displayName || a.email)
-                      .join(", ")}
-                    {event.extendedProps.gCalEventData.attendees.length > 3 &&
-                      ` +${
-                        event.extendedProps.gCalEventData.attendees.length - 3
-                      } more`}
+                  <Icon
+                    icon="warning-sign"
+                    size={14}
+                    style={{ color: "#D9822B" }}
+                  />
+                  <span style={{ color: "#5C4813" }}>
+                    {event.extendedProps.connectionStatus.message} - showing
+                    cached data (may not be up-to-date)
                   </span>
                 </div>
               )}
-              {event.extendedProps?.description && (
-                <div className="fc-gcal-description">
-                  {parseHtmlToReact(event.extendedProps.description)}
-                </div>
-              )}
-              {/* Attachments if available */}
-              {event.extendedProps?.attachments?.length > 0 && (
-                <div className="fc-gcal-attachments">
-                  <div className="fc-gcal-attachments-header">
-                    <Icon icon="paperclip" size={12} />
-                    <span>
-                      Attachments ({event.extendedProps.attachments.length})
-                    </span>
-                  </div>
-                  <ul className="fc-gcal-attachments-list">
-                    {event.extendedProps.attachments.map(
-                      (attachment, index) => (
-                        <li key={index}>
-                          <a
-                            href={attachment.fileUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {attachment.iconLink && (
-                              <img
-                                src={attachment.iconLink}
-                                alt=""
-                                className="fc-attachment-icon"
-                              />
-                            )}
-                            <span className="fc-attachment-title">
-                              {attachment.title || "Untitled"}
-                            </span>
-                          </a>
-                        </li>
-                      )
-                    )}
-                  </ul>
-                </div>
-              )}
-              {event.extendedProps?.gCalEventData?.recurrence && (
-                <div className="fc-gcal-recurrence">
-                  <Icon icon="repeat" size={12} />
-                  <span>Recurring event</span>
-                </div>
-              )}
-              {/* Show original calendar/task list name */}
-              {event.extendedProps?.gCalCalendarName && (
-                <div className="fc-gcal-calendar-source">
-                  <GoogleCalendarIconSvg
-                    className="fc-gcal-icon-small"
-                    style={{ width: "16px", height: "16px" }}
-                  />
-                  <span>{event.extendedProps.gCalCalendarName}</span>
-                </div>
-              )}
-              <div className="fc-gcal-actions">
-                {event.extendedProps?.gCalEventData?.htmlLink && (
-                  <Button
-                    small
-                    icon="share"
-                    onClick={() =>
-                      window.open(
-                        event.extendedProps.gCalEventData.htmlLink,
-                        "_blank"
-                      )
+            {isGCalEvent || isGTaskEvent ? (
+              // Google Calendar/Task event details
+              <div className="fc-gcal-event-details">
+                <div className="fc-gcal-title-row">
+                  {(isGoogleTask || isGTaskEvent || showGCalCheckbox) && (
+                    <Checkbox
+                      checked={
+                        taskCompleted ||
+                        (isGTaskEvent &&
+                          event.extendedProps?.gTaskData?.status ===
+                            "completed") ||
+                        (showGCalCheckbox && gCalTodoCompleted)
+                      }
+                      disabled={isUpdatingTask}
+                      onChange={
+                        isGTaskEvent
+                          ? handleGTaskEventToggle
+                          : showGCalCheckbox
+                          ? handleGCalTodoToggle
+                          : handleTaskToggle
+                      }
+                      className="fc-task-checkbox"
+                    />
+                  )}
+                  <h4
+                    className={
+                      taskCompleted || (hasGCalTodoMarker && gCalTodoCompleted)
+                        ? "fc-task-completed"
+                        : ""
                     }
                   >
-                    Open in Google Calendar
-                  </Button>
+                    {event.title
+                      .replace(/\{\{\[\[(TODO|DONE)\]\]\}\}\s*/g, "")
+                      .replace(/^\[\[TODO\]\]\s*/, "")
+                      .replace(/^\[\[DONE\]\]\s*/, "")
+                      .replace(/^\[\s*\]\s*/, "")
+                      .replace(/^\[x\]\s*/, "")}
+                  </h4>
+                </div>
+                {isGoogleTask && (
+                  <div className="fc-gcal-task-indicator">
+                    <Icon icon="tick" size={12} />
+                    <span>Google Task</span>
+                    {taskData?.taskListTitle && (
+                      <span className="fc-task-list-name">
+                        {" "}
+                        ({taskData.taskListTitle})
+                      </span>
+                    )}
+                  </div>
                 )}
-                <Button
-                  small
-                  icon="automatic-updates"
-                  intent="primary"
-                  onClick={handleImportToRoam}
-                >
-                  Sync to Roam block
-                </Button>
-              </div>
-              <div className="fc-gcal-tag">
-                <Tag minimal>
-                  {eventTagList?.[0]?.name ||
-                    (isGTaskEvent ? "Google Tasks" : "Google Calendar")}
-                </Tag>
-                {/* Only show delete button for calendars with "both" sync direction */}
-                {(() => {
-                  const connectedCalendars = getConnectedCalendars();
-                  const calendar = connectedCalendars.find(
-                    (c) => c.id === event.extendedProps?.gCalCalendarId
-                  );
-                  return calendar?.syncDirection === "both" ? (
-                    <>
-                      <Button
-                        small
-                        icon="trash"
-                        intent="danger"
-                        minimal
-                        onClick={() => setIsDeleteGCalDialogOpen(true)}
-                        title="Delete event from Google Calendar"
-                      />
-                      <DeleteDialog
-                        title="Delete Google Calendar event"
-                        message={
-                          <p>
-                            Delete this event from Google Calendar?
-                            <br />
-                            <br />
-                            <strong>"{event.title}"</strong>
-                            <br />
-                            <br />
-                            This cannot be undone.
-                          </p>
-                        }
-                        callback={handleDeleteGCalEvent}
-                        isDeleteDialogOpen={isDeleteGCalDialogOpen}
-                        setIsDeleteDialogOpen={setIsDeleteGCalDialogOpen}
-                      />
-                    </>
-                  ) : null;
-                })()}
-              </div>
-              {/* <div style={{ flex: 1 }} /> */}
-            </div>
-          ) : (
-            // Regular Roam event
-            <>
-              <div ref={popoverRef}></div>
-
-              {/* Show calendar info for synced events */}
-              {isSyncedToGCal && (
-                <div className="fc-synced-event-info">
-                  {/* Calendar name - clickable to open in GCal */}
-                  {getSyncedCalendarInfo()?.calendar?.displayName && (
-                    <Tooltip content="View in Google Calendar" position="top">
-                      <div
-                        className="fc-gcal-calendar-source fc-gcal-calendar-source-clickable"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          // Use htmlLink if available, otherwise construct URL from metadata
-                          if (syncedGCalData?.htmlLink) {
-                            window.open(syncedGCalData.htmlLink, "_blank");
-                          } else {
-                            const syncInfo = getSyncedCalendarInfo();
-                            if (syncInfo?.metadata?.gCalId) {
-                              const gCalUrl = `https://calendar.google.com/calendar/event?eid=${btoa(
-                                syncInfo.metadata.gCalId +
-                                  " " +
-                                  syncInfo.metadata.gCalCalendarId
-                              )}`;
-                              window.open(gCalUrl, "_blank");
-                            }
+                {isGTaskEvent && (
+                  <div className="fc-gcal-task-indicator">
+                    <Icon icon="tick" size={12} />
+                    <span>Google Task</span>
+                    {event.extendedProps?.gTaskData && (
+                      <span className="fc-task-list-name">
+                        {" "}
+                        (
+                        {event.extendedProps.gTaskData.taskListTitle ||
+                          "Task List"}
+                        )
+                      </span>
+                    )}
+                  </div>
+                )}
+                <div className="fc-gcal-time">
+                  <Icon icon="time" size={12} />
+                  <span>
+                    {event.extendedProps?.hasTime ? (
+                      <>
+                        {new Date(event.start).toLocaleString(undefined, {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                        {event.end && (
+                          <>
+                            {" - "}
+                            {new Date(event.end).toLocaleTimeString(undefined, {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      // All-day event - just show date
+                      new Date(event.start).toLocaleDateString(undefined, {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })
+                    )}
+                  </span>
+                </div>
+                {event.extendedProps?.location && (
+                  <div className="fc-gcal-location">
+                    <Icon icon="map-marker" size={12} />
+                    <span>{event.extendedProps.location}</span>
+                  </div>
+                )}
+                {event.extendedProps?.gCalEventData?.attendees?.length > 0 && (
+                  <div className="fc-gcal-attendees">
+                    <Icon icon="people" size={12} />
+                    <span>
+                      {event.extendedProps.gCalEventData.attendees
+                        .slice(0, 3)
+                        .map((a) => a.displayName || a.email)
+                        .join(", ")}
+                      {event.extendedProps.gCalEventData.attendees.length > 3 &&
+                        ` +${
+                          event.extendedProps.gCalEventData.attendees.length - 3
+                        } more`}
+                    </span>
+                  </div>
+                )}
+                {event.extendedProps?.description && (
+                  <div className="fc-gcal-description">
+                    {parseHtmlToReact(event.extendedProps.description)}
+                  </div>
+                )}
+                {/* Attachments if available */}
+                {event.extendedProps?.attachments?.length > 0 && (
+                  <div className="fc-gcal-attachments">
+                    <div className="fc-gcal-attachments-header">
+                      <Icon icon="paperclip" size={12} />
+                      <span>
+                        Attachments ({event.extendedProps.attachments.length})
+                      </span>
+                    </div>
+                    <ul className="fc-gcal-attachments-list">
+                      {event.extendedProps.attachments.map(
+                        (attachment, index) => (
+                          <li key={index}>
+                            <a
+                              href={attachment.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {attachment.iconLink && (
+                                <img
+                                  src={attachment.iconLink}
+                                  alt=""
+                                  className="fc-attachment-icon"
+                                />
+                              )}
+                              <span className="fc-attachment-title">
+                                {attachment.title || "Untitled"}
+                              </span>
+                            </a>
+                          </li>
+                        )
+                      )}
+                    </ul>
+                  </div>
+                )}
+                {event.extendedProps?.gCalEventData?.recurrence && (
+                  <div className="fc-gcal-recurrence">
+                    <Icon icon="repeat" size={12} />
+                    <span>Recurring event</span>
+                  </div>
+                )}
+                {/* Show original calendar/task list name */}
+                {event.extendedProps?.gCalCalendarName && (
+                  <div className="fc-gcal-calendar-source">
+                    <GoogleCalendarIconSvg
+                      className="fc-gcal-icon-small"
+                      style={{ width: "16px", height: "16px" }}
+                    />
+                    <span>{event.extendedProps.gCalCalendarName}</span>
+                  </div>
+                )}
+                <div className="fc-gcal-actions">
+                  {event.extendedProps?.gCalEventData?.htmlLink && (
+                    <Button
+                      small
+                      icon="share"
+                      onClick={() =>
+                        window.open(
+                          event.extendedProps.gCalEventData.htmlLink,
+                          "_blank"
+                        )
+                      }
+                    >
+                      Open in Google Calendar
+                    </Button>
+                  )}
+                  <Button
+                    small
+                    icon="automatic-updates"
+                    intent="primary"
+                    onClick={handleImportToRoam}
+                  >
+                    Sync to Roam block
+                  </Button>
+                </div>
+                <div className="fc-gcal-tag">
+                  <Tag minimal>
+                    {eventTagList?.[0]?.name ||
+                      (isGTaskEvent ? "Google Tasks" : "Google Calendar")}
+                  </Tag>
+                  {/* Only show delete button for calendars with "both" sync direction */}
+                  {(() => {
+                    const connectedCalendars = getConnectedCalendars();
+                    const calendar = connectedCalendars.find(
+                      (c) => c.id === event.extendedProps?.gCalCalendarId
+                    );
+                    return calendar?.syncDirection === "both" ? (
+                      <>
+                        <Button
+                          small
+                          icon="trash"
+                          intent="danger"
+                          minimal
+                          onClick={() => setIsDeleteGCalDialogOpen(true)}
+                          title="Delete event from Google Calendar"
+                        />
+                        <DeleteDialog
+                          title="Delete Google Calendar event"
+                          message={
+                            <p>
+                              Delete this event from Google Calendar?
+                              <br />
+                              <br />
+                              <strong>"{event.title}"</strong>
+                              <br />
+                              <br />
+                              This cannot be undone.
+                            </p>
                           }
+                          callback={handleDeleteGCalEvent}
+                          isDeleteDialogOpen={isDeleteGCalDialogOpen}
+                          setIsDeleteDialogOpen={setIsDeleteGCalDialogOpen}
+                        />
+                      </>
+                    ) : null;
+                  })()}
+                </div>
+                {/* <div style={{ flex: 1 }} /> */}
+              </div>
+            ) : (
+              // Regular Roam event
+              <>
+                <div ref={popoverRef}></div>
+
+                {/* Show warning and GCal info for matched-but-unsynced events */}
+                {hasMatchingGCalEvent && matchedGCalEventData && (
+                  <div className="fc-matched-unsynced-event-info">
+                    {/* Warning banner */}
+                    <div
+                      className="fc-unsynced-warning"
+                      style={{
+                        backgroundColor: "#FFB366",
+                        padding: "12px",
+                        marginBottom: "12px",
+                        borderRadius: "3px",
+                        fontSize: "12px",
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: "8px",
+                        border: "1px solid #FF9933",
+                      }}
+                    >
+                      <Icon
+                        icon="warning-sign"
+                        size={16}
+                        style={{
+                          color: "#8A3800",
+                          marginTop: "2px",
+                          flexShrink: 0,
                         }}
-                      >
+                      />
+                      <div style={{ flex: 1 }}>
+                        <strong
+                          style={{
+                            color: "#5C2E00",
+                            display: "block",
+                            marginBottom: "4px",
+                          }}
+                        >
+                          Not Synced
+                        </strong>
+                        <span style={{ color: "#5C2E00" }}>
+                          This Roam block matches a Google calendar event but
+                          they are not synced. They may have different content.
+                          Click the '...' menu to sync them.
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Display GCal event info */}
+                    <GCalEventInfo
+                      calendarName={matchedGCalEventData.calendarName}
+                      location={matchedGCalEventData.location}
+                      attendees={matchedGCalEventData.attendees}
+                      description={matchedGCalEventData.description}
+                      attachments={matchedGCalEventData.attachments}
+                      showClickableCalendar={true}
+                      onCalendarClick={(e) => {
+                        e.stopPropagation();
+                        if (matchedGCalEventData.htmlLink) {
+                          window.open(matchedGCalEventData.htmlLink, "_blank");
+                        } else {
+                          const gCalUrl = `https://calendar.google.com/calendar/event?eid=${btoa(
+                            matchedGCalEventData.id +
+                              " " +
+                              matchedGCalEventData.calendarId
+                          )}`;
+                          window.open(gCalUrl, "_blank");
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Show calendar info for synced events */}
+                {isSyncedToGCal && (
+                  <div className="fc-synced-event-info">
+                    <Tooltip content="View in Google Calendar" position="top">
+                      <div style={{ display: "inline-block" }}>
+                        <GCalEventInfo
+                          calendarName={
+                            getSyncedCalendarInfo()?.calendar?.displayName
+                          }
+                          location={event.extendedProps?.location}
+                          attendees={
+                            event.extendedProps?.gCalEventData?.attendees
+                          }
+                          description={getSyncedDescription()}
+                          attachments={event.extendedProps?.attachments}
+                          showClickableCalendar={true}
+                          onCalendarClick={(e) => {
+                            e.stopPropagation();
+                            if (syncedGCalData?.htmlLink) {
+                              window.open(syncedGCalData.htmlLink, "_blank");
+                            } else {
+                              const syncInfo = getSyncedCalendarInfo();
+                              if (syncInfo?.metadata?.gCalId) {
+                                const gCalUrl = `https://calendar.google.com/calendar/event?eid=${btoa(
+                                  syncInfo.metadata.gCalId +
+                                    " " +
+                                    syncInfo.metadata.gCalCalendarId
+                                )}`;
+                                window.open(gCalUrl, "_blank");
+                              }
+                            }
+                          }}
+                        />
+                      </div>
+                    </Tooltip>
+                  </div>
+                )}
+
+                <div className="fc-roam-event-actions">
+                  {eventTagList && eventTagList[0].name !== calendarTag.name ? (
+                    <TagList
+                      list={
+                        isSyncedToGCal
+                          ? eventTagList.filter(
+                              (tag) => tag.name !== "Google calendar"
+                            )
+                          : eventTagList
+                      }
+                      setEventTagList={setEventTagList}
+                      isInteractive={true}
+                      event={event}
+                    />
+                  ) : null}
+                  {isSyncedToGCal ? (
+                    // Synced event - show sync status with menu
+                    <Popover
+                      position="bottom"
+                      minimal
+                      content={
+                        <Menu>
+                          <MenuItem
+                            icon="share"
+                            text="Open in Google Calendar"
+                            onClick={handleOpenInGCal}
+                          />
+                          {hasDuplicates && (
+                            <MenuItem
+                              icon="duplicate"
+                              text="Remove duplicates"
+                              onClick={handleRemoveDuplicates}
+                            />
+                          )}
+                          <MenuDivider />
+                          <MenuItem
+                            icon="disable"
+                            text="Unsync (keep GCal event)"
+                            onClick={handleUnsync}
+                          />
+                          <MenuItem
+                            icon="trash"
+                            text="Unsync and delete GCal event"
+                            intent="danger"
+                            onClick={handleUnsyncAndDelete}
+                          />
+                        </Menu>
+                      }
+                    >
+                      <div className="fc-sync-status fc-sync-status-clickable">
+                        <Icon icon="automatic-updates" size={12} />
+                        <span>Synced to</span>
                         <GoogleCalendarIconSvg
                           className="fc-gcal-icon-small"
                           style={{ width: "16px", height: "16px" }}
                         />
-                        <span>
-                          {getSyncedCalendarInfo().calendar.displayName}
-                        </span>
+                        <Icon icon="chevron-down" size={10} />
                       </div>
-                    </Tooltip>
-                  )}
-
-                  {/* Location if available */}
-                  {event.extendedProps?.location && (
-                    <div className="fc-gcal-location">
-                      <Icon icon="map-marker" size={12} />
-                      <span>{event.extendedProps.location}</span>
-                    </div>
-                  )}
-
-                  {/* Attendees if available */}
-                  {event.extendedProps?.gCalEventData?.attendees?.length >
-                    0 && (
-                    <div className="fc-gcal-attendees">
-                      <Icon icon="people" size={12} />
-                      <span>
-                        {event.extendedProps.gCalEventData.attendees
-                          .slice(0, 3)
-                          .map((a) => a.displayName || a.email)
-                          .join(", ")}
-                        {event.extendedProps.gCalEventData.attendees.length >
-                          3 &&
-                          ` +${
-                            event.extendedProps.gCalEventData.attendees.length -
-                            3
-                          } more`}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Description if available (filtered and HTML parsed) */}
-                  {getSyncedDescription() && (
-                    <div className="fc-gcal-description">
-                      {getSyncedDescription()}
-                    </div>
-                  )}
-
-                  {/* Attachments if available */}
-                  {event.extendedProps?.attachments?.length > 0 && (
-                    <div className="fc-gcal-attachments">
-                      <div className="fc-gcal-attachments-header">
-                        <Icon icon="paperclip" size={12} />
-                        <span>
-                          Attachments ({event.extendedProps.attachments.length})
-                        </span>
-                      </div>
-                      <ul className="fc-gcal-attachments-list">
-                        {event.extendedProps.attachments.map(
-                          (attachment, index) => (
-                            <li key={index}>
-                              <a
-                                href={attachment.fileUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {attachment.iconLink && (
-                                  <img
-                                    src={attachment.iconLink}
-                                    alt=""
-                                    className="fc-attachment-icon"
+                    </Popover>
+                  ) : (
+                    // Non-synced event - show sync options in three-dot menu if authenticated
+                    isAuthenticated() &&
+                    getAvailableCalendarsForSync().length > 0 && (
+                      <Popover
+                        position="bottom"
+                        minimal
+                        content={
+                          <Menu>
+                            <MenuItem
+                              icon={
+                                <GoogleCalendarIconSvg
+                                  className="fc-gcal-icon-menu"
+                                  style={{ width: "16px", height: "16px" }}
+                                />
+                              }
+                              text="Sync to Google Calendar"
+                            >
+                              {getAvailableCalendarsForSync().map(
+                                (calendar) => (
+                                  <MenuItem
+                                    key={calendar.id}
+                                    text={calendar.displayName || calendar.name}
+                                    onClick={() =>
+                                      handleSyncToCalendar(calendar)
+                                    }
                                   />
-                                )}
-                                <span className="fc-attachment-title">
-                                  {attachment.title || "Untitled"}
-                                </span>
-                              </a>
-                            </li>
-                          )
-                        )}
-                      </ul>
-                    </div>
+                                )
+                              )}
+                            </MenuItem>
+                          </Menu>
+                        }
+                      >
+                        <Icon
+                          icon="more"
+                          size={12}
+                          className="fc-event-more-menu"
+                        />
+                      </Popover>
+                    )
                   )}
+                  <Icon
+                    icon="trash"
+                    size="12"
+                    onClick={() => setIsDeleteDialogOpen(true)}
+                  />
+                  <DeleteDialog
+                    title="Delete event"
+                    message={
+                      <p>Are you sure you want to delete this event ?</p>
+                    }
+                    callback={handleDeleteEvent}
+                    isDeleteDialogOpen={isDeleteDialogOpen}
+                    setIsDeleteDialogOpen={setIsDeleteDialogOpen}
+                  />
                 </div>
-              )}
+              </>
+            )}
+          </div>
+        }
+        onClose={handleClose}
+        usePortal={true}
+        onOpening={(e) => {
+          // Skip Roam block rendering for GCal/GTask events
+          if (isGCalEvent || isGTaskEvent) return;
 
-              <div className="fc-roam-event-actions">
+          window.roamAlphaAPI.ui.components.renderBlock({
+            uid: event.id,
+            el: popoverRef.current,
+            "zoom-path?": event.extendedProps.isRef,
+            "open?": false,
+          });
+          if (event.extendedProps.hasInfosInChildren) {
+            initialContent.current =
+              getFlattenedContentOfParentAndFirstChildren(event.id);
+          } else initialContent.current = getBlockContentByUid(event.id);
+        }}
+      >
+        <div
+          className="fc-event-content"
+          onClick={(e) => {
+            if (e.target.parentElement.className.includes("bp3-checkbox"))
+              return;
+            if (e.nativeEvent.shiftKey) return;
+            // e.stopPropagation();
+            setPopoverIsOpen((prev) => !prev);
+          }}
+        >
+          {hasCheckbox && !isGCalEvent && !isGTaskEvent && (
+            <Checkbox
+              checked={isChecked}
+              // onClick={(e) => {}}
+              onChange={async (e) => {
+                if (e.nativeEvent.shiftKey) return;
+                e.stopPropagation();
+                let updatedTitle, updatedClassNames, updatedTags;
+                const newCompletedState = !isChecked;
+
+                // CRITICAL: Read actual Roam block content (not event.title which has markers stripped)
+                const currentBlockContent = getBlockContentByUid(event.id);
+
+                if (isChecked) {
+                  updatedTitle = currentBlockContent.replace(
+                    "{{[[DONE]]}}",
+                    "{{[[TODO]]}}"
+                  );
+                  updatedClassNames = replaceItemAndGetUpdatedArray(
+                    [...event.classNames],
+                    "DONE",
+                    "TODO"
+                  );
+                  updatedTags = replaceItemAndGetUpdatedArray(
+                    [...eventTagList],
+                    getTagFromName("DONE"),
+                    getTagFromName("TODO"),
+                    "name"
+                  );
+                } else {
+                  updatedTitle = currentBlockContent.replace(
+                    "{{[[TODO]]}}",
+                    "{{[[DONE]]}}"
+                  );
+                  updatedClassNames = replaceItemAndGetUpdatedArray(
+                    [...event.classNames],
+                    "TODO",
+                    "DONE"
+                  );
+                  updatedTags = replaceItemAndGetUpdatedArray(
+                    [...eventTagList],
+                    getTagFromName("TODO"),
+                    getTagFromName("DONE"),
+                    "name"
+                  );
+                }
+                const updatedColor = colorToDisplay(updatedTags);
+                await updateBlock(event.id, updatedTitle);
+                updateEvent(event, {
+                  title: updatedTitle,
+                  classNames: updatedClassNames,
+                  color: updatedColor,
+                  extendedProps: {
+                    ...event.extendedProps, // Preserve all existing extended props (gCalId, etc.)
+                    eventTags: updatedTags,
+                  },
+                });
+
+                // Sync to Google Tasks if this is a synced task
+                const taskMetadata = getTaskSyncMetadata(event.id);
+                if (taskMetadata) {
+                  try {
+                    await syncTaskCompletionToGoogle(
+                      event.id,
+                      newCompletedState
+                    );
+                    console.log(
+                      `[Tasks] Synced TODO/DONE toggle to Google Tasks: ${
+                        newCompletedState ? "completed" : "needsAction"
+                      }`
+                    );
+                  } catch (error) {
+                    console.error(
+                      "[Tasks] Failed to sync TODO/DONE to Google Tasks:",
+                      error
+                    );
+                  }
+                }
+
+                // Sync to Google Calendar if this event is synced to GCal
+                if (isSyncedToGCal && isAuthenticated()) {
+                  const metadata = getSyncMetadata(event.id);
+                  if (metadata?.gCalId) {
+                    try {
+                      // Create updated FC event with new title
+                      const fcEvent = {
+                        ...event,
+                        title: updatedTitle,
+                        start: event.start,
+                        end: event.end,
+                        extendedProps: { ...event.extendedProps },
+                      };
+                      const gcalEventData = fcEventToGCalEvent(
+                        fcEvent,
+                        metadata.gCalCalendarId,
+                        event.id
+                      );
+                      const result = await updateGCalEvent(
+                        metadata.gCalCalendarId,
+                        metadata.gCalId,
+                        gcalEventData
+                      );
+                      await updateSyncMetadata(event.id, {
+                        gCalUpdated: result.updated,
+                        etag: result.etag,
+                        roamUpdated: Date.now(),
+                        lastSync: Date.now(),
+                      });
+                      console.log(
+                        `[GCal] Synced TODO/DONE toggle to Google Calendar: ${
+                          newCompletedState ? "[[DONE]]" : "[[TODO]]"
+                        }`
+                      );
+                    } catch (error) {
+                      console.error(
+                        "[GCal] Failed to sync TODO/DONE to Google Calendar:",
+                        error
+                      );
+                    }
+                  }
+                }
+
+                // COMMENTED OUT: Can cause circular reference errors with DOM refs
+                // Update the event in cache instead of invalidating all cache
+                // updateEventInAllCache({
+                //   ...event,
+                //   title: updatedTitle,
+                //   classNames: updatedClassNames,
+                //   color: updatedColor,
+                //   extendedProps: {
+                //     ...event.extendedProps,
+                //     eventTags: updatedTags,
+                //   },
+                // });
+                // Don't call refreshCalendar() here - it would invalidate the cache we just updated
+                // The event is already updated in the UI via updateEvent() above
+              }}
+            />
+          )}
+          {/* Inline checkbox for Google Tasks (calendar-based) */}
+          {isGoogleTask && (
+            <Checkbox
+              checked={taskCompleted}
+              disabled={isUpdatingTask}
+              onChange={handleTaskToggle}
+              className="fc-task-checkbox-inline"
+            />
+          )}
+          {/* Inline checkbox for non-imported Google Task events */}
+          {isGTaskEvent && (
+            <Checkbox
+              checked={event.extendedProps?.gTaskData?.status === "completed"}
+              disabled={isUpdatingTask}
+              onChange={handleGTaskEventToggle}
+              className="fc-task-checkbox-inline"
+            />
+          )}
+          {/* Inline checkbox for non-synced GCal events */}
+          {showGCalCheckbox && (
+            <Checkbox
+              checked={gCalTodoCompleted}
+              disabled={isUpdatingTask}
+              onChange={handleGCalTodoToggle}
+              className="fc-task-checkbox-inline"
+            />
+          )}
+          <Tooltip
+            position={"auto-start"}
+            hoverOpenDelay={500}
+            isOpen={popoverIsOpen ? false : null}
+            content={
+              <>
+                <p className={taskCompleted ? "fc-task-completed" : ""}>
+                  {displayTitle}
+                </p>
+                {isGoogleTask && (
+                  <div className="fc-gcal-task-indicator">
+                    <Icon icon="tick" size={12} />
+                    <span>Google Task</span>
+                    {taskData?.taskListTitle && (
+                      <span className="fc-task-list-name">
+                        {" "}
+                        • {taskData.taskListTitle}
+                      </span>
+                    )}
+                  </div>
+                )}
+                {isGCalEvent && event.extendedProps?.gCalCalendarName && (
+                  <div className="fc-gcal-calendar-hint">
+                    <GoogleCalendarIconSvg
+                      className="fc-gcal-icon-small"
+                      style={{ width: "16px", height: "16px" }}
+                    />
+                    <span>{event.extendedProps.gCalCalendarName}</span>
+                  </div>
+                )}
+                {isGTaskEvent && event.extendedProps?.gTaskListName && (
+                  <div className="fc-gcal-calendar-hint">
+                    <GoogleTasksIconSvg
+                      className="fc-gcal-icon-small"
+                      style={{ width: "16px", height: "16px" }}
+                    />
+                    <span>{event.extendedProps.gTaskListName}</span>
+                  </div>
+                )}
+                {isSyncedToGCal && (
+                  <div className="fc-sync-status">
+                    <Icon icon="automatic-updates" size={12} />
+                    <span>Synced to Google Calendar</span>
+                  </div>
+                )}
                 {eventTagList && eventTagList[0].name !== calendarTag.name ? (
                   <TagList
                     list={
@@ -1346,386 +1909,65 @@ const Event = ({
                           )
                         : eventTagList
                     }
-                    setEventTagList={setEventTagList}
-                    isInteractive={true}
-                    event={event}
+                    isInteractive={false}
                   />
                 ) : null}
-                {isSyncedToGCal ? (
-                  // Synced event - show sync status with menu
-                  <Popover
-                    position="bottom"
-                    minimal
-                    content={
-                      <Menu>
-                        <MenuItem
-                          icon="share"
-                          text="Open in Google Calendar"
-                          onClick={handleOpenInGCal}
-                        />
-                        {hasDuplicates && (
-                          <MenuItem
-                            icon="duplicate"
-                            text="Remove duplicates"
-                            onClick={handleRemoveDuplicates}
-                          />
-                        )}
-                        <MenuDivider />
-                        <MenuItem
-                          icon="disable"
-                          text="Unsync (keep GCal event)"
-                          onClick={handleUnsync}
-                        />
-                        <MenuItem
-                          icon="trash"
-                          text="Unsync and delete GCal event"
-                          intent="danger"
-                          onClick={handleUnsyncAndDelete}
-                        />
-                      </Menu>
-                    }
-                  >
-                    <div className="fc-sync-status fc-sync-status-clickable">
-                      <Icon icon="automatic-updates" size={12} />
-                      <span>Synced to</span>
-                      <GoogleCalendarIconSvg
-                        className="fc-gcal-icon-small"
-                        style={{ width: "16px", height: "16px" }}
-                      />
-                      <Icon icon="chevron-down" size={10} />
-                    </div>
-                  </Popover>
-                ) : (
-                  // Non-synced event - show sync options in three-dot menu if authenticated
-                  isAuthenticated() &&
-                  getAvailableCalendarsForSync().length > 0 && (
-                    <Popover
-                      position="bottom"
-                      minimal
-                      content={
-                        <Menu>
-                          <MenuItem
-                            icon={
-                              <GoogleCalendarIconSvg
-                                className="fc-gcal-icon-menu"
-                                style={{ width: "16px", height: "16px" }}
-                              />
-                            }
-                            text="Sync to Google Calendar"
-                          >
-                            {getAvailableCalendarsForSync().map((calendar) => (
-                              <MenuItem
-                                key={calendar.id}
-                                text={calendar.displayName || calendar.name}
-                                onClick={() => handleSyncToCalendar(calendar)}
-                              />
-                            ))}
-                          </MenuItem>
-                        </Menu>
-                      }
-                    >
-                      <Icon
-                        icon="more"
-                        size={12}
-                        className="fc-event-more-menu"
-                      />
-                    </Popover>
-                  )
-                )}
-                <Icon
-                  icon="trash"
-                  size="12"
-                  onClick={() => setIsDeleteDialogOpen(true)}
+              </>
+            }
+            popoverClassName="fc-event-tooltip"
+          >
+            <span className={taskCompleted ? "fc-task-completed" : ""}>
+              {isGCalEvent && (
+                <GoogleCalendarIconSvg
+                  className="fc-gcal-icon-inline"
+                  style={{ width: "12px", height: "12px", marginRight: "4px" }}
                 />
-                <DeleteDialog
-                  title="Delete event"
-                  message={<p>Are you sure you want to delete this event ?</p>}
-                  callback={handleDeleteEvent}
-                  isDeleteDialogOpen={isDeleteDialogOpen}
-                  setIsDeleteDialogOpen={setIsDeleteDialogOpen}
+              )}
+              {isGTaskEvent && (
+                <GoogleTasksIconSvg
+                  className="fc-gcal-icon-inline"
+                  style={{ width: "12px", height: "12px", marginRight: "4px" }}
                 />
-              </div>
-            </>
-          )}
-        </div>
-      }
-      onClose={handleClose}
-      usePortal={true}
-      onOpening={(e) => {
-        // Skip Roam block rendering for GCal/GTask events
-        if (isGCalEvent || isGTaskEvent) return;
-
-        window.roamAlphaAPI.ui.components.renderBlock({
-          uid: event.id,
-          el: popoverRef.current,
-          "zoom-path?": event.extendedProps.isRef,
-          "open?": false,
-        });
-        if (event.extendedProps.hasInfosInChildren) {
-          initialContent.current = getFlattenedContentOfParentAndFirstChildren(
-            event.id
-          );
-        } else initialContent.current = getBlockContentByUid(event.id);
-      }}
-    >
-      <div
-        className="fc-event-content"
-        onClick={(e) => {
-          if (e.target.parentElement.className.includes("bp3-checkbox")) return;
-          if (e.nativeEvent.shiftKey) return;
-          // e.stopPropagation();
-          setPopoverIsOpen((prev) => !prev);
-        }}
-      >
-        {hasCheckbox && !isGCalEvent && !isGTaskEvent && (
-          <Checkbox
-            checked={isChecked}
-            // onClick={(e) => {}}
-            onChange={async (e) => {
-              if (e.nativeEvent.shiftKey) return;
-              e.stopPropagation();
-              let updatedTitle, updatedClassNames, updatedTags;
-              const newCompletedState = !isChecked;
-
-              // CRITICAL: Read actual Roam block content (not event.title which has markers stripped)
-              const currentBlockContent = getBlockContentByUid(event.id);
-
-              if (isChecked) {
-                updatedTitle = currentBlockContent.replace(
-                  "{{[[DONE]]}}",
-                  "{{[[TODO]]}}"
-                );
-                updatedClassNames = replaceItemAndGetUpdatedArray(
-                  [...event.classNames],
-                  "DONE",
-                  "TODO"
-                );
-                updatedTags = replaceItemAndGetUpdatedArray(
-                  [...eventTagList],
-                  getTagFromName("DONE"),
-                  getTagFromName("TODO"),
-                  "name"
-                );
-              } else {
-                updatedTitle = currentBlockContent.replace(
-                  "{{[[TODO]]}}",
-                  "{{[[DONE]]}}"
-                );
-                updatedClassNames = replaceItemAndGetUpdatedArray(
-                  [...event.classNames],
-                  "TODO",
-                  "DONE"
-                );
-                updatedTags = replaceItemAndGetUpdatedArray(
-                  [...eventTagList],
-                  getTagFromName("TODO"),
-                  getTagFromName("DONE"),
-                  "name"
-                );
-              }
-              const updatedColor = colorToDisplay(updatedTags);
-              await updateBlock(event.id, updatedTitle);
-              updateEvent(event, {
-                title: updatedTitle,
-                classNames: updatedClassNames,
-                color: updatedColor,
-                extendedProps: {
-                  ...event.extendedProps, // Preserve all existing extended props (gCalId, etc.)
-                  eventTags: updatedTags,
-                },
-              });
-
-              // Sync to Google Tasks if this is a synced task
-              const taskMetadata = getTaskSyncMetadata(event.id);
-              if (taskMetadata) {
-                try {
-                  await syncTaskCompletionToGoogle(event.id, newCompletedState);
-                  console.log(
-                    `[Tasks] Synced TODO/DONE toggle to Google Tasks: ${
-                      newCompletedState ? "completed" : "needsAction"
-                    }`
-                  );
-                } catch (error) {
-                  console.error(
-                    "[Tasks] Failed to sync TODO/DONE to Google Tasks:",
-                    error
-                  );
-                }
-              }
-
-              // Sync to Google Calendar if this event is synced to GCal
-              if (isSyncedToGCal && isAuthenticated()) {
-                const metadata = getSyncMetadata(event.id);
-                if (metadata?.gCalId) {
-                  try {
-                    // Create updated FC event with new title
-                    const fcEvent = {
-                      ...event,
-                      title: updatedTitle,
-                      start: event.start,
-                      end: event.end,
-                      extendedProps: { ...event.extendedProps },
-                    };
-                    const gcalEventData = fcEventToGCalEvent(
-                      fcEvent,
-                      metadata.gCalCalendarId,
-                      event.id
-                    );
-                    const result = await updateGCalEvent(
-                      metadata.gCalCalendarId,
-                      metadata.gCalId,
-                      gcalEventData
-                    );
-                    await updateSyncMetadata(event.id, {
-                      gCalUpdated: result.updated,
-                      etag: result.etag,
-                      roamUpdated: Date.now(),
-                      lastSync: Date.now(),
-                    });
-                    console.log(
-                      `[GCal] Synced TODO/DONE toggle to Google Calendar: ${
-                        newCompletedState ? "[[DONE]]" : "[[TODO]]"
-                      }`
-                    );
-                  } catch (error) {
-                    console.error(
-                      "[GCal] Failed to sync TODO/DONE to Google Calendar:",
-                      error
-                    );
-                  }
-                }
-              }
-
-              // Update the event in cache instead of invalidating all cache
-              updateEventInAllCache({
-                ...event,
-                title: updatedTitle,
-                classNames: updatedClassNames,
-                color: updatedColor,
-                extendedProps: {
-                  ...event.extendedProps,
-                  eventTags: updatedTags,
-                },
-              });
-              // Don't call refreshCalendar() here - it would invalidate the cache we just updated
-              // The event is already updated in the UI via updateEvent() above
-            }}
-          />
-        )}
-        {/* Inline checkbox for Google Tasks (calendar-based) */}
-        {isGoogleTask && (
-          <Checkbox
-            checked={taskCompleted}
-            disabled={isUpdatingTask}
-            onChange={handleTaskToggle}
-            className="fc-task-checkbox-inline"
-          />
-        )}
-        {/* Inline checkbox for non-imported Google Task events */}
-        {isGTaskEvent && (
-          <Checkbox
-            checked={event.extendedProps?.gTaskData?.status === "completed"}
-            disabled={isUpdatingTask}
-            onChange={handleGTaskEventToggle}
-            className="fc-task-checkbox-inline"
-          />
-        )}
-        {/* Inline checkbox for non-synced GCal events */}
-        {showGCalCheckbox && (
-          <Checkbox
-            checked={gCalTodoCompleted}
-            disabled={isUpdatingTask}
-            onChange={handleGCalTodoToggle}
-            className="fc-task-checkbox-inline"
-          />
-        )}
-        <Tooltip
-          position={"auto-start"}
-          hoverOpenDelay={500}
-          isOpen={popoverIsOpen ? false : null}
-          content={
-            <>
-              <p className={taskCompleted ? "fc-task-completed" : ""}>
-                {displayTitle}
-              </p>
-              {isGoogleTask && (
-                <div className="fc-gcal-task-indicator">
-                  <Icon icon="tick" size={12} />
-                  <span>Google Task</span>
-                  {taskData?.taskListTitle && (
-                    <span className="fc-task-list-name">
-                      {" "}
-                      • {taskData.taskListTitle}
-                    </span>
-                  )}
-                </div>
-              )}
-              {isGCalEvent && event.extendedProps?.gCalCalendarName && (
-                <div className="fc-gcal-calendar-hint">
-                  <GoogleCalendarIconSvg
-                    className="fc-gcal-icon-small"
-                    style={{ width: "16px", height: "16px" }}
-                  />
-                  <span>{event.extendedProps.gCalCalendarName}</span>
-                </div>
-              )}
-              {isGTaskEvent && event.extendedProps?.gTaskListName && (
-                <div className="fc-gcal-calendar-hint">
-                  <GoogleTasksIconSvg
-                    className="fc-gcal-icon-small"
-                    style={{ width: "16px", height: "16px" }}
-                  />
-                  <span>{event.extendedProps.gTaskListName}</span>
-                </div>
               )}
               {isSyncedToGCal && (
-                <div className="fc-sync-status">
-                  <Icon icon="automatic-updates" size={12} />
-                  <span>Synced to Google Calendar</span>
-                </div>
-              )}
-              {eventTagList && eventTagList[0].name !== calendarTag.name ? (
-                <TagList
-                  list={
-                    isSyncedToGCal
-                      ? eventTagList.filter(
-                          (tag) => tag.name !== "Google calendar"
-                        )
-                      : eventTagList
-                  }
-                  isInteractive={false}
+                <Icon
+                  icon="automatic-updates"
+                  size={12}
+                  style={{ marginRight: 4, opacity: 0.85 }}
                 />
-              ) : null}
-            </>
-          }
-          popoverClassName="fc-event-tooltip"
-        >
-          <span className={taskCompleted ? "fc-task-completed" : ""}>
-            {isGCalEvent && (
-              <GoogleCalendarIconSvg
-                className="fc-gcal-icon-inline"
-                style={{ width: "12px", height: "12px", marginRight: "4px" }}
-              />
-            )}
-            {isGTaskEvent && (
-              <GoogleTasksIconSvg
-                className="fc-gcal-icon-inline"
-                style={{ width: "12px", height: "12px", marginRight: "4px" }}
-              />
-            )}
-            {isSyncedToGCal && (
-              <Icon
-                icon="automatic-updates"
-                size={10}
-                style={{ marginRight: 4, opacity: 0.7 }}
-              />
-            )}
-            {timeText && event.extendedProps.hasTime ? <b>{timeText} </b> : ""}
-            {displayTitle}
-          </span>
-        </Tooltip>
-      </div>
-    </Popover>
+              )}
+              {hasMatchingGCalEvent && (
+                <Tooltip
+                  content="Matches existing GCal event - click to sync"
+                  position="top"
+                  hoverOpenDelay={300}
+                >
+                  <Icon
+                    icon="outdated" //"refresh-off"
+                    size={12}
+                    style={{ marginRight: 4, paddingBottom: 1, opacity: 0.85 }}
+                  />
+                </Tooltip>
+              )}
+              {timeText && event.extendedProps.hasTime ? (
+                <b>{timeText} </b>
+              ) : (
+                ""
+              )}
+              {displayTitle}
+            </span>
+          </Tooltip>
+        </div>
+      </Popover>
+
+      {/* Link Confirmation Dialog - shown when matching GCal event(s) found */}
+      <LinkConfirmDialog
+        isOpen={isLinkConfirmDialogOpen}
+        onClose={() => setIsLinkConfirmDialogOpen(false)}
+        matchingEvents={matchingGCalEventsForSync}
+        onConfirm={handleLinkConfirmChoice}
+      />
+    </>
   ) : null;
 };
 

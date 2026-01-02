@@ -1,10 +1,17 @@
-import { Icon, EditableText, Button, Switch, InputGroup } from "@blueprintjs/core";
+import {
+  Icon,
+  EditableText,
+  Button,
+  Switch,
+  InputGroup,
+} from "@blueprintjs/core";
 import { useState, useEffect } from "react";
 import ColorPicker from "./ColorPicker";
 import { extensionStorage, mapOfTags } from "..";
 import { getTrimedArrayFromList, updateStoredTags } from "../util/data";
 import DeleteDialog from "./DeleteDialog";
 import GCalConfigDialog from "./GCalConfigDialog";
+import SyncEventsDialog from "./SyncEventsDialog";
 import { notifyCalendarConfigChanged } from "../contexts/CalendarConfigContext";
 import {
   isAuthenticated,
@@ -20,6 +27,8 @@ const TagPopover = ({
   setTagsToDisplay,
   isDataToReload,
   setPopoverToOpen,
+  eventsInViewRef,
+  refreshCalendar,
 }) => {
   const [aliasesStr, setAliasesStr] = useState(aliases);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -175,6 +184,8 @@ const TagPopover = ({
                 onAliasUpdate={(aliases) =>
                   handleCalendarAliasUpdate(cal.id, aliases)
                 }
+                eventsInViewRef={eventsInViewRef}
+                refreshCalendar={refreshCalendar}
               />
             ))}
           </div>
@@ -194,8 +205,11 @@ const TagPopover = ({
         />
 
         {useOriginalColors ? (
-          <div style={{ marginBottom: "10px", fontSize: "12px", color: "#888" }}>
-            <strong>Note:</strong> Using original Google Calendar colors (configured in settings)
+          <div
+            style={{ marginBottom: "10px", fontSize: "12px", color: "#888" }}
+          >
+            <strong>Note:</strong> Using original Google Calendar colors
+            (configured in settings)
           </div>
         ) : (
           <ColorPicker
@@ -221,7 +235,9 @@ const TagPopover = ({
         <div className="fc-gcal-header">
           <div className="fc-gcal-calendar-name">
             <Icon icon="calendar" size={12} style={{ marginRight: "6px" }} />
-            <span>{calendarConfig?.displayName || calendarConfig?.name || tag.name}</span>
+            <span>
+              {calendarConfig?.displayName || calendarConfig?.name || tag.name}
+            </span>
           </div>
           <Button
             icon="cog"
@@ -286,18 +302,22 @@ const TagPopover = ({
         />
 
         {useOriginalColors ? (
-          <div style={{ marginBottom: "10px", fontSize: "12px", color: "#888" }}>
+          <div
+            style={{ marginBottom: "10px", fontSize: "12px", color: "#888" }}
+          >
             <strong>Original calendar color:</strong>
             {calendarConfig?.backgroundColor && (
-              <div style={{
-                display: "inline-block",
-                width: "16px",
-                height: "16px",
-                backgroundColor: calendarConfig.backgroundColor,
-                marginLeft: "8px",
-                border: "1px solid #ccc",
-                verticalAlign: "middle"
-              }}></div>
+              <div
+                style={{
+                  display: "inline-block",
+                  width: "16px",
+                  height: "16px",
+                  backgroundColor: calendarConfig.backgroundColor,
+                  marginLeft: "8px",
+                  border: "1px solid #ccc",
+                  verticalAlign: "middle",
+                }}
+              ></div>
             )}
           </div>
         ) : (
@@ -388,11 +408,18 @@ const TagPopover = ({
 /**
  * Component for a single grouped calendar in the main Google Calendar popover
  */
-const GroupedCalendarItem = ({ calendar, onToggle, onAliasUpdate }) => {
+const GroupedCalendarItem = ({
+  calendar,
+  onToggle,
+  onAliasUpdate,
+  eventsInViewRef,
+  refreshCalendar,
+}) => {
   const [aliasStr, setAliasStr] = useState(
     (calendar.triggerTags || []).join(", ")
   );
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isSyncDialogOpen, setIsSyncDialogOpen] = useState(false);
 
   // Derive enabled state directly from prop - no local state needed
   const isEnabled = calendar.syncEnabled !== false;
@@ -435,6 +462,20 @@ const GroupedCalendarItem = ({ calendar, onToggle, onAliasUpdate }) => {
             placeholder="work, meetings"
             small
           />
+
+          {/* Sync events in view button - only show if calendar can sync and user is authenticated */}
+          {calendar.syncEnabled &&
+            calendar.syncDirection !== "import" &&
+            isAuthenticated() && (
+              <Button
+                small
+                minimal
+                icon="automatic-updates"
+                text="Sync events in current view"
+                onClick={() => setIsSyncDialogOpen(true)}
+                style={{ marginTop: "8px", width: "100%" }}
+              />
+            )}
         </div>
       )}
 
@@ -443,6 +484,15 @@ const GroupedCalendarItem = ({ calendar, onToggle, onAliasUpdate }) => {
           {calendar.triggerTags.map((t) => `#${t}`).join(", ")}
         </div>
       )}
+
+      {/* Sync Events Dialog */}
+      <SyncEventsDialog
+        isOpen={isSyncDialogOpen}
+        onClose={() => setIsSyncDialogOpen(false)}
+        events={eventsInViewRef?.current || []}
+        targetCalendar={calendar}
+        refreshCalendar={refreshCalendar}
+      />
     </div>
   );
 };

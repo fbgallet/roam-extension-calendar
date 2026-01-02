@@ -60,13 +60,13 @@ export const areEventsDuplicate = (event1, event2) => {
   const title2 = normalizeTitle(event2.summary || event2.title);
 
   // Debug logging for duplicate detection
-  console.log(`[Dedup] Comparing titles:`, {
-    raw1: event1.summary || event1.title,
-    raw2: event2.summary || event2.title,
-    normalized1: title1,
-    normalized2: title2,
-    match: title1 === title2,
-  });
+  // console.log(`[Dedup] Comparing titles:`, {
+  //   raw1: event1.summary || event1.title,
+  //   raw2: event2.summary || event2.title,
+  //   normalized1: title1,
+  //   normalized2: title2,
+  //   match: title1 === title2,
+  // });
 
   // Titles must match
   if (title1 !== title2) return false;
@@ -100,13 +100,13 @@ export const areEventsDuplicate = (event1, event2) => {
     start1.getHours() === start2.getHours() &&
     start1.getMinutes() === start2.getMinutes();
 
-  console.log(`[Dedup] Time comparison:`, {
-    start1: start1.toISOString(),
-    start2: start2.toISOString(),
-    start1Local: `${start1.getFullYear()}-${start1.getMonth()+1}-${start1.getDate()} ${start1.getHours()}:${start1.getMinutes()}`,
-    start2Local: `${start2.getFullYear()}-${start2.getMonth()+1}-${start2.getDate()} ${start2.getHours()}:${start2.getMinutes()}`,
-    startMatch: sameStartTime,
-  });
+  // console.log(`[Dedup] Time comparison:`, {
+  //   start1: start1.toISOString(),
+  //   start2: start2.toISOString(),
+  //   start1Local: `${start1.getFullYear()}-${start1.getMonth()+1}-${start1.getDate()} ${start1.getHours()}:${start1.getMinutes()}`,
+  //   start2Local: `${start2.getFullYear()}-${start2.getMonth()+1}-${start2.getDate()} ${start2.getHours()}:${start2.getMinutes()}`,
+  //   startMatch: sameStartTime,
+  // });
   if (!sameStartTime) return false;
 
   // Get end times if they exist - use same normalization
@@ -134,17 +134,16 @@ export const areEventsDuplicate = (event1, event2) => {
       endDate1.getHours() === endDate2.getHours() &&
       endDate1.getMinutes() === endDate2.getMinutes();
 
-    console.log(`[Dedup] End time comparison:`, {
-      end1: endDate1.toISOString(),
-      end2: endDate2.toISOString(),
-      end1Local: `${endDate1.getFullYear()}-${endDate1.getMonth()+1}-${endDate1.getDate()} ${endDate1.getHours()}:${endDate1.getMinutes()}`,
-      end2Local: `${endDate2.getFullYear()}-${endDate2.getMonth()+1}-${endDate2.getDate()} ${endDate2.getHours()}:${endDate2.getMinutes()}`,
-      endMatch: sameEndTime,
-    });
+    // console.log(`[Dedup] End time comparison:`, {
+    //   end1: endDate1.toISOString(),
+    //   end2: endDate2.toISOString(),
+    //   end1Local: `${endDate1.getFullYear()}-${endDate1.getMonth()+1}-${endDate1.getDate()} ${endDate1.getHours()}:${endDate1.getMinutes()}`,
+    //   end2Local: `${endDate2.getFullYear()}-${endDate2.getMonth()+1}-${endDate2.getDate()} ${endDate2.getHours()}:${endDate2.getMinutes()}`,
+    //   endMatch: sameEndTime,
+    // });
     if (!sameEndTime) return false;
   }
 
-  console.log(`[Dedup] Events ARE duplicates`);
   return true;
 };
 
@@ -159,7 +158,7 @@ export const isEventSyncedToRoam = (event, eventId = null) => {
   if (eventId) {
     const metadata = getSyncMetadata(eventId);
     if (metadata?.gCalId === event.id) {
-      console.log(`[Dedup] Event "${event.summary}" (${event.id}) is synced via eventId metadata`);
+      // console.log(`[Dedup] Event "${event.summary}" (${event.id}) is synced via eventId metadata`);
       return true;
     }
   }
@@ -168,22 +167,22 @@ export const isEventSyncedToRoam = (event, eventId = null) => {
   // This handles batch deduplication where we don't have the Roam UID
   const roamUid = getRoamUidByGCalId(event.id);
   if (roamUid) {
-    console.log(`[Dedup] Event "${event.summary}" (${event.id}) is synced via gCalId lookup -> roamUid: ${roamUid}`);
+    // console.log(`[Dedup] Event "${event.summary}" (${event.id}) is synced via gCalId lookup -> roamUid: ${roamUid}`);
     return true;
   }
 
   // Fallback: Check if event description contains Roam block link
   if (event.description) {
-    const hasRoamLink = /Roam block:\s*https:\/\/roamresearch\.com\/#\/app\/[^/]+\/page\/[a-zA-Z0-9_-]{9}/.test(
-      event.description
-    );
+    const hasRoamLink =
+      /Roam block:\s*https:\/\/roamresearch\.com\/#\/app\/[^/]+\/page\/[a-zA-Z0-9_-]{9}/.test(
+        event.description
+      );
     if (hasRoamLink) {
-      console.log(`[Dedup] Event "${event.summary}" (${event.id}) is synced via description Roam link`);
+      // console.log(`[Dedup] Event "${event.summary}" (${event.id}) is synced via description Roam link`);
       return true;
     }
   }
 
-  console.log(`[Dedup] Event "${event.summary}" (${event.id}) is NOT synced`);
   return false;
 };
 
@@ -199,27 +198,19 @@ export const findDuplicatesForEvent = (
   allEvents,
   targetEventRoamId = null
 ) => {
-  console.log(`[Dedup] findDuplicatesForEvent called:`, {
-    targetId: targetEvent.id,
-    targetSummary: targetEvent.summary || targetEvent.title,
-    allEventsCount: allEvents.length,
-    targetEventRoamId,
-  });
-
   const duplicates = [];
   const targetIsSynced = isEventSyncedToRoam(targetEvent, targetEventRoamId);
 
   for (const event of allEvents) {
     // Skip the target event itself
     if (event.id === targetEvent.id) {
-      console.log(`[Dedup] Skipping target event itself: ${event.id}`);
       continue;
     }
 
     // Check if duplicate
     if (areEventsDuplicate(targetEvent, event)) {
       const eventIsSynced = isEventSyncedToRoam(event);
-      console.log(`[Dedup] Found duplicate: "${event.summary}" (${event.id}), isSynced: ${eventIsSynced}`);
+      // console.log(`[Dedup] Found duplicate: "${event.summary}" (${event.id}), isSynced: ${eventIsSynced}`);
 
       duplicates.push({
         event,
@@ -229,7 +220,7 @@ export const findDuplicatesForEvent = (
     }
   }
 
-  console.log(`[Dedup] findDuplicatesForEvent result: ${duplicates.length} duplicates found`);
+  // console.log(`[Dedup] findDuplicatesForEvent result: ${duplicates.length} duplicates found`);
   return duplicates;
 };
 
@@ -265,9 +256,7 @@ export const getDuplicatesToRemove = (
 
   // Keep the first (oldest), remove the rest
   const oldestId = allEvents[0].id;
-  return duplicates
-    .filter((d) => d.event.id !== oldestId)
-    .map((d) => d.event);
+  return duplicates.filter((d) => d.event.id !== oldestId).map((d) => d.event);
 };
 
 /**
@@ -287,14 +276,17 @@ export const removeDuplicateEvents = async (calendarId, eventsToRemove) => {
     try {
       await deleteGCalEvent(calendarId, event.id);
       results.removed++;
-      console.log(`[Dedup] Removed duplicate event: "${event.summary}" (${event.id})`);
+      // console.log(`[Dedup] Removed duplicate event: "${event.summary}" (${event.id})`);
     } catch (error) {
       results.failed++;
       results.errors.push({
         event: event.summary,
         error: error.message,
       });
-      console.error(`[Dedup] Failed to remove duplicate: "${event.summary}"`, error);
+      console.error(
+        `[Dedup] Failed to remove duplicate: "${event.summary}"`,
+        error
+      );
     }
   }
 
@@ -309,29 +301,31 @@ export const removeDuplicateEvents = async (calendarId, eventsToRemove) => {
  * @returns {string} Normalized title
  */
 const normalizeTitle = (title) => {
-  return (title || "")
-    // Remove any non-alphanumeric prefix (bullets, dashes, special chars)
-    .replace(/^[^\w\s\[\{#]+\s*/, "")
-    // Remove TODO/DONE markers (various formats)
-    .replace(/\{\{\[\[TODO\]\]\}\}\s*/g, "")
-    .replace(/\{\{\[\[DONE\]\]\}\}\s*/g, "")
-    .replace(/\[\[TODO\]\]\s*/g, "")
-    .replace(/\[\[DONE\]\]\s*/g, "")
-    .replace(/^\[\s*\]\s*/g, "")
-    .replace(/^\[x\]\s*/gi, "")
-    // Remove page references [[Page Name]] -> Page Name
-    .replace(/\[\[([^\]]+)\]\]/g, "$1")
-    // Remove hashtags #tag or #[[tag]]
-    .replace(/#\[\[([^\]]+)\]\]/g, "")
-    .replace(/#([^\s]+)/g, "")
-    // Remove block embeds {{embed: ((uid))}}
-    .replace(/\{\{embed:\s*\(\([a-zA-Z0-9_-]+\)\)\}\}/g, "")
-    // Remove other Roam syntax {{...}}
-    .replace(/\{\{[^}]+\}\}/g, "")
-    // Clean up extra whitespace
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
+  return (
+    (title || "")
+      // Remove any non-alphanumeric prefix (bullets, dashes, special chars)
+      .replace(/^[^\w\s\[\{#]+\s*/, "")
+      // Remove TODO/DONE markers (various formats)
+      .replace(/\{\{\[\[TODO\]\]\}\}\s*/g, "")
+      .replace(/\{\{\[\[DONE\]\]\}\}\s*/g, "")
+      .replace(/\[\[TODO\]\]\s*/g, "")
+      .replace(/\[\[DONE\]\]\s*/g, "")
+      .replace(/^\[\s*\]\s*/g, "")
+      .replace(/^\[x\]\s*/gi, "")
+      // Remove page references [[Page Name]] -> Page Name
+      .replace(/\[\[([^\]]+)\]\]/g, "$1")
+      // Remove hashtags #tag or #[[tag]]
+      .replace(/#\[\[([^\]]+)\]\]/g, "")
+      .replace(/#([^\s]+)/g, "")
+      // Remove block embeds {{embed: ((uid))}}
+      .replace(/\{\{embed:\s*\(\([a-zA-Z0-9_-]+\)\)\}\}/g, "")
+      // Remove other Roam syntax {{...}}
+      .replace(/\{\{[^}]+\}\}/g, "")
+      // Clean up extra whitespace
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase()
+  );
 };
 
 /**
@@ -364,7 +358,9 @@ export const deduplicateAllEvents = async (calendarId, allEvents) => {
     failed: 0,
   };
 
-  console.log(`[Dedup] Starting hash-based deduplication for ${allEvents.length} events...`);
+  console.log(
+    `[Dedup] Starting hash-based deduplication for ${allEvents.length} events...`
+  );
 
   // Step 1: Group events by hash key - O(n)
   const eventGroups = new Map();
@@ -388,7 +384,9 @@ export const deduplicateAllEvents = async (calendarId, allEvents) => {
     const confirmedDuplicateGroups = new Map();
     for (const event of group) {
       const endTime = event.end?.dateTime || event.end?.date || event.end;
-      const endMinute = endTime ? Math.floor(new Date(endTime).getTime() / 60000) : 'none';
+      const endMinute = endTime
+        ? Math.floor(new Date(endTime).getTime() / 60000)
+        : "none";
       const endKey = `${key}|${endMinute}`;
 
       if (!confirmedDuplicateGroups.has(endKey)) {
@@ -408,7 +406,9 @@ export const deduplicateAllEvents = async (calendarId, allEvents) => {
       // Priority 2: Oldest event (by created/updated time)
       let eventToKeep = null;
 
-      console.log(`[Dedup] Processing duplicate group with ${duplicateGroup.length} events:`);
+      console.log(
+        `[Dedup] Processing duplicate group with ${duplicateGroup.length} events:`
+      );
       for (const event of duplicateGroup) {
         console.log(`[Dedup]   - "${event.summary}" (id: ${event.id})`);
       }
@@ -417,7 +417,9 @@ export const deduplicateAllEvents = async (calendarId, allEvents) => {
       for (const event of duplicateGroup) {
         if (isEventSyncedToRoam(event)) {
           eventToKeep = event;
-          console.log(`[Dedup] Keeping synced event: "${event.summary}" (${event.id})`);
+          console.log(
+            `[Dedup] Keeping synced event: "${event.summary}" (${event.id})`
+          );
           break;
         }
       }
@@ -430,13 +432,17 @@ export const deduplicateAllEvents = async (calendarId, allEvents) => {
           return timeA - timeB;
         });
         eventToKeep = duplicateGroup[0];
-        console.log(`[Dedup] No synced event found, keeping oldest: "${eventToKeep.summary}" (${eventToKeep.id})`);
+        console.log(
+          `[Dedup] No synced event found, keeping oldest: "${eventToKeep.summary}" (${eventToKeep.id})`
+        );
       }
 
       // Mark all others for removal
       for (const event of duplicateGroup) {
         if (event.id !== eventToKeep.id) {
-          console.log(`[Dedup] Marking for removal: "${event.summary}" (${event.id})`);
+          console.log(
+            `[Dedup] Marking for removal: "${event.summary}" (${event.id})`
+          );
           eventsToRemove.push(event);
         }
       }
@@ -445,7 +451,9 @@ export const deduplicateAllEvents = async (calendarId, allEvents) => {
 
   // Step 3: Remove duplicates
   if (eventsToRemove.length > 0) {
-    console.log(`[Dedup] Removing ${eventsToRemove.length} duplicate events...`);
+    console.log(
+      `[Dedup] Removing ${eventsToRemove.length} duplicate events...`
+    );
     const removeResults = await removeDuplicateEvents(
       calendarId,
       eventsToRemove

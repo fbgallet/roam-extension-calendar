@@ -70,6 +70,8 @@ import {
 
 import { Toaster, Position, Intent } from "@blueprintjs/core";
 
+import { areEventsDuplicate } from "./deduplicationService";
+
 /**
  * Helper to detect if a block content contains TODO marker
  */
@@ -987,6 +989,128 @@ export const syncBlockToDefaultCalendar = async (blockContextOrUid) => {
   }
 };
 
+/**
+ * Find matching GCal events for a Roam event
+ * Uses areEventsDuplicate from deduplicationService to compare events
+ * @param {object} fcEvent - FullCalendar event object (Roam event)
+ * @param {string} calendarId - Google Calendar ID
+ * @returns {Promise<array>} Array of matching GCal events
+ */
+export const findMatchingGCalEvents = async (fcEvent, calendarId) => {
+  try {
+    const eventDate = new Date(fcEvent.start);
+    const startOfDay = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+    const endOfDay = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate() + 1);
+
+    const gcalEvents = await getEvents(calendarId, startOfDay, endOfDay);
+
+    // Create a comparable event object for deduplication check
+    const roamEventForComparison = {
+      id: fcEvent.id,
+      summary: fcEvent.title,
+      start: fcEvent.start,
+      end: fcEvent.end,
+    };
+
+    // Find matches (excluding events that are already synced to a Roam block)
+    const matches = gcalEvents.filter(gcalEvent => {
+      // Skip cancelled events
+      if (gcalEvent.status === "cancelled") return false;
+
+      // Skip events already linked to a Roam block
+      const existingRoamUid = getRoamUidByGCalId(gcalEvent.id);
+      if (existingRoamUid) return false;
+
+      return areEventsDuplicate(roamEventForComparison, gcalEvent);
+    });
+
+    return matches;
+  } catch (error) {
+    console.error("Error finding matching GCal events:", error);
+    return [];
+  }
+};
+
+/**
+ * Link a Roam event to an existing Google Calendar event (without creating new)
+ * @param {string} roamUid - Roam block UID
+ * @param {object} fcEvent - FullCalendar event object
+ * @param {object} existingGCalEvent - Existing GCal event to link to
+ * @param {string} calendarId - Google Calendar ID
+ * @returns {Promise<object>} Link result
+ */
+export const linkEventToExistingGCal = async (roamUid, fcEvent, existingGCalEvent, calendarId) => {
+  // Acquire lock to prevent duplicate operations
+  if (!acquireSyncLock(roamUid)) {
+    return { success: false, error: "Already syncing", skipped: true };
+  }
+
+  try {
+    // Check if already linked
+    const metadata = getSyncMetadata(roamUid);
+    if (metadata && metadata.gCalId) {
+      return { success: false, error: "Event already synced" };
+    }
+
+    // Update the GCal event description to include Roam block link
+    const graphName = window.roamAlphaAPI?.graph?.name;
+    let description = existingGCalEvent.description || "";
+
+    // Remove any existing Roam block links (in case of re-linking)
+    description = description.replace(/\n*---\nRoam block:.*$/s, "").trim();
+
+    if (graphName) {
+      const roamLink = `https://roamresearch.com/#/app/${graphName}/page/${roamUid}`;
+      description += `\n\n---\nRoam block: ${roamLink}`;
+    }
+
+    // Update GCal event with Roam link in description
+    // IMPORTANT: Must include start/end/summary to avoid "Missing end time" error
+    const updatePayload = {
+      summary: existingGCalEvent.summary,
+      description: description,
+      start: existingGCalEvent.start,
+      end: existingGCalEvent.end,
+    };
+
+    await updateGCalEvent(calendarId, existingGCalEvent.id, updatePayload);
+
+    // Prepare metadata
+    const eventEndDate = fcEvent.end
+      ? new Date(fcEvent.end).toISOString().split("T")[0]
+      : new Date(fcEvent.start).toISOString().split("T")[0];
+
+    const blockContent = getBlockContentByUid(roamUid);
+    const isTodo = hasTodoMarker(blockContent);
+    const hadOriginalTimeRange = parseRange(blockContent) !== null;
+
+    // Save sync metadata to establish the link
+    await saveSyncMetadata(
+      roamUid,
+      createSyncMetadata({
+        gCalId: existingGCalEvent.id,
+        gCalCalendarId: calendarId,
+        etag: existingGCalEvent.etag,
+        gCalUpdated: existingGCalEvent.updated,
+        roamUpdated: Date.now(),
+        lastSync: Date.now(),
+        eventEndDate,
+        isTodo,
+        hadOriginalTimeRange,
+      })
+    );
+
+    console.log(`[Sync] Linked Roam block ${roamUid} to existing GCal event ${existingGCalEvent.id}`);
+    return { success: true, action: "linked", gCalId: existingGCalEvent.id };
+  } catch (error) {
+    console.error("Error linking event to existing GCal:", error);
+    return { success: false, error: error.message };
+  } finally {
+    // Always release the lock
+    releaseSyncLock(roamUid);
+  }
+};
+
 export default {
   syncEventToGCal,
   deleteEventFromGCal,
@@ -1002,4 +1126,6 @@ export default {
   createSyncResult,
   syncBlockToDefaultCalendar,
   showSyncResultToast,
+  findMatchingGCalEvents,
+  linkEventToExistingGCal,
 };

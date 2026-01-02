@@ -1760,3 +1760,154 @@
 .fc-event-gtask .fc-event-content {
   font-style: normal;
 }
+
+/* Sync Events Dialog */
+.fc-sync-dialog {
+  width: 700px;
+  max-height: 92vh;
+  padding-bottom: 0;
+}
+
+.fc-sync-dialog-content {
+  padding: 20px;
+  padding-bottom: 12px;
+}
+
+.fc-sync-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.fc-sync-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fc-sync-section-title-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1c2127;
+}
+
+.fc-sync-section-count {
+  font-size: 12px;
+  color: #5c7080;
+}
+
+.fc-sync-section-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.fc-sync-events-list {
+  max-height: 250px;
+  overflow-y: auto;
+  border: 1px solid #e1e8ed;
+  border-radius: 3px;
+  background-color: #fafbfc;
+}
+
+.fc-sync-event-item {
+  padding: 10px 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  transition: background-color 0.15s ease;
+}
+
+.fc-sync-event-item:not(:last-child) {
+  border-bottom: 1px solid #e1e8ed;
+}
+
+.fc-sync-event-item.fc-selected {
+  background-color: #ebf1f5;
+}
+
+.fc-sync-event-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.fc-sync-roam-block {
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.fc-sync-event-metadata {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.fc-sync-event-date {
+  font-size: 11px;
+  color: #5c7080;
+}
+
+.fc-sync-gcal-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  cursor: pointer;
+}
+
+.fc-sync-gcal-title-text {
+  font-size: 13px;
+  color: #1c2127;
+}
+
+.fc-sync-progress {
+  margin-top: 16px;
+  padding: 12px;
+  background-color: #f5f8fa;
+  border-radius: 3px;
+}
+
+.fc-sync-progress-text {
+  font-size: 13px;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.fc-sync-progress-bar {
+  width: 100%;
+  height: 6px;
+  background-color: #e1e8ed;
+  border-radius: 3px;
+}
+
+.fc-sync-progress-bar-fill {
+  height: 100%;
+  background-color: #137cbd;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.fc-sync-dialog-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-top: 1px solid #e1e8ed;
+  background-color: #f5f8fa;
+}
+
+.fc-sync-footer-summary {
+  font-size: 12px;
+  color: #5c7080;
+}
+
+.fc-sync-footer-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.fc-sync-dialog-content div > svg {
+  width: 14px;
+}

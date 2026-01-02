@@ -37,6 +37,8 @@ const MultiSelectFilter = ({
   isInSidebar,
   initialSticky,
   initialMinimized,
+  eventsInViewRef,
+  refreshCalendar,
 }) => {
   const configVersion = useCalendarConfigVersion();
   const [popoverToOpen, setPopoverToOpen] = useState("");
@@ -184,6 +186,8 @@ const MultiSelectFilter = ({
             setTagsToDisplay={setTagsToDisplay}
             isDataToReload={isDataToReload}
             setPopoverToOpen={setPopoverToOpen}
+            eventsInViewRef={eventsInViewRef}
+            refreshCalendar={refreshCalendar}
           />
         }
         usePortal={true}
