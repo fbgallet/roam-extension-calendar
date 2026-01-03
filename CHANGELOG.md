@@ -1,13 +1,19 @@
-## v.6 (December, 2025) --UPCOMING--
+## v.6 (January, 2026) Google Calendar integration
 
 ### New feature
 
-- Google Calendar two-way sync
+- complete support of Google Calendar import/export/2-way sync
 
 ### Fixes
 
-- events spanning multiple months were only visible in the starting month
+- Events spanning multiple months were only visible in the starting month
 - more stable multidays events and timestamps
+- redundant timestamps and tags are not more displayed in the event or tooltip
+- it was impossible to display events after 23:00 on timegrid
+- block references in events are now resolved
+- external drag & drop to timegrid was broken
+- drag & drop with 12h format time was broken
+
 
 ## v.5 (October 22nd, 2024) Drag&drop tag
 
@@ -62,3 +68,4 @@
 ## v.2 (June 15th, 2024) small fixes
 
 - fixed an issue with checkboxes in events
+
