@@ -16,7 +16,8 @@ import {
 } from "@blueprintjs/core";
 import { useState, useEffect } from "react";
 import {
-  authenticate,
+  openOAuthPopup,
+  exchangeCodeForTokens,
   signOut,
   isAuthenticated,
   listCalendars,
@@ -94,6 +95,44 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
   // Confirmation dialogs
   const [confirmReinitSync, setConfirmReinitSync] = useState(false);
   const [confirmClearCache, setConfirmClearCache] = useState(false);
+
+  // Handler for connect button
+  const handleConnect = () => {
+    // Open popup synchronously from click handler
+    const { popup, promise: codePromise } = openOAuthPopup();
+
+    if (!popup) {
+      setError(
+        "Connection failed. Please check if your browser is blocking popups (look for an icon in the address bar)."
+      );
+      return;
+    }
+
+    // Now we can do state updates since popup is already open
+    setIsLoading(true);
+    setError("");
+
+    // Wait for the auth code, then exchange for tokens
+    codePromise
+      .then((code) => exchangeCodeForTokens(code))
+      .then(() => {
+        // Authentication complete - onAuthStateChange listener will handle UI updates
+      })
+      .catch((err) => {
+        console.error(err);
+        setIsLoading(false);
+        const errorMessage = err?.message || "";
+        if (errorMessage.includes("popup") || errorMessage.includes("blocked")) {
+          setError(
+            "Connection failed. Please check if your browser is blocking popups (look for an icon in the address bar)."
+          );
+        } else if (errorMessage.includes("cancelled")) {
+          setError("Authentication was cancelled.");
+        } else {
+          setError(`Failed to connect to Google: ${errorMessage}`);
+        }
+      });
+  };
 
   // Load initial state
   useEffect(() => {
@@ -268,30 +307,6 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
     } catch (err) {
       console.error("Failed to fetch task lists:", err);
       // Don't show error for task lists - they may not have permission yet
-    }
-  };
-
-  const handleConnect = async () => {
-    setIsLoading(true);
-    setError("");
-
-    try {
-      await authenticate();
-      // The onAuthStateChange listener will handle fetching calendars and stopping the spinner
-    } catch (err) {
-      console.error(err);
-      setIsLoading(false);
-      // Check if the error might be due to popup blocking
-      const errorMessage = err?.message || "";
-      if (errorMessage.includes("popup") || errorMessage.includes("blocked")) {
-        setError(
-          "Connection failed. Please check if your browser is blocking popups (look for an icon in the address bar)."
-        );
-      } else {
-        setError(
-          "Failed to connect to Google. If you don't see a popup window, please check if your browser is blocking popups."
-        );
-      }
     }
   };
 

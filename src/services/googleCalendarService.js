@@ -4,8 +4,17 @@
  */
 
 import { extensionStorage } from "..";
-import { encryptToken, decryptToken, migrateToken } from "../util/tokenEncryption";
-import { generateCSRFToken, storeCSRFToken, validateCSRFToken, clearExpiredCSRFTokens } from "../util/csrfProtection";
+import {
+  encryptToken,
+  decryptToken,
+  migrateToken,
+} from "../util/tokenEncryption";
+import {
+  generateCSRFToken,
+  storeCSRFToken,
+  validateCSRFToken,
+  clearExpiredCSRFTokens,
+} from "../util/csrfProtection";
 
 const CLIENT_ID =
   "743270704845-jvqg91e6bk03jbnu1qcdnrh9r3ohgact.apps.googleusercontent.com";
@@ -15,8 +24,7 @@ const DISCOVERY_DOCS = [
 ];
 const SCOPES =
   "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.calendarlist.readonly https://www.googleapis.com/auth/tasks";
-const BACKEND_URL =
-  "https://site--roam-calendar-auth-backend--2bhrm4wg9nqn.code.run";
+const BACKEND_URL = "https://auth.auth.the-thought-experimenter.com";
 
 // Service state
 let gapiInitialized = false;
@@ -195,45 +203,202 @@ const isBackendAvailable = async () => {
 };
 
 /**
- * Get authorization code from Google (for backend flow)
- * Includes CSRF protection via state parameter
+ * Opens OAuth popup and returns both the popup reference and a promise for the auth code.
+ * MUST be called synchronously from user click handler.
+ * Exported so it can be called directly from click handlers.
  */
-const getAuthorizationCode = () => {
-  return new Promise((resolve, reject) => {
-    if (!window.google?.accounts?.oauth2) {
-      reject(new Error("Google Identity Services not loaded"));
-      return;
+/**
+ * Generate a unique session ID for Desktop OAuth polling
+ */
+const generateSessionId = () => {
+  return `sess_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+};
+
+/**
+ * Poll the backend for OAuth completion (Desktop mode)
+ */
+const pollForAuthCode = async (sessionId, csrfState, timeoutMs = 5 * 60 * 1000) => {
+  const startTime = Date.now();
+  const pollInterval = 1500; // Poll every 1.5 seconds
+
+  while (Date.now() - startTime < timeoutMs) {
+    try {
+      const response = await fetch(`${BACKEND_URL}/oauth/poll?session=${sessionId}`, {
+        signal: AbortSignal.timeout(5000),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+
+        if (data.status === "completed") {
+          if (data.error) {
+            throw new Error(data.error);
+          }
+
+          // Validate CSRF
+          if (!data.state || !validateCSRFToken(data.state)) {
+            console.error("[Auth] CSRF validation failed!");
+            throw new Error("CSRF validation failed - possible attack detected");
+          }
+
+          console.log("[Auth] ✓ Authentication completed");
+          return data.code;
+        }
+        // status === "pending" - continue polling
+      }
+    } catch (e) {
+      // Ignore timeout/network errors, continue polling
+      // But throw CSRF and other critical errors
+      if (e.message.includes("CSRF") || e.message.includes("attack")) {
+        throw e;
+      }
     }
 
-    // Generate CSRF protection state token
-    const csrfState = generateCSRFToken();
-    storeCSRFToken(csrfState);
+    // Wait before next poll
+    await new Promise((resolve) => setTimeout(resolve, pollInterval));
+  }
 
-    const client = window.google.accounts.oauth2.initCodeClient({
-      client_id: CLIENT_ID,
-      scope: SCOPES,
-      ux_mode: "popup",
-      state: csrfState, // Add CSRF state parameter
-      callback: (response) => {
-        if (response.error) {
-          reject(new Error(response.error));
+  throw new Error("Authentication timed out");
+};
+
+export const openOAuthPopup = () => {
+  // Generate CSRF protection state token
+  const csrfState = generateCSRFToken();
+  storeCSRFToken(csrfState);
+
+  // Check if we're in Roam Desktop app
+  const isDesktop = window.roamAlphaAPI?.platform?.isDesktop;
+
+  // For Desktop, generate a session ID for polling
+  const sessionId = isDesktop ? generateSessionId() : null;
+
+  // Build OAuth URL with redirect to our backend
+  const redirectUri = `${BACKEND_URL}/oauth/callback`;
+  const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+  authUrl.searchParams.set("client_id", CLIENT_ID);
+  authUrl.searchParams.set("redirect_uri", redirectUri);
+  authUrl.searchParams.set("response_type", "code");
+  authUrl.searchParams.set("scope", SCOPES);
+  // For Desktop, include session ID in state (format: csrfState|sessionId)
+  authUrl.searchParams.set("state", sessionId ? `${csrfState}|${sessionId}` : csrfState);
+  authUrl.searchParams.set("access_type", "offline");
+  authUrl.searchParams.set("prompt", "consent");
+
+  const authUrlString = authUrl.toString();
+  let popup = null;
+
+  if (isDesktop) {
+    // In Roam Desktop, open OAuth in system browser
+    window.open(authUrlString, "_blank");
+    // Create a dummy popup object for Desktop (we can't track the external browser)
+    popup = { closed: false, close: () => {}, isDesktop: true };
+  } else {
+    // In browser, use standard window.open
+    const width = 500;
+    const height = 600;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+    popup = window.open(
+      authUrlString,
+      "google-oauth-popup",
+      `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
+    );
+  }
+
+  if (!popup) {
+    return {
+      popup: null,
+      promise: Promise.reject(
+        new Error(
+          "Popup blocked. Please allow popups for this site and try again."
+        )
+      ),
+    };
+  }
+
+  // Different promise handling for Desktop vs Browser
+  let promise;
+
+  if (isDesktop && sessionId) {
+    // Desktop mode: poll the backend for auth completion
+    promise = pollForAuthCode(sessionId, csrfState);
+  } else {
+    // Browser mode: use postMessage
+    promise = new Promise((resolve, reject) => {
+      let isResolved = false;
+
+      // Listen for postMessage from our backend's callback page
+      const messageHandler = (event) => {
+        // Only accept messages from our backend
+        if (!event.origin.includes("the-thought-experimenter.com")) {
+          return;
+        }
+
+        const { type, code, state, error } = event.data || {};
+
+        if (type !== "oauth-callback") {
+          return;
+        }
+
+        if (isResolved) return;
+        isResolved = true;
+
+        // Clean up
+        window.removeEventListener("message", messageHandler);
+        clearInterval(pollTimer);
+
+        // Close the popup
+        if (popup && !popup.closed) {
+          popup.close();
+        }
+
+        if (error) {
+          console.error("[Auth] OAuth error:", error);
+          reject(new Error(error));
           return;
         }
 
         // Validate CSRF state token
-        if (!response.state || !validateCSRFToken(response.state)) {
-          reject(new Error("CSRF validation failed - possible attack detected"));
+        if (!state || !validateCSRFToken(state)) {
+          reject(
+            new Error("CSRF validation failed - possible attack detected")
+          );
           console.error("[Auth] CSRF validation failed!");
           return;
         }
 
         console.log("[Auth] ✓ CSRF validation passed");
-        resolve(response.code);
-      },
-    });
+        resolve(code);
+      };
 
-    client.requestCode();
-  });
+      window.addEventListener("message", messageHandler);
+
+      // Poll for popup closure (in case user closes it manually)
+      const pollTimer = setInterval(() => {
+        if (popup.closed && !isResolved) {
+          isResolved = true;
+          clearInterval(pollTimer);
+          window.removeEventListener("message", messageHandler);
+          reject(new Error("Authentication cancelled - popup was closed"));
+        }
+      }, 500);
+
+      // Timeout after 5 minutes
+      setTimeout(() => {
+        if (!isResolved) {
+          isResolved = true;
+          window.removeEventListener("message", messageHandler);
+          clearInterval(pollTimer);
+          if (popup && !popup.closed) {
+            popup.close();
+          }
+          reject(new Error("Authentication timed out"));
+        }
+      }, 5 * 60 * 1000);
+    });
+  }
+
+  return { popup, promise };
 };
 
 /**
@@ -257,13 +422,15 @@ export const initGoogleCalendarService = async () => {
   // If offline and we have stored credentials, skip script loading
   // and just mark as authenticated for cache access
   if (!navigator.onLine && hasStoredCredentials) {
-    console.log("[Auth] Offline with stored credentials - enabling cache-only mode");
+    console.log(
+      "[Auth] Offline with stored credentials - enabling cache-only mode"
+    );
     notifyAuthStateChange(true);
 
     // Set up listener to fully initialize when back online
     const onlineHandler = async () => {
       console.log("[Auth] Back online - completing initialization");
-      window.removeEventListener('online', onlineHandler);
+      window.removeEventListener("online", onlineHandler);
       // Remove from tracking array
       const index = onlineHandlers.indexOf(onlineHandler);
       if (index > -1) onlineHandlers.splice(index, 1);
@@ -282,10 +449,13 @@ export const initGoogleCalendarService = async () => {
           startTokenRefreshMonitoring();
         }
       } catch (error) {
-        console.error("[Auth] Failed to initialize after coming online:", error);
+        console.error(
+          "[Auth] Failed to initialize after coming online:",
+          error
+        );
       }
     };
-    window.addEventListener('online', onlineHandler);
+    window.addEventListener("online", onlineHandler);
     onlineHandlers.push(onlineHandler); // Track for cleanup
 
     return true; // Return true so cached events can be displayed
@@ -312,7 +482,9 @@ export const initGoogleCalendarService = async () => {
       // But first check if we're offline - if so, keep the session "alive"
       // so cached events can be displayed
       if (!navigator.onLine) {
-        console.log("[Auth] Offline - keeping session alive with expired token for cache access");
+        console.log(
+          "[Auth] Offline - keeping session alive with expired token for cache access"
+        );
         // Set the expired token anyway so isAuthenticated() returns true for cache access
         // API calls will fail but cache will work
         window.gapi.client.setToken({ access_token: savedToken });
@@ -321,7 +493,7 @@ export const initGoogleCalendarService = async () => {
         // Set up listener to refresh when back online
         const onlineHandler = async () => {
           console.log("[Auth] Back online - attempting token refresh");
-          window.removeEventListener('online', onlineHandler);
+          window.removeEventListener("online", onlineHandler);
           // Remove from tracking array
           const index = onlineHandlers.indexOf(onlineHandler);
           if (index > -1) onlineHandlers.splice(index, 1);
@@ -331,7 +503,7 @@ export const initGoogleCalendarService = async () => {
             startTokenRefreshMonitoring();
           }
         };
-        window.addEventListener('online', onlineHandler);
+        window.addEventListener("online", onlineHandler);
         onlineHandlers.push(onlineHandler); // Track for cleanup
 
         return true; // Return true so cached events can be displayed
@@ -352,7 +524,9 @@ export const initGoogleCalendarService = async () => {
     // If script loading fails (e.g., offline) but we have credentials,
     // still allow cache access
     if (hasStoredCredentials) {
-      console.warn("[Auth] Script loading failed but have stored credentials - enabling cache-only mode");
+      console.warn(
+        "[Auth] Script loading failed but have stored credentials - enabling cache-only mode"
+      );
       notifyAuthStateChange(true);
       return true;
     }
@@ -362,77 +536,43 @@ export const initGoogleCalendarService = async () => {
 };
 
 /**
- * Try to silently refresh the authentication
- * Primary: Use refresh token via backend
- * Fallback: Use GIS silent refresh (requires active Google session)
+ * Try to silently refresh the authentication using refresh token via backend
+ * This never opens a popup - if it fails, user must re-authenticate manually
  */
 export const silentRefresh = async () => {
   const refreshToken = extensionStorage.get(STORAGE_KEYS.REFRESH_TOKEN);
 
-  // Try backend refresh if we have a refresh token
-  if (refreshToken) {
-    try {
-      console.log("[Auth] 🔄 Refreshing token via backend...");
-      const response = await fetch(`${BACKEND_URL}/oauth/refresh`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh_token: refreshToken }),
-        signal: AbortSignal.timeout(5000),
-      });
-
-      if (response.ok) {
-        const tokens = await response.json();
-        const expiryTime = Date.now() + tokens.expires_in * 1000;
-        extensionStorage.set(STORAGE_KEYS.ACCESS_TOKEN, tokens.access_token);
-        extensionStorage.set(STORAGE_KEYS.TOKEN_EXPIRY, expiryTime);
-        window.gapi.client.setToken({ access_token: tokens.access_token });
-        notifyAuthStateChange(true);
-        console.log("[Auth] ✅ Token refreshed successfully via backend");
-        return true;
-      } else {
-        console.warn("[Auth] ✗ Backend refresh failed, trying fallback");
-      }
-    } catch (error) {
-      console.warn(`[Auth] ✗ Backend refresh error: ${error.message}`);
-      console.warn("[Auth] → Trying fallback silent refresh");
-    }
+  if (!refreshToken) {
+    console.log("[Auth] No refresh token available - silent refresh not possible");
+    return false;
   }
 
-  // Fallback to GIS silent refresh
-  console.log(
-    "[Auth] 🔄 Attempting fallback silent refresh (requires active Google session)..."
-  );
-  return new Promise((resolve) => {
-    if (!tokenClient) {
-      initTokenClient();
-    }
+  try {
+    console.log("[Auth] 🔄 Refreshing token via backend...");
+    const response = await fetch(`${BACKEND_URL}/oauth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+      signal: AbortSignal.timeout(5000),
+    });
 
-    tokenClient.callback = (tokenResponse) => {
-      if (tokenResponse.error !== undefined) {
-        console.warn(
-          "[Auth] ✗ Silent refresh failed - user needs to re-authenticate"
-        );
-        resolve(false);
-        return;
-      }
-      const expiryTime = Date.now() + tokenResponse.expires_in * 1000;
-      extensionStorage.set(
-        STORAGE_KEYS.ACCESS_TOKEN,
-        tokenResponse.access_token
-      );
+    if (response.ok) {
+      const tokens = await response.json();
+      const expiryTime = Date.now() + tokens.expires_in * 1000;
+      extensionStorage.set(STORAGE_KEYS.ACCESS_TOKEN, tokens.access_token);
       extensionStorage.set(STORAGE_KEYS.TOKEN_EXPIRY, expiryTime);
+      window.gapi.client.setToken({ access_token: tokens.access_token });
       notifyAuthStateChange(true);
-      console.log("[Auth] ✅ Fallback silent refresh successful");
-      resolve(true);
-    };
-
-    try {
-      tokenClient.requestAccessToken({ prompt: "none" });
-    } catch (error) {
-      console.warn(`[Auth] ✗ Silent refresh not available: ${error.message}`);
-      resolve(false);
+      console.log("[Auth] ✅ Token refreshed successfully via backend");
+      return true;
+    } else {
+      console.warn("[Auth] ✗ Backend refresh failed - user needs to re-authenticate");
+      return false;
     }
-  });
+  } catch (error) {
+    console.warn(`[Auth] ✗ Backend refresh error: ${error.message}`);
+    return false;
+  }
 };
 
 /**
@@ -441,7 +581,8 @@ export const silentRefresh = async () => {
  */
 const startTokenRefreshMonitoring = () => {
   // Check if auto-refresh is enabled (default: true for backward compatibility)
-  const autoRefreshEnabled = extensionStorage.get(STORAGE_KEYS.AUTO_TOKEN_REFRESH) ?? true;
+  const autoRefreshEnabled =
+    extensionStorage.get(STORAGE_KEYS.AUTO_TOKEN_REFRESH) ?? true;
 
   if (!autoRefreshEnabled) {
     console.log("[Auth] ⏸ Token auto-refresh is disabled by user");
@@ -495,7 +636,7 @@ export const stopTokenRefreshMonitoring = () => {
 export const cleanupEventListeners = () => {
   // Remove all online event listeners
   onlineHandlers.forEach((handler) => {
-    window.removeEventListener('online', handler);
+    window.removeEventListener("online", handler);
   });
   onlineHandlers = [];
   console.log("[Auth] Cleaned up all online event listeners");
@@ -535,8 +676,8 @@ export const getConnectionStatus = async () => {
     return {
       isConnected: false,
       isOffline: false,
-      reason: 'not_authenticated',
-      message: 'Google Calendar not connected'
+      reason: "not_authenticated",
+      message: "Google Calendar not connected",
     };
   }
 
@@ -545,8 +686,8 @@ export const getConnectionStatus = async () => {
     return {
       isConnected: false,
       isOffline: true,
-      reason: 'offline',
-      message: 'You are offline'
+      reason: "offline",
+      message: "You are offline",
     };
   }
 
@@ -557,140 +698,116 @@ export const getConnectionStatus = async () => {
       isConnected: true,
       isOffline: false,
       reason: null,
-      message: 'Connected'
+      message: "Connected",
     };
   } catch (error) {
     return {
       isConnected: false,
       isOffline: true, // Assume network issue if auth check fails
-      reason: 'api_error',
-      message: 'Google Calendar connection failed'
+      reason: "api_error",
+      message: "Google Calendar connection failed",
     };
   }
 };
 
 /**
- * Request user authentication
- * Primary: Use authorization code flow with backend (gets refresh token)
- * Fallback: Use GIS token client (session-based only)
+ * Try silent authentication using existing refresh token
+ * Call this separately before authenticate() if you want to avoid popup
  */
-export const authenticate = async () => {
-  // First check if we already have a refresh token - try silent refresh
+export const trySilentAuth = async () => {
   const refreshToken = extensionStorage.get(STORAGE_KEYS.REFRESH_TOKEN);
-  if (refreshToken) {
+  if (!refreshToken) {
+    return false;
+  }
+
+  console.log(
+    "[Auth] 🔄 Refresh token found - attempting silent authentication..."
+  );
+  const refreshed = await silentRefresh();
+  if (refreshed) {
     console.log(
-      "[Auth] 🔄 Refresh token found - attempting silent authentication..."
+      "[Auth] ✅ Successfully authenticated using existing refresh token"
     );
-    const refreshed = await silentRefresh();
-    if (refreshed) {
-      console.log(
-        "[Auth] ✅ Successfully authenticated using existing refresh token"
-      );
-      startTokenRefreshMonitoring();
-      return { access_token: extensionStorage.get(STORAGE_KEYS.ACCESS_TOKEN) };
-    } else {
-      console.warn(
-        "[Auth] ✗ Silent refresh failed - refresh token may be invalid"
-      );
-      console.log("[Auth] → Proceeding with full authentication flow");
-    }
+    startTokenRefreshMonitoring();
+    return true;
+  } else {
+    console.warn(
+      "[Auth] ✗ Silent refresh failed - refresh token may be invalid"
+    );
+    return false;
+  }
+};
+
+/**
+ * Exchange authorization code for tokens via backend
+ * Called after getting the code from the OAuth popup
+ */
+export const exchangeCodeForTokens = async (code) => {
+  console.log("[Auth] Step 2/3: Exchanging code for tokens via backend...");
+  const response = await fetch(`${BACKEND_URL}/oauth/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      code,
+      redirect_uri: `${BACKEND_URL}/oauth/callback`,
+    }),
+    signal: AbortSignal.timeout(10000),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || "Token exchange failed");
   }
 
-  // Try backend flow first
-  const backendAvailable = await isBackendAvailable();
+  const tokens = await response.json();
+  console.log("[Auth] ✓ Tokens received from backend");
 
-  if (backendAvailable) {
-    try {
-      console.log(
-        "[Auth] 🔐 Using BACKEND OAuth flow (persistent authentication)"
-      );
-      console.log(
-        "[Auth] → This will provide a refresh token for permanent access"
-      );
+  // Step 3: Store tokens (including refresh token!)
+  console.log("[Auth] Step 3/3: Storing tokens...");
+  const expiryTime = Date.now() + tokens.expires_in * 1000;
+  extensionStorage.set(STORAGE_KEYS.ACCESS_TOKEN, tokens.access_token);
+  extensionStorage.set(STORAGE_KEYS.REFRESH_TOKEN, tokens.refresh_token);
+  extensionStorage.set(STORAGE_KEYS.TOKEN_EXPIRY, expiryTime);
 
-      // Step 1: Get authorization code from Google
-      console.log(
-        "[Auth] Step 1/3: Requesting authorization code from Google..."
-      );
-      const code = await getAuthorizationCode();
-      console.log("[Auth] ✓ Authorization code received");
+  // Set token in GAPI
+  window.gapi.client.setToken({ access_token: tokens.access_token });
 
-      // Step 2: Exchange code for tokens via backend
-      console.log("[Auth] Step 2/3: Exchanging code for tokens via backend...");
-      const response = await fetch(`${BACKEND_URL}/oauth/token`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code,
-          redirect_uri: "postmessage",
-        }),
-        signal: AbortSignal.timeout(10000),
-      });
+  notifyAuthStateChange(true);
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Token exchange failed");
-      }
+  // Start proactive token refresh monitoring
+  startTokenRefreshMonitoring();
 
-      const tokens = await response.json();
-      console.log("[Auth] ✓ Tokens received from backend");
+  console.log("[Auth] ✅ SUCCESS - Authentication complete!");
+  console.log("[Auth] → Refresh token stored - permanent access enabled");
+  console.log("[Auth] → Token will auto-refresh every ~1 hour");
+  return tokens;
+};
 
-      // Step 3: Store tokens (including refresh token!)
-      console.log("[Auth] Step 3/3: Storing tokens...");
-      const expiryTime = Date.now() + tokens.expires_in * 1000;
-      extensionStorage.set(STORAGE_KEYS.ACCESS_TOKEN, tokens.access_token);
-      extensionStorage.set(STORAGE_KEYS.REFRESH_TOKEN, tokens.refresh_token);
-      extensionStorage.set(STORAGE_KEYS.TOKEN_EXPIRY, expiryTime);
+/**
+ * Request user authentication via popup
+ * IMPORTANT: This must be called directly from a user click handler
+ * Do NOT await anything before calling this function
+ *
+ * Returns a Promise that resolves when authentication is complete
+ */
+export const authenticate = () => {
+  // IMPORTANT: Open popup FIRST (synchronously) to avoid popup blocker
+  // Silent refresh should be attempted separately via trySilentAuth()
+  console.log("[Auth] 🔐 Starting OAuth flow with redirect...");
 
-      // Set token in GAPI
-      window.gapi.client.setToken({ access_token: tokens.access_token });
+  // Step 1: Open popup SYNCHRONOUSLY - this is the critical part
+  console.log("[Auth] Step 1/3: Opening OAuth popup...");
+  const { popup, promise: codePromise } = openOAuthPopup();
 
-      notifyAuthStateChange(true);
-
-      // Start proactive token refresh monitoring
-      startTokenRefreshMonitoring();
-
-      console.log("[Auth] ✅ SUCCESS - Backend authentication complete!");
-      console.log("[Auth] → Refresh token stored - permanent access enabled");
-      console.log("[Auth] → Token will auto-refresh every ~1 hour");
-      return tokens;
-    } catch (error) {
-      console.error("[Auth] ✗ Backend authentication failed:", error.message);
-      console.warn("[Auth] → Falling back to session-based authentication");
-    }
+  if (!popup) {
+    // Return rejected promise if popup was blocked
+    return codePromise;
   }
 
-  // Fallback to session-based authentication
-  console.log("[Auth] 🔓 Using FALLBACK session-based authentication");
-  console.log("[Auth] → No refresh token - will need re-auth after ~1 hour");
-  return new Promise((resolve, reject) => {
-    if (!tokenClient) {
-      initTokenClient();
-    }
-
-    tokenClient.callback = (tokenResponse) => {
-      if (tokenResponse.error !== undefined) {
-        console.error(
-          "[Auth] ✗ Fallback authentication failed:",
-          tokenResponse.error
-        );
-        reject(new Error(tokenResponse.error));
-        return;
-      }
-      // Store the token (no refresh token in fallback mode)
-      const expiryTime = Date.now() + tokenResponse.expires_in * 1000;
-      extensionStorage.set(
-        STORAGE_KEYS.ACCESS_TOKEN,
-        tokenResponse.access_token
-      );
-      extensionStorage.set(STORAGE_KEYS.TOKEN_EXPIRY, expiryTime);
-      notifyAuthStateChange(true);
-      console.log("[Auth] ✅ Fallback authentication successful");
-      console.log("[Auth] ⚠️  Session-based only - token expires in ~1 hour");
-      resolve(tokenResponse);
-    };
-
-    tokenClient.requestAccessToken({ prompt: "consent" });
+  // Step 2-3: Wait for code and exchange tokens (async part)
+  return codePromise.then((code) => {
+    console.log("[Auth] ✓ Authorization code received");
+    return exchangeCodeForTokens(code);
   });
 };
 
@@ -1367,7 +1484,9 @@ export default {
   initGoogleCalendarService,
   isAuthenticated,
   getConnectionStatus,
+  openOAuthPopup,
   authenticate,
+  trySilentAuth,
   signOut,
   silentRefresh,
   onAuthStateChange,
