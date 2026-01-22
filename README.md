@@ -2,12 +2,15 @@
 
 ### A comprehensive calendar interface, supporting Google Calendar two-way sync, to handle your tasks and have an overview of events or any tagged content in your Daily Note Pages or Google Calendars.
 
-🆕 New in v.6 (January 2026):
+🆕 New in v.7 (23th January 2026):
+
+- Main fix: Google Authentification is now working in Roam Desktop app
+- Subtler calendar lines, especially in dark mode & smaller calendar buttons
+- and other fixes, see [changelog here for more details on updates and fixes](https://github.com/fbgallet/roam-extension-calendar/blob/main/CHANGELOG.md)
+
+🆕 New in v.6 (5th January 2026):
 
 - Complete support of **Google calendar** import, export or two-way sync (see [section below](https://github.com/fbgallet/roam-extension-calendar?tab=readme-ov-file#google-calendar-support) for detailed instructions)
-- a lot of fixes
-
-See [changelog here for more details on updates and fixes](https://github.com/fbgallet/roam-extension-calendar/blob/main/CHANGELOG.md)
 
 ![Demo FC](https://github.com/user-attachments/assets/58b75071-def5-48f2-83fc-e9e9384a24ff)
 
@@ -17,6 +20,10 @@ See [changelog here for more details on updates and fixes](https://github.com/fb
 - or `Right click` on the native calendar icon, or `Shift + Right click` to open Full Calendar in the right sidebar.
 
 The same action close the corresponding Full Calendar component. You can also use `Display/Hide in [main window or sidebar]` commands in Roam Command palette.
+
+> [!TIP]
+> Full Calendar instances in the main page and in the sidebar are independent: their state, view (monthly, weekly, daily), and filters are automatically saved.
+> This lets you, for example, always keep the monthly view in the main page and the weekly view in the sidebar!
 
 The calendar will automatically fill the entire height of the window, but you can scroll down to see the page content and navigate between pages without losing sight of the calendar.
 
@@ -172,7 +179,7 @@ Connect a Google account by opening the Google Calendar configuration dialog in 
 
 If the connection was successful, it will show "✅ Connected to google" at the top of the dialog box. And in the calendar filter bar a green dot 🟢 will be displayed. The dot will be red 🔴 in case of disconnection (or when you are offline, for example). It can be sometimes necessary to reconnect your Google account if the connection token has expired.
 
-Once connected, the list of your calendars appears. Select a default calendar and customize the tags and aliases. The first tag will be automatically inserted into a block that you synchronize or will trigger synchronization if you insert it yourself. By default, an enabled calendar can be synced both way, but you can limit to only import (view only its events, not synced to any block) or export (create a new events on this calendar, but never sync it with any block.
+Once connected, the list of your calendars appears. Select a default calendar and customize the tags and aliases. If no custom tag is defined, `#[[Google calendar]]` tag will be used by default. The first tag will be automatically inserted into a block that you synchronize or will trigger synchronization if you insert it yourself. By default, an enabled calendar can be synced both way, but you can limit to only import (view only its events, not synced to any block) or export (create a new events on this calendar, but never sync it with any block.
 
 A calendar can be used as a "separate" tag (from the main Google calendar tag) to facilitate selective display or sorting or to assign it a specific color. By default, all calendars will be linked to the Google calendar tag
 
@@ -184,6 +191,6 @@ You can choose the default format for checkboxes in Google Calendar events: in o
 
 If you want to encourage me to develop further and enhance Full Calendar extension, you can [buy me a coffee ☕ here](https://buymeacoffee.com/fbgallet) or [sponsor me on Github](https://github.com/sponsors/fbgallet). Thanks in advance for your support! 🙏
 
-For any question or suggestion, DM me on **X/Twitter** and follow me to be informed of updates and new extensions : [@fbgallet](https://x.com/fbgallet), or on Bluesky: [@fbgallet.bsky.social](https://bsky.app/profile/fbgallet.bsky.social)
+For any question or suggestion, DM me on **X/Twitter** and follow me to be informed of updates and new extensions : [@fbgallet](https://x.com/fbgallet), or on Bluesky: [@fbgallet.bsky.social](https://bsky.app/profile/fbgallet.bsky.social) or on Mastodon: [@fbgallet](https://mastodon.social/@fbgallet).
 
 Please report any issue [here](https://github.com/fbgallet/roam-extension-calendar/issues).
