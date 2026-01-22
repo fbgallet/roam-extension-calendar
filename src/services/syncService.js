@@ -43,6 +43,7 @@ import {
   findCalendarForEvent,
   gcalEventToRoamContent,
   mergeGCalDataToFCEvent,
+  cleanTitleForGCal,
 } from "../util/gcalMapping";
 
 import { enrichEventsWithTaskData } from "./taskService";
@@ -535,8 +536,20 @@ export const applyGCalToRoamUpdate = async (roamUid, gcalEvent, calendarConfig) 
     const metadata = getSyncMetadata(roamUid);
     const hadOriginalTimeRange = metadata?.hadOriginalTimeRange || false;
 
-    const content = gcalEventToRoamContent(gcalEvent, calendarConfig, hadOriginalTimeRange);
-    await updateBlock(roamUid, content);
+    // Get current Roam content and proposed new content from GCal
+    const currentRoamContent = getBlockContentByUid(roamUid);
+    const newContent = gcalEventToRoamContent(gcalEvent, calendarConfig, hadOriginalTimeRange);
+
+    // Compare cleaned titles to detect real changes (excluding trigger tags)
+    // Always include "Google calendar" in the list of tags to strip for comparison
+    const triggerTags = [...(calendarConfig.triggerTags || []), "Google calendar"];
+    const cleanedRoamTitle = cleanTitleForGCal(currentRoamContent, triggerTags);
+    const cleanedGCalTitle = cleanTitleForGCal(newContent, triggerTags);
+
+    // Only update the block if there's an actual content change (not just trigger tag difference)
+    if (cleanedRoamTitle !== cleanedGCalTitle) {
+      await updateBlock(roamUid, newContent);
+    }
 
     // Check if the date changed and move the block if needed
     const gcalStartDate = gcalEvent.start.dateTime || gcalEvent.start.date;

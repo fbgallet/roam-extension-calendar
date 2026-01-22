@@ -34,6 +34,7 @@ const TagPopover = ({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isTemporaryTag, setIsTemporaryTag] = useState(tag.isTemporary);
   const [isGCalDialogOpen, setIsGCalDialogOpen] = useState(false);
+  const [shouldAutoConnect, setShouldAutoConnect] = useState(false);
   const [gCalConnected, setGCalConnected] = useState(false);
   const [connectedCalendars, setConnectedCalendars] = useState([]);
   const [useOriginalColors, setUseOriginalColors] = useState(false);
@@ -113,17 +114,29 @@ const TagPopover = ({
       .split(",")
       .map((t) => t.trim().toLowerCase())
       .filter((t) => t.length > 0);
-    updateConnectedCalendar(calendarId, { triggerTags: aliases });
-    // Force a new array reference to trigger re-render
-    setConnectedCalendars([...getConnectedCalendars()]);
+    // updateConnectedCalendar returns the updated calendars array
+    const updatedCalendars = updateConnectedCalendar(calendarId, {
+      triggerTags: aliases,
+    });
+    // Use the returned array directly to ensure we have the latest data
+    setConnectedCalendars([...updatedCalendars]);
+    // Mark data for reload so calendar refreshes with new tags
+    isDataToReload.current = true;
   };
 
   // Main Google Calendar tag popover
   if (isGoogleCalendarTag) {
-    // Filter to only show grouped calendars (not separate tags)
-    const groupedCalendars = connectedCalendars.filter(
-      (cal) => !cal.showAsSeparateTag
-    );
+    // Filter to only show enabled grouped calendars (not separate tags, not disabled)
+    const groupedCalendars = connectedCalendars
+      .filter((cal) => !cal.showAsSeparateTag && cal.syncEnabled)
+      // Sort: default calendar first, then alphabetically
+      .sort((a, b) => {
+        if (a.isDefault && !b.isDefault) return -1;
+        if (!a.isDefault && b.isDefault) return 1;
+        const nameA = a.displayName || a.name || "";
+        const nameB = b.displayName || b.name || "";
+        return nameA.localeCompare(nameB);
+      });
 
     return (
       <div className="fc-tag-popover fc-gcal-popover">
@@ -156,7 +169,10 @@ const TagPopover = ({
             <Button
               icon="log-in"
               small
-              onClick={() => setIsGCalDialogOpen(true)}
+              onClick={() => {
+                setShouldAutoConnect(true);
+                setIsGCalDialogOpen(true);
+              }}
               style={{ marginLeft: "8px" }}
             >
               Connect
@@ -178,7 +194,7 @@ const TagPopover = ({
           <div className="fc-gcal-grouped-calendars">
             {groupedCalendars.map((cal) => (
               <GroupedCalendarItem
-                key={`${cal.id}-${cal.syncEnabled}`}
+                key={`${cal.id}-${cal.syncEnabled}-${(cal.triggerTags || []).join(",")}`}
                 calendar={cal}
                 onToggle={(enabled) => handleCalendarToggle(cal.id, enabled)}
                 onAliasUpdate={(aliases) =>
@@ -193,8 +209,10 @@ const TagPopover = ({
 
         <GCalConfigDialog
           isOpen={isGCalDialogOpen}
+          autoConnect={shouldAutoConnect}
           onClose={(options) => {
             setIsGCalDialogOpen(false);
+            setShouldAutoConnect(false);
             setConnectedCalendars(getConnectedCalendars());
             setUseOriginalColors(getUseOriginalColors());
             // If config changed, notify components to refresh
@@ -302,9 +320,7 @@ const TagPopover = ({
         />
 
         {useOriginalColors ? (
-          <div
-            style={{ marginBottom: "10px", fontSize: "12px", color: "#888" }}
-          >
+          <div style={{ marginTop: "15px", fontSize: "12px", color: "#888" }}>
             <strong>Original calendar color:</strong>
             {calendarConfig?.backgroundColor && (
               <div
@@ -424,10 +440,11 @@ const GroupedCalendarItem = ({
   // Derive enabled state directly from prop - no local state needed
   const isEnabled = calendar.syncEnabled !== false;
 
-  // Only sync alias string when triggerTags changes
+  // Sync alias string when triggerTags changes (use JSON.stringify for deep comparison)
+  const triggerTagsKey = JSON.stringify(calendar.triggerTags || []);
   useEffect(() => {
     setAliasStr((calendar.triggerTags || []).join(", "));
-  }, [calendar.triggerTags]);
+  }, [triggerTagsKey]);
 
   return (
     <div className="fc-gcal-grouped-item">
@@ -443,6 +460,18 @@ const GroupedCalendarItem = ({
           title={`ID: ${calendar.id}`}
         >
           {calendar.displayName || calendar.name}
+          {calendar.isDefault && (
+            <span
+              style={{
+                fontSize: "10px",
+                color: "#5c7080",
+                marginLeft: "6px",
+                fontStyle: "italic",
+              }}
+            >
+              (default)
+            </span>
+          )}
         </span>
         <Icon
           icon={isExpanded ? "chevron-up" : "chevron-down"}

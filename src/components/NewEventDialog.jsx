@@ -166,6 +166,16 @@ const NewEventDialog = ({
   };
 
   const handleConfirm = async () => {
+    // Blur the block editor first to ensure Roam saves the current content
+    // This prevents race conditions when updating the block via API
+    const activeElement = document.activeElement;
+    if (activeElement && renderRef.current?.contains(activeElement)) {
+      activeElement.blur();
+    }
+    // Always wait for Roam to process any pending saves
+    // This delay is needed even if blur happened, to ensure content is persisted
+    await new Promise(resolve => setTimeout(resolve, 300));
+
     setIsBlockRendering(false);
     setNewEventDialogIsOpen(false);
     // Pass the sync mode and calendar ID
@@ -201,7 +211,7 @@ const NewEventDialog = ({
                 else position.x = position.x - 400;
               }
               if (position.x < 0) position.x = 0;
-              if (position.y + 150 > window.innerHeight)
+              if (position.y + 250 > window.innerHeight)
                 position.y = position.y - 150;
               if (position.y < 0) position.y = 0;
               popoverElement.style.position = "absolute";

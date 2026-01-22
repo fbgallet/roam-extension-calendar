@@ -44,7 +44,7 @@ import TagList from "./TagList";
 import DeleteDialog from "./DeleteDialog";
 import LinkConfirmDialog from "./LinkConfirmDialog";
 import GCalEventInfo from "./GCalEventInfo";
-import { getTimestampFromHM, getFormatedRange } from "../util/dates";
+import { getTimestampFromHM, getFormatedRange, parseRange, getNormalizedTimestamp, dateToISOString, strictTimestampRegex } from "../util/dates";
 import {
   getConnectedCalendars,
   getConnectedTaskLists,
@@ -1106,13 +1106,43 @@ const Event = ({
         const metadata = getSyncMetadata(event.id);
         if (metadata?.gCalId) {
           try {
-            // Preserve the original event's start/end dates properly
+            // Parse timestamps from updated content to sync time changes to GCal
+            // This ensures that manually added/edited timestamps (e.g., "8:00 - 11:00") are synced
+            const eventDate = dateToISOString(new Date(event.start));
+            let newStart = event.start;
+            let newEnd = event.end;
+            let hasTime = event.extendedProps?.hasTime;
+
+            // Try to parse a time range first (e.g., "8:00 - 11:00")
+            const parsedRange = parseRange(updatedContent);
+            if (parsedRange) {
+              newStart = `${eventDate}T${parsedRange.range.start}`;
+              newEnd = `${eventDate}T${parsedRange.range.end}`;
+              hasTime = true;
+            } else {
+              // Try to parse a single timestamp (e.g., "8:00")
+              const parsedTime = getNormalizedTimestamp(updatedContent, strictTimestampRegex);
+              if (parsedTime) {
+                newStart = `${eventDate}T${parsedTime.timestamp}`;
+                // Keep existing end time or set to 1 hour after start
+                if (!event.end || !event.extendedProps?.hasTime) {
+                  const startDate = new Date(newStart);
+                  startDate.setHours(startDate.getHours() + 1);
+                  newEnd = startDate.toISOString();
+                }
+                hasTime = true;
+              }
+            }
+
             const fcEvent = {
               ...event,
               title: updatedContent,
-              start: event.start,
-              end: event.end,
-              extendedProps: { ...event.extendedProps },
+              start: newStart,
+              end: newEnd,
+              extendedProps: {
+                ...event.extendedProps,
+                hasTime,
+              },
             };
             const gcalEventData = fcEventToGCalEvent(
               fcEvent,
@@ -1124,11 +1154,15 @@ const Event = ({
               metadata.gCalId,
               gcalEventData
             );
+            // Update metadata - include hadOriginalTimeRange so reverse sync won't duplicate timestamps
+            // Set roamUpdated slightly in the future to ensure it's >= gCalUpdated from server
+            const now = Date.now();
             await updateSyncMetadata(event.id, {
               gCalUpdated: result.updated,
               etag: result.etag,
-              roamUpdated: Date.now(),
-              lastSync: Date.now(),
+              roamUpdated: now + 1000, // Add 1 second buffer to ensure roamUpdated >= gCalUpdated
+              lastSync: now,
+              hadOriginalTimeRange: parsedRange !== null, // Track if content has a time range
             });
             console.log("Synced event update to GCal:", result.id);
           } catch (error) {
@@ -1202,8 +1236,8 @@ const Event = ({
                         isGTaskEvent
                           ? handleGTaskEventToggle
                           : showGCalCheckbox
-                          ? handleGCalTodoToggle
-                          : handleTaskToggle
+                            ? handleGCalTodoToggle
+                            : handleTaskToggle
                       }
                       className="fc-task-checkbox"
                     />
@@ -1507,38 +1541,36 @@ const Event = ({
                 {/* Show calendar info for synced events */}
                 {isSyncedToGCal && (
                   <div className="fc-synced-event-info">
-                    <Tooltip content="View in Google Calendar" position="top">
-                      <div style={{ display: "inline-block" }}>
-                        <GCalEventInfo
-                          calendarName={
-                            getSyncedCalendarInfo()?.calendar?.displayName
-                          }
-                          location={event.extendedProps?.location}
-                          attendees={
-                            event.extendedProps?.gCalEventData?.attendees
-                          }
-                          description={getSyncedDescription()}
-                          attachments={event.extendedProps?.attachments}
-                          showClickableCalendar={true}
-                          onCalendarClick={(e) => {
-                            e.stopPropagation();
-                            if (syncedGCalData?.htmlLink) {
-                              window.open(syncedGCalData.htmlLink, "_blank");
-                            } else {
-                              const syncInfo = getSyncedCalendarInfo();
-                              if (syncInfo?.metadata?.gCalId) {
-                                const gCalUrl = `https://calendar.google.com/calendar/event?eid=${btoa(
-                                  syncInfo.metadata.gCalId +
-                                    " " +
-                                    syncInfo.metadata.gCalCalendarId
-                                )}`;
-                                window.open(gCalUrl, "_blank");
-                              }
+                    <div style={{ display: "inline-block" }}>
+                      <GCalEventInfo
+                        calendarName={
+                          getSyncedCalendarInfo()?.calendar?.displayName
+                        }
+                        location={event.extendedProps?.location}
+                        attendees={
+                          event.extendedProps?.gCalEventData?.attendees
+                        }
+                        description={getSyncedDescription()}
+                        attachments={event.extendedProps?.attachments}
+                        showClickableCalendar={true}
+                        onCalendarClick={(e) => {
+                          e.stopPropagation();
+                          if (syncedGCalData?.htmlLink) {
+                            window.open(syncedGCalData.htmlLink, "_blank");
+                          } else {
+                            const syncInfo = getSyncedCalendarInfo();
+                            if (syncInfo?.metadata?.gCalId) {
+                              const gCalUrl = `https://calendar.google.com/calendar/event?eid=${btoa(
+                                syncInfo.metadata.gCalId +
+                                  " " +
+                                  syncInfo.metadata.gCalCalendarId
+                              )}`;
+                              window.open(gCalUrl, "_blank");
                             }
-                          }}
-                        />
-                      </div>
-                    </Tooltip>
+                          }
+                        }}
+                      />
+                    </div>
                   </div>
                 )}
 

@@ -3,7 +3,7 @@
  * Used for synced events and matched-but-unsynced events
  */
 
-import { Icon } from "@blueprintjs/core";
+import { Icon, Tooltip } from "@blueprintjs/core";
 import { parseHtmlToReact } from "../util/htmlParser";
 import GoogleCalendarIconSvg from "../services/google-calendar.svg";
 
@@ -20,23 +20,25 @@ const GCalEventInfo = ({
   return (
     <div className="fc-gcal-event-info">
       {/* Calendar name */}
-      {calendarName && (
-        <div
-          className={
-            showClickableCalendar
-              ? "fc-gcal-calendar-source fc-gcal-calendar-source-clickable"
-              : "fc-gcal-calendar-source"
-          }
-          onClick={showClickableCalendar ? onCalendarClick : undefined}
-          style={showClickableCalendar ? { cursor: "pointer" } : undefined}
-        >
-          <GoogleCalendarIconSvg
-            className="fc-gcal-icon-small"
-            style={{ width: "16px", height: "16px" }}
-          />
-          <span>{calendarName}</span>
-        </div>
-      )}
+      <Tooltip content="View in Google Calendar" position="top">
+        {calendarName && (
+          <div
+            className={
+              showClickableCalendar
+                ? "fc-gcal-calendar-source fc-gcal-calendar-source-clickable"
+                : "fc-gcal-calendar-source"
+            }
+            onClick={showClickableCalendar ? onCalendarClick : undefined}
+            style={showClickableCalendar ? { cursor: "pointer" } : undefined}
+          >
+            <GoogleCalendarIconSvg
+              className="fc-gcal-icon-small"
+              style={{ width: "16px", height: "16px" }}
+            />
+            <span>{calendarName}</span>
+          </div>
+        )}
+      </Tooltip>
 
       {/* Location */}
       {location && (

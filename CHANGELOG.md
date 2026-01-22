@@ -1,4 +1,21 @@
-## v.6 (January, 2026) Google Calendar integration
+## v.7 (22th January, 2026) Google OAuth fixe
+
+### Updates
+
+- If no custom tag defined for a Google calendar, `#[[Google calendar]]` tag will be used by default
+- Subtler calendar lines, especially in dark mode & smaller calendar buttons
+- Hide tags from events title & tooltip
+- Only enabled Google calendars are now visible in Google calendar tag popover
+
+### Fixes
+
+- IMPORTANT: Google Authentification now works in Roam Desktop app (and a warning is displayed if your browser don't allow popup)
+- better Gcal automatic re-authentification
+- adding timestamps to an existing synced event now update it properly in Gcal
+- User clicking on 'Confirm' button to create a 2-sync way event while editing the corresponding Roam block was preventing the auto-insertion of Google calendar tag
+- Updating aliases for Google calendars in tag popover now works better
+
+## v.6 (5th January, 2026) Google Calendar integration
 
 ### New feature
 
@@ -13,7 +30,6 @@
 - block references in events are now resolved
 - external drag & drop to timegrid was broken
 - drag & drop with 12h format time was broken
-
 
 ## v.5 (October 22nd, 2024) Drag&drop tag
 
@@ -68,4 +84,3 @@
 ## v.2 (June 15th, 2024) small fixes
 
 - fixed an issue with checkboxes in events
-

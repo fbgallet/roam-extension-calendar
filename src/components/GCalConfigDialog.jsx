@@ -57,12 +57,13 @@ import {
 import { getEvents as getGCalEvents } from "../services/googleCalendarService";
 import { invalidateAllEventsCache } from "../services/eventCacheService";
 
-const GCalConfigDialog = ({ isOpen, onClose }) => {
+const GCalConfigDialog = ({ isOpen, onClose, autoConnect = false }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [userEmail, setUserEmail] = useState("");
   const [configChanged, setConfigChanged] = useState(false);
+  const [hasAutoConnected, setHasAutoConnected] = useState(false);
 
   // Toast helper
   const showToast = (message, intent = Intent.PRIMARY) => {
@@ -138,8 +139,22 @@ const GCalConfigDialog = ({ isOpen, onClose }) => {
   useEffect(() => {
     if (isOpen) {
       loadInitialState();
+    } else {
+      // Reset autoConnect flag when dialog closes
+      setHasAutoConnected(false);
     }
   }, [isOpen]);
+
+  // Auto-connect when dialog opens with autoConnect prop
+  useEffect(() => {
+    if (isOpen && autoConnect && !hasAutoConnected && !isConnected && !isLoading) {
+      setHasAutoConnected(true);
+      // Small delay to ensure dialog is fully rendered
+      setTimeout(() => {
+        handleConnect();
+      }, 100);
+    }
+  }, [isOpen, autoConnect, hasAutoConnected, isConnected, isLoading]);
 
   // Listen for auth state changes
   useEffect(() => {

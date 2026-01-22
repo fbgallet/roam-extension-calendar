@@ -305,17 +305,30 @@ const Calendar = ({
       title = title.replace(/\b\d{1,2}:\d{2}\s*(?:am|pm)?/gi, "");
     }
 
-    // Remove calendar trigger tags from title for display
-    // Get all connected calendars and their trigger tags
+    // Remove all trigger tags from title for display
+    // Collect all tag names and their aliases from mapOfTags
+    const allTagNames = new Set();
+    mapOfTags.forEach((tag) => {
+      if (tag.name) allTagNames.add(tag.name);
+      if (tag.pages && tag.pages.length > 0) {
+        tag.pages.forEach((page) => allTagNames.add(page));
+      }
+    });
+    // Also add Google Calendar trigger tags from connected calendars
     const connectedCalendars = getConnectedCalendars();
     connectedCalendars.forEach((calendar) => {
       if (calendar.triggerTags && calendar.triggerTags.length > 0) {
-        calendar.triggerTags.forEach((tag) => {
-          // Remove #[[tag]], [[tag]], and #tag formats
-          title = title.replace(new RegExp(`#\\[\\[${tag}\\]\\]`, 'gi'), "");
-          title = title.replace(new RegExp(`\\[\\[${tag}\\]\\]`, 'gi'), "");
-          title = title.replace(new RegExp(`#${tag}\\b`, 'gi'), "");
-        });
+        calendar.triggerTags.forEach((tag) => allTagNames.add(tag));
+      }
+    });
+    allTagNames.forEach((tag) => {
+      // Escape special regex characters in tag name
+      const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      // Remove #[[tag]], [[tag]], and #tag formats
+      title = title.replace(new RegExp(`#\\[\\[${escapedTag}\\]\\]`, 'gi'), "");
+      title = title.replace(new RegExp(`\\[\\[${escapedTag}\\]\\]`, 'gi'), "");
+      if (!tag.includes(" ")) {
+        title = title.replace(new RegExp(`#${escapedTag}\\b`, 'gi'), "");
       }
     });
 
@@ -356,15 +369,27 @@ const Calendar = ({
 
       if (targetCalendar && targetCalendar.syncDirection !== "import" && !gcalOnly) {
         // Add trigger tag to Roam block if not already present (only for 2-way sync)
-        const triggerTag = targetCalendar.triggerTags?.[0];
-        if (triggerTag) {
-          const tagPattern = triggerTag.includes(" ")
-            ? `#[[${triggerTag}]]`
-            : `#${triggerTag}`;
-          if (!eventContent.includes(tagPattern) && !eventContent.includes(`[[${triggerTag}]]`)) {
-            eventContent = eventContent + " " + tagPattern;
-            await updateBlock(eventUid, eventContent);
-          }
+        // Check if block already has any of the calendar's tags (custom trigger tags OR "Google calendar")
+        const calendarTags = [
+          ...(targetCalendar.triggerTags || []).map(t => t.trim()).filter(Boolean),
+          "Google calendar"
+        ];
+
+        // Check if any calendar tag is already present in the block
+        const hasCalendarTag = calendarTags.some(tag => {
+          const hashPattern = tag.includes(" ") ? `#[[${tag}]]` : `#${tag}`;
+          const bracketPattern = `[[${tag}]]`;
+          return eventContent.includes(hashPattern) || eventContent.includes(bracketPattern);
+        });
+
+        if (!hasCalendarTag) {
+          // Add the first custom tag if available, otherwise "Google calendar"
+          const tagToAdd = calendarTags[0]; // First custom tag or "Google calendar" if no custom tags
+          const tagPattern = tagToAdd.includes(" ")
+            ? `#[[${tagToAdd}]]`
+            : `#${tagToAdd}`;
+          eventContent = eventContent + " " + tagPattern;
+          await updateBlock(eventUid, eventContent);
         }
       }
     }

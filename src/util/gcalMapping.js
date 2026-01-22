@@ -6,8 +6,8 @@
 
 import { getTagFromName } from "../models/EventTag";
 import { SyncStatus } from "../models/SyncMetadata";
-import { dateToISOString } from "./dates";
-import { getUseOriginalColors, getCheckboxFormat } from "../services/googleCalendarService";
+import { parseRange, getNormalizedTimestamp, strictTimestampRegex } from "./dates";
+import { getUseOriginalColors, getCheckboxFormat, getConnectedCalendars } from "../services/googleCalendarService";
 import { getBlockContentByUid } from "./roamApi";
 import { uidRegex } from "./regex";
 
@@ -203,7 +203,11 @@ export const fcEventToGCalEvent = (fcEvent, calendarId, roamUid = null) => {
   }
 
   // Keep block references in title, just clean Roam syntax
-  title = cleanTitleForGCal(title);
+  // Get trigger tags for this calendar to only remove those specific tags
+  const connectedCalendars = getConnectedCalendars();
+  const calendarConfig = connectedCalendars.find((c) => c.id === calendarId);
+  const triggerTags = calendarConfig?.triggerTags || [];
+  title = cleanTitleForGCal(title, triggerTags);
   const isAllDay = fcEvent.allDay || !fcEvent.extendedProps?.hasTime;
 
   const gcalEvent = {
@@ -314,8 +318,12 @@ export const fcEventToGCalEvent = (fcEvent, calendarId, roamUid = null) => {
 /**
  * Clean a Roam block title for Google Calendar
  * Removes Roam-specific syntax but preserves TODO/DONE based on user preference
+ * @param {string} title - The Roam block title to clean
+ * @param {string[]} triggerTagsToRemove - Optional array of trigger tags to remove (only these will be removed).
+ *                                         If null/undefined, removes ALL hashtags (for backward compatibility in block ref content).
+ *                                         Always includes "Google calendar" as a default trigger tag to remove.
  */
-export const cleanTitleForGCal = (title) => {
+export const cleanTitleForGCal = (title, triggerTagsToRemove = null) => {
   if (!title) return "";
 
   let cleaned = title;
@@ -345,16 +353,36 @@ export const cleanTitleForGCal = (title) => {
     return `__BACKTICK_${backtickContent.length - 1}__`;
   });
 
-  // Remove page references [[Page Name]] EXCEPT [[TODO]] and [[DONE]]
-  cleaned = cleaned.replace(/\[\[(?!TODO\]\]|DONE\]\])([^\]]+)\]\]/g, "$1");
-
   // Keep block references ((block-uid)) in the title - they will be explained in the description
   // Only remove them if they're embeds
   // cleaned = cleaned.replace(/\(\([a-zA-Z0-9_-]+\)\)/g, "");
 
-  // Remove hashtags #tag or #[[tag]]
-  cleaned = cleaned.replace(/#\[\[([^\]]+)\]\]/g, "");
-  cleaned = cleaned.replace(/#([^\s]+)/g, "");
+  // Remove hashtags - either specific trigger tags or all hashtags
+  // This must happen BEFORE generic page reference removal to properly match #[[tag]] and [[tag]]
+  if (triggerTagsToRemove !== null) {
+    // Only remove specific trigger tags (always include "Google calendar" as default)
+    const tagsToRemove = [...new Set([...triggerTagsToRemove, "Google calendar"])];
+    for (const tag of tagsToRemove) {
+      if (!tag || !tag.trim()) continue;
+      const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      // Remove #[[tag]] format
+      cleaned = cleaned.replace(new RegExp(`#\\[\\[${escapedTag}\\]\\]`, "gi"), "");
+      // Remove #tag format (only if tag has no spaces)
+      if (!tag.includes(" ")) {
+        cleaned = cleaned.replace(new RegExp(`#${escapedTag}(?=\\s|$)`, "gi"), "");
+      }
+      // Also remove [[tag]] format (page reference style) for trigger tags
+      cleaned = cleaned.replace(new RegExp(`\\[\\[${escapedTag}\\]\\]`, "gi"), "");
+    }
+  } else {
+    // Remove ALL hashtags #tag or #[[tag]] (backward compatibility for block ref content)
+    cleaned = cleaned.replace(/#\[\[([^\]]+)\]\]/g, "");
+    cleaned = cleaned.replace(/#([^\s]+)/g, "");
+  }
+
+  // Remove page references [[Page Name]] EXCEPT [[TODO]] and [[DONE]]
+  // This converts [[Page]] to just Page (trigger tags were already fully removed above)
+  cleaned = cleaned.replace(/\[\[(?!TODO\]\]|DONE\]\])([^\]]+)\]\]/g, "$1");
 
   // Remove timestamps (common formats)
   // cleaned = cleaned.replace(/\d{1,2}:\d{2}(:\d{2})?\s*(am|pm)?/gi, "");
@@ -544,8 +572,16 @@ export const convertGCalTodoToRoam = (title) => {
 export const gcalEventToRoamContent = (gcalEvent, calendarConfig, hadOriginalTimeRange = null) => {
   let content = "";
 
-  // Add time if it's a timed event
-  if (gcalEvent.start.dateTime) {
+  // Get title and convert [[TODO]]/[[DONE]] to Roam format
+  let title = gcalEvent.summary || "(No title)";
+  title = convertGCalTodoToRoam(title);
+
+  // Check if the title already contains a timestamp (to avoid duplicating it)
+  const titleHasTimeRange = parseRange(title) !== null;
+  const titleHasTimestamp = titleHasTimeRange || getNormalizedTimestamp(title, strictTimestampRegex) !== null;
+
+  // Add time if it's a timed event AND the title doesn't already have a timestamp
+  if (gcalEvent.start.dateTime && !titleHasTimestamp) {
     const startDate = new Date(gcalEvent.start.dateTime);
     const hours = startDate.getHours();
     const minutes = startDate.getMinutes();
@@ -578,16 +614,12 @@ export const gcalEventToRoamContent = (gcalEvent, calendarConfig, hadOriginalTim
     }
   }
 
-  // Get title and convert [[TODO]]/[[DONE]] to Roam format
-  let title = gcalEvent.summary || "(No title)";
-  title = convertGCalTodoToRoam(title);
   content += title;
 
-  // Add trigger tag
-  const primaryTag = calendarConfig.triggerTags?.[0];
-  if (primaryTag) {
-    content += primaryTag.includes(" ") ? ` #[[${primaryTag}]]` : ` #${primaryTag}`;
-  }
+  // Add trigger tag - use first custom tag if available, otherwise default to "Google calendar"
+  const customTag = calendarConfig.triggerTags?.[0]?.trim();
+  const tagToAdd = customTag || "Google calendar";
+  content += tagToAdd.includes(" ") ? ` #[[${tagToAdd}]]` : ` #${tagToAdd}`;
 
   return content;
 };
