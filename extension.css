@@ -40,8 +40,35 @@
   height: 100%;
 }
 
+.fc .fc-multimonth-title {
+  font-size: 1em;
+  padding: 0.5em 0px;
+}
+
+.fc-multimonth-header-table {
+  font-size: 12px;
+}
+
 .full-calendar-comp .fc-multimonth-daygrid {
   background-color: transparent;
+}
+
+.full-calendar-comp .fc .fc-multimonth-daygrid .fc-daygrid-day-number {
+  font-size: 12px;
+  line-height: 15px;
+}
+
+.full-calendar-comp .fc .fc-multimonth-daygrid .fc-daygrid-day-events div {
+  line-height: 14px;
+}
+
+.full-calendar-comp .fc .fc-multimonth-daygrid .fc-event-content {
+  font-size: 9px;
+}
+
+.full-calendar-comp .fc .fc-multimonth-daygrid,
+.full-calendar-comp .fc .fc-multimonth-daygrid .fc-multimonth-daygrid-table {
+  height: 420px !important;
 }
 
 .fc-event-content {

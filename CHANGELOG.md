@@ -1,6 +1,7 @@
 ## v.8 (february, 2026) Fixed a critical issue
 
 - Fixed a critical issue on events loading in some conditions (like orphan block)
+- Better display of Year view (can see 3 events per day)
 - All Google calendar (enabled or disabled) are now visible in the tag popover
 
 ## v.7 (30th January, 2026) Google OAuth fixe
