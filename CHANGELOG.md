@@ -1,3 +1,8 @@
+## v.8 (february, 2026) Fixed a critical issue
+
+- Fixed a critical issue on events loading in some conditions (like orphan block)
+- All Google calendar (enabled or disabled) are now visible in the tag popover
+
 ## v.7 (30th January, 2026) Google OAuth fixe
 
 ### Updates
@@ -84,4 +89,3 @@
 ## v.2 (June 15th, 2024) small fixes
 
 - fixed an issue with checkboxes in events
-
