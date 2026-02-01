@@ -1400,6 +1400,11 @@
   margin-bottom: 0;
 }
 
+.fc-gcal-grouped-item-disabled {
+  opacity: 0.6;
+  background: rgba(0, 0, 0, 0.02);
+}
+
 .fc-gcal-grouped-header {
   display: flex;
   align-items: center;

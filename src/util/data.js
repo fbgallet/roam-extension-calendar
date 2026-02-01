@@ -69,34 +69,55 @@ export const getBlocksToDisplayFromDNP = async (
     eventsRefs = [];
     possibleDuplicateEvents = [];
     const processDate = async (currentDate) => {
-      const dnpUid = window.roamAlphaAPI.util.dateToPageUid(currentDate);
-      const dnpTree = await getTreeByUid(dnpUid);
-      let pageAndRefsTrees = [];
-      pageAndRefsTrees.push(
-        !dnpTree || (dnpTree && !dnpTree[0].children) ? [] : dnpTree[0].children
-      );
-      const refTrees = await getLinkedReferencesTrees(
-        dnpUid,
-        getPageUidByPageName("roam/memo")
-      );
-      pageAndRefsTrees = pageAndRefsTrees.concat(refTrees);
-      const processTree = async (tree, index) => {
-        const filteredEvents = await filterTreeToGetEvents(
-          dnpUid,
-          currentDate,
-          tree,
-          mapOfTags,
-          onlyCalendarTag,
-          index > 0,
-          isTimeGrid,
-          isIncludingRefs
+      try {
+        const dnpUid = window.roamAlphaAPI.util.dateToPageUid(currentDate);
+        const dnpTree = await getTreeByUid(dnpUid);
+        let pageAndRefsTrees = [];
+        pageAndRefsTrees.push(
+          !dnpTree || (dnpTree && !dnpTree[0]?.children)
+            ? []
+            : dnpTree[0].children
         );
-        return filteredEvents;
-      };
-      const allFilteredEvents = await Promise.all(
-        pageAndRefsTrees.map(processTree)
-      );
-      return allFilteredEvents.flat();
+        const refTrees = await getLinkedReferencesTrees(
+          dnpUid,
+          getPageUidByPageName("roam/memo")
+        );
+        // Ensure refTrees is an array before concatenating
+        if (refTrees && Array.isArray(refTrees)) {
+          pageAndRefsTrees = pageAndRefsTrees.concat(refTrees);
+        }
+        const processTree = async (tree, index) => {
+          try {
+            const filteredEvents = await filterTreeToGetEvents(
+              dnpUid,
+              currentDate,
+              tree,
+              mapOfTags,
+              onlyCalendarTag,
+              index > 0,
+              isTimeGrid,
+              isIncludingRefs
+            );
+            return filteredEvents;
+          } catch (treeError) {
+            console.error(
+              `[processTree] Error processing tree for date ${currentDate}:`,
+              treeError
+            );
+            return [];
+          }
+        };
+        const allFilteredEvents = await Promise.all(
+          pageAndRefsTrees.map(processTree)
+        );
+        return allFilteredEvents.flat();
+      } catch (dateError) {
+        console.error(
+          `[processDate] Error processing date ${currentDate}:`,
+          dateError
+        );
+        return [];
+      }
     };
     const dates = [];
     for (
@@ -111,25 +132,30 @@ export const getBlocksToDisplayFromDNP = async (
     return events;
   }
   // Utilisation
-  events = await processEvents(
-    start,
-    end,
-    mapOfTags,
-    onlyCalendarTag,
-    isTimeGrid,
-    isIncludingRefs
-  );
-
-  console.log("Loaded events :>> ", events);
-
-  for (let i = 0; i < possibleDuplicateEvents.length; i++) {
-    const duplicateEvent = events.findIndex(
-      (event) =>
-        event.id === possibleDuplicateEvents[i].id &&
-        event.start === possibleDuplicateEvents[i].start &&
-        !event.extendedProps.hasInfosInChildren
+  try {
+    events = await processEvents(
+      start,
+      end,
+      mapOfTags,
+      onlyCalendarTag,
+      isTimeGrid,
+      isIncludingRefs
     );
-    if (duplicateEvent !== -1) events.splice(duplicateEvent, 1);
+
+    console.log("Loaded events :>> ", events);
+
+    for (let i = 0; i < possibleDuplicateEvents.length; i++) {
+      const duplicateEvent = events.findIndex(
+        (event) =>
+          event.id === possibleDuplicateEvents[i].id &&
+          event.start === possibleDuplicateEvents[i].start &&
+          !event.extendedProps?.hasInfosInChildren
+      );
+      if (duplicateEvent !== -1) events.splice(duplicateEvent, 1);
+    }
+  } catch (error) {
+    console.error("[getBlocksToDisplayFromDNP] Error loading events:", error);
+    // Return whatever events we've loaded so far, even if some failed
   }
   return events;
 };
@@ -158,15 +184,15 @@ const filterTreeToGetEvents = async (
     isChildOfEvent = false,
     level = ""
   ) {
-    if (eventsOrder === "block position" && tree[0].order)
-      tree = tree.sort((a, b) => a.order - b.order);
+    if (eventsOrder === "block position" && tree?.[0]?.order !== undefined)
+      tree = tree.sort((a, b) => (a?.order || 0) - (b?.order || 0));
     for (let i = 0; i < tree.length; i++) {
       let blockLevel = level + i.toString();
       let isCalendarParent = false;
       let block = {
         uid: tree[i].uid,
         title: tree[i].string || "",
-        refs: tree[i].refs?.map((ref) => ref.uid),
+        refs: tree[i].refs?.map((ref) => ref?.uid).filter(Boolean),
         tree: tree[i].children,
       };
       let startUid, dateUid;
@@ -385,11 +411,12 @@ const filterTreeToGetEvents = async (
             if (start) startUid = block.uid;
             block.uid = parentUid;
             const parentTree = getTreeByUid(parentUid);
-            block.tree = parentTree[0].children;
+            block.tree = parentTree?.[0]?.children;
             matchingTags = parentMatchingTags;
             if (until && isRef) {
-              if (block.tree && isInDNP(block.tree[0].page.uid)) {
-                const dnpUid = block.tree[0].page.uid;
+              const pageUid = block.tree?.[0]?.page?.uid;
+              if (pageUid && isInDNP(pageUid)) {
+                const dnpUid = pageUid;
                 startDNP = dateToISOString(getDateFromDnpUid(dnpUid));
                 possibleDuplicateEvents.push({
                   id: block.uid,
@@ -493,23 +520,24 @@ export const getInfosFromChildren = (children, mapToInclude = mapOfTags) => {
   };
   for (let i = 0; i < children.length; i++) {
     const child = children[i];
-    if (!child.refs) continue;
+    if (!child?.refs) continue;
     const childMatchingTags = getMatchingTags(
       mapToInclude.filter((tag) => tag.name !== "TODO" && tag.name !== "DONE"),
-      child.refs.map((ref) => ref.uid)
+      child.refs.map((ref) => ref?.uid).filter(Boolean)
     );
-    const childMatchingDate = child.string.match(roamDateRegex);
+    const childString = child.string || "";
+    const childMatchingDate = childString.match(roamDateRegex);
     if (childMatchingDate) {
       eventsRefs.push(child.uid);
 
       hasInfosToReturn = true;
-      const start = getBoundaryDate(child.string, "start");
+      const start = getBoundaryDate(childString, "start");
       if (start) {
         infos.start = start;
         infos.start.uid = child.uid;
         continue;
       }
-      const until = getBoundaryDate(child.string);
+      const until = getBoundaryDate(childString);
       if (until) {
         infos.until = until;
         infos.until.uid = child.uid;
@@ -694,7 +722,9 @@ export const updateEventColor = (eventTags, tagsToDisplay) => {
 const isReferencingDNP = (refs, dnpUid) => {
   dnpUidRegex.lastIndex = 0;
   if (!refs || !refs.length) return false;
-  return refs.some((ref) => ref.uid !== dnpUid && dnpUidRegex.test(ref.uid));
+  return refs.some(
+    (ref) => ref?.uid && ref.uid !== dnpUid && dnpUidRegex.test(ref.uid)
+  );
 };
 
 const isInDNP = (pageUid) => {

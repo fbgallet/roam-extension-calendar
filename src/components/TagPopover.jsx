@@ -126,11 +126,15 @@ const TagPopover = ({
 
   // Main Google Calendar tag popover
   if (isGoogleCalendarTag) {
-    // Filter to only show enabled grouped calendars (not separate tags, not disabled)
+    // Filter to show grouped calendars (not separate tags) - both enabled and disabled
     const groupedCalendars = connectedCalendars
-      .filter((cal) => !cal.showAsSeparateTag && cal.syncEnabled)
-      // Sort: default calendar first, then alphabetically
+      .filter((cal) => !cal.showAsSeparateTag)
+      // Sort: enabled first, then default calendar, then alphabetically
       .sort((a, b) => {
+        // Enabled calendars come first
+        if (a.syncEnabled && !b.syncEnabled) return -1;
+        if (!a.syncEnabled && b.syncEnabled) return 1;
+        // Then default calendar
         if (a.isDefault && !b.isDefault) return -1;
         if (!a.isDefault && b.isDefault) return 1;
         const nameA = a.displayName || a.name || "";
@@ -447,7 +451,7 @@ const GroupedCalendarItem = ({
   }, [triggerTagsKey]);
 
   return (
-    <div className="fc-gcal-grouped-item">
+    <div className={`fc-gcal-grouped-item ${!isEnabled ? "fc-gcal-grouped-item-disabled" : ""}`}>
       <div className="fc-gcal-grouped-header">
         <Switch
           checked={isEnabled}
@@ -458,6 +462,7 @@ const GroupedCalendarItem = ({
           className="fc-gcal-grouped-name"
           onClick={() => setIsExpanded(!isExpanded)}
           title={`ID: ${calendar.id}`}
+          style={!isEnabled ? { opacity: 0.5 } : undefined}
         >
           {calendar.displayName || calendar.name}
           {calendar.isDefault && (

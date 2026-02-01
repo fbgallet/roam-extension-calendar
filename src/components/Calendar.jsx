@@ -598,7 +598,8 @@ const Calendar = ({
         info.end,
         !connectionStatus.isConnected // Accept stale cache if offline/disconnected
       );
-      const hasCachedEvents = allCacheResult.events.length > 0;
+      const hasCachedEvents =
+        allCacheResult?.events && allCacheResult.events.length > 0;
 
       if (hasCachedEvents) {
         // Return cached events IMMEDIATELY - don't wait for any async operations
@@ -1131,6 +1132,10 @@ const Calendar = ({
 
       isDataToReload.current = false;
       isDataToFilterAgain.current = true;
+      } catch (error) {
+        console.error("[loadFreshData] Error loading calendar data:", error);
+        // Don't rethrow - we want to display whatever events we managed to load
+        // The events array may still have partial data that's usable
       } finally {
         isLoadingFreshDataRef.current = false;
       }
