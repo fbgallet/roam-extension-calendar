@@ -30,7 +30,9 @@ export const durationRegex = /\b(\d{1,3})([m|h])(\s|\b)/;
 
 export const getDistantDate = (date = null, shift = 1) => {
   if (!date) date = new Date();
-  return new Date(date.getTime() + shift * (24 * 60 * 60 * 1000));
+  // Use Luxon to properly handle DST transitions and month boundaries
+  const dt = DateTime.fromJSDate(date);
+  return dt.plus({ days: shift }).toJSDate();
 };
 
 export const dateToISOString = (date, withUTC) => {
