@@ -44,7 +44,14 @@ import TagList from "./TagList";
 import DeleteDialog from "./DeleteDialog";
 import LinkConfirmDialog from "./LinkConfirmDialog";
 import GCalEventInfo from "./GCalEventInfo";
-import { getTimestampFromHM, getFormatedRange, parseRange, getNormalizedTimestamp, dateToISOString, strictTimestampRegex } from "../util/dates";
+import {
+  getTimestampFromHM,
+  getFormatedRange,
+  parseRange,
+  getNormalizedTimestamp,
+  dateToISOString,
+  strictTimestampRegex,
+} from "../util/dates";
 import {
   getConnectedCalendars,
   getConnectedTaskLists,
@@ -104,9 +111,10 @@ const Event = ({
   deleteEvent,
   updateEvent,
   refreshCalendar,
+  sourcePageName,
 }) => {
   const [eventTagList, setEventTagList] = useState(
-    event.extendedProps.eventTags
+    event.extendedProps.eventTags,
   );
   const [popoverIsOpen, setPopoverIsOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -116,7 +124,7 @@ const Event = ({
   const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
   const [isLinkConfirmDialogOpen, setIsLinkConfirmDialogOpen] = useState(false);
   const [matchingGCalEventsForSync, setMatchingGCalEventsForSync] = useState(
-    []
+    [],
   );
   const [pendingSyncCalendar, setPendingSyncCalendar] = useState(null);
   const [selectedMatchIndex, setSelectedMatchIndex] = useState(0);
@@ -150,7 +158,7 @@ const Event = ({
   const isGoogleTask = !!event.extendedProps?._taskData;
   const taskData = event.extendedProps?._taskData;
   const [taskCompleted, setTaskCompleted] = useState(
-    taskData?.status === "completed"
+    taskData?.status === "completed",
   );
   const [isUpdatingTask, setIsUpdatingTask] = useState(false);
 
@@ -210,7 +218,7 @@ const Event = ({
       // Clear the tasks cache so next fetch gets fresh data
       clearTasksCache();
       console.log(
-        `[Tasks] Non-imported task "${event.title}" marked as ${newStatus}`
+        `[Tasks] Non-imported task "${event.title}" marked as ${newStatus}`,
       );
 
       // Force a re-render by toggling the state
@@ -235,7 +243,7 @@ const Event = ({
   const showGCalCheckbox = isGCalEvent && !isGoogleTask && hasGCalTodoMarker;
 
   const [gCalTodoCompleted, setGCalTodoCompleted] = useState(
-    event.title.match(/^\[\[DONE\]\]/) || event.title.match(/^\[x\]/)
+    event.title.match(/^\[\[DONE\]\]/) || event.title.match(/^\[x\]/),
   );
 
   // Handler to toggle non-synced GCal event TODO/DONE status
@@ -282,7 +290,7 @@ const Event = ({
         const startDate = new Date(event.start);
         // Get the date string in local timezone format (YYYY-MM-DD)
         const startDateStr = `${startDate.getFullYear()}-${String(
-          startDate.getMonth() + 1
+          startDate.getMonth() + 1,
         ).padStart(2, "0")}-${String(startDate.getDate()).padStart(2, "0")}`;
 
         // For all-day events, if there's no end or end equals start, set end to next day
@@ -291,12 +299,12 @@ const Event = ({
           // No end date - single day event, end should be next day
           const endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
           endDateStr = `${endDate.getFullYear()}-${String(
-            endDate.getMonth() + 1
+            endDate.getMonth() + 1,
           ).padStart(2, "0")}-${String(endDate.getDate()).padStart(2, "0")}`;
         } else {
           const endDate = new Date(event.end);
           const endDateStrTmp = `${endDate.getFullYear()}-${String(
-            endDate.getMonth() + 1
+            endDate.getMonth() + 1,
           ).padStart(2, "0")}-${String(endDate.getDate()).padStart(2, "0")}`;
 
           // Check if it's a single-day event (start and end are same day)
@@ -304,7 +312,7 @@ const Event = ({
             // Single day event - end should be next day
             const nextDay = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
             endDateStr = `${nextDay.getFullYear()}-${String(
-              nextDay.getMonth() + 1
+              nextDay.getMonth() + 1,
             ).padStart(2, "0")}-${String(nextDay.getDate()).padStart(2, "0")}`;
           } else {
             endDateStr = endDateStrTmp;
@@ -342,7 +350,7 @@ const Event = ({
 
       // Remove both TODO and DONE tags first
       const filteredTags = updatedTags.filter(
-        (tag) => tag.name !== "TODO" && tag.name !== "DONE"
+        (tag) => tag.name !== "TODO" && tag.name !== "DONE",
       );
 
       // Add the appropriate tag based on completion state
@@ -369,7 +377,7 @@ const Event = ({
       console.log(
         `[GCal] Non-synced event "${newTitle}" marked as ${
           newCompleted ? "done" : "todo"
-        }`
+        }`,
       );
     } catch (error) {
       console.error("[GCal] Failed to update event TODO/DONE status:", error);
@@ -428,14 +436,14 @@ const Event = ({
       if (event.extendedProps?.hasTime) {
         const startTimestamp = getTimestampFromHM(
           eventStart.getHours(),
-          eventStart.getMinutes()
+          eventStart.getMinutes(),
         );
 
         if (event.end) {
           const endDate = new Date(event.end);
           const endTimestamp = getTimestampFromHM(
             endDate.getHours(),
-            endDate.getMinutes()
+            endDate.getMinutes(),
           );
           content += getFormatedRange(startTimestamp, endTimestamp) + " ";
         } else {
@@ -452,7 +460,7 @@ const Event = ({
       const calendarId = event.extendedProps?.gCalCalendarId;
       const connectedCalendars = getConnectedCalendars();
       const calendarConfig = connectedCalendars.find(
-        (c) => c.id === calendarId
+        (c) => c.id === calendarId,
       );
       if (calendarConfig?.triggerTags?.[0]) {
         const tag = calendarConfig.triggerTags[0];
@@ -501,7 +509,7 @@ const Event = ({
             etag: event.extendedProps.gCalEtag,
             gCalUpdated: event.extendedProps.gCalUpdated,
             roamUpdated: Date.now(),
-          })
+          }),
         );
       }
 
@@ -527,7 +535,7 @@ const Event = ({
     if (!metadata) return null;
     const connectedCalendars = getConnectedCalendars();
     const calendar = connectedCalendars.find(
-      (c) => c.id === metadata.gCalCalendarId
+      (c) => c.id === metadata.gCalCalendarId,
     );
     return { metadata, calendar };
   };
@@ -569,7 +577,7 @@ const Event = ({
     if (syncInfo?.metadata?.gCalId) {
       // Construct Google Calendar event URL
       const gCalUrl = `https://calendar.google.com/calendar/event?eid=${btoa(
-        syncInfo.metadata.gCalId + " " + syncInfo.metadata.gCalCalendarId
+        syncInfo.metadata.gCalId + " " + syncInfo.metadata.gCalCalendarId,
       )}`;
       window.open(gCalUrl, "_blank");
     }
@@ -630,7 +638,7 @@ const Event = ({
         },
       });
       console.log(
-        "Event unsynced and deleted from Google Calendar (trigger tags kept)"
+        "Event unsynced and deleted from Google Calendar (trigger tags kept)",
       );
       setPopoverIsOpen(false);
 
@@ -696,18 +704,18 @@ const Event = ({
       const startOfDay = new Date(
         eventDate.getFullYear(),
         eventDate.getMonth(),
-        eventDate.getDate()
+        eventDate.getDate(),
       );
       const endOfDay = new Date(
         eventDate.getFullYear(),
         eventDate.getMonth(),
-        eventDate.getDate() + 1
+        eventDate.getDate() + 1,
       );
 
       const allEvents = await getGCalEvents(
         metadata.gCalCalendarId,
         startOfDay,
-        endOfDay
+        endOfDay,
       );
 
       // Create a GCal-formatted event object for comparison
@@ -722,7 +730,7 @@ const Event = ({
       const duplicates = findDuplicatesForEvent(
         targetGCalEvent,
         allEvents,
-        event.id
+        event.id,
       );
 
       setHasDuplicates(duplicates.length > 0);
@@ -760,18 +768,18 @@ const Event = ({
         const startOfDay = new Date(
           eventDate.getFullYear(),
           eventDate.getMonth(),
-          eventDate.getDate()
+          eventDate.getDate(),
         );
         const endOfDay = new Date(
           eventDate.getFullYear(),
           eventDate.getMonth(),
-          eventDate.getDate() + 1
+          eventDate.getDate() + 1,
         );
 
         const gcalEvents = await getGCalEvents(
           matchCalendarId,
           startOfDay,
-          endOfDay
+          endOfDay,
         );
         const matchingEvent = gcalEvents.find((e) => e.id === matchId);
 
@@ -779,7 +787,7 @@ const Event = ({
           // Get calendar name
           const connectedCalendars = getConnectedCalendars();
           const calendar = connectedCalendars.find(
-            (c) => c.id === matchCalendarId
+            (c) => c.id === matchCalendarId,
           );
 
           setMatchedGCalEventData({
@@ -811,7 +819,7 @@ const Event = ({
       const allEvents = await getGCalEvents(
         metadata.gCalCalendarId,
         new Date(event.start.getFullYear(), event.start.getMonth(), 1),
-        new Date(event.start.getFullYear(), event.start.getMonth() + 1, 0)
+        new Date(event.start.getFullYear(), event.start.getMonth() + 1, 0),
       );
 
       // Create a GCal-formatted event object for comparison
@@ -826,7 +834,7 @@ const Event = ({
       const duplicates = findDuplicatesForEvent(
         targetGCalEvent,
         allEvents,
-        event.id
+        event.id,
       );
 
       if (duplicates.length === 0) {
@@ -853,16 +861,16 @@ const Event = ({
       const toRemove = getDuplicatesToRemove(
         targetGCalEvent,
         duplicates,
-        true // target is synced
+        true, // target is synced
       );
 
       const result = await removeDuplicateEvents(
         metadata.gCalCalendarId,
-        toRemove
+        toRemove,
       );
 
       console.log(
-        `[Dedup] Removed ${result.removed} duplicates, ${result.failed} failed`
+        `[Dedup] Removed ${result.removed} duplicates, ${result.failed} failed`,
       );
 
       // Refresh calendar to show changes
@@ -891,7 +899,7 @@ const Event = ({
         const gcalEvents = await getGCalEvents(
           targetCalendar.id,
           event.start,
-          new Date(new Date(event.start).getTime() + 24 * 60 * 60 * 1000)
+          new Date(new Date(event.start).getTime() + 24 * 60 * 60 * 1000),
         );
         const matchingEvent = gcalEvents.find((e) => e.id === preknownMatchId);
 
@@ -904,7 +912,7 @@ const Event = ({
       // Check for matching GCal events dynamically
       const matchingEvents = await findMatchingGCalEvents(
         event,
-        targetCalendar.id
+        targetCalendar.id,
       );
 
       if (matchingEvents.length > 0) {
@@ -929,7 +937,7 @@ const Event = ({
         event.id,
         event,
         gcalEvent,
-        targetCalendar.id
+        targetCalendar.id,
       );
 
       if (result.success) {
@@ -942,7 +950,7 @@ const Event = ({
 
         console.log(
           "Event linked to existing Google Calendar event:",
-          gcalEvent.id
+          gcalEvent.id,
         );
         setPopoverIsOpen(false);
 
@@ -974,11 +982,11 @@ const Event = ({
       const gcalEventData = fcEventToGCalEvent(
         fcEvent,
         targetCalendar.id,
-        event.id
+        event.id,
       );
       const createdEvent = await createGCalEvent(
         targetCalendar.id,
-        gcalEventData
+        gcalEventData,
       );
 
       // Save sync metadata
@@ -990,7 +998,7 @@ const Event = ({
           etag: createdEvent.etag,
           gCalUpdated: createdEvent.updated,
           roamUpdated: Date.now(),
-        })
+        }),
       );
 
       // Add trigger tag to Roam block if not already present
@@ -1066,7 +1074,7 @@ const Event = ({
     if (!isAuthenticated()) return [];
     const connectedCalendars = getConnectedCalendars();
     return connectedCalendars.filter(
-      (c) => c.syncEnabled && c.syncDirection !== "import"
+      (c) => c.syncEnabled && c.syncDirection !== "import",
     );
   };
 
@@ -1079,7 +1087,7 @@ const Event = ({
       : getBlockContentByUid(event.id);
     let matchingTags = getMatchingTags(
       tagsToDisplay,
-      getBlocksUidReferencedInThisBlock(event.id)
+      getBlocksUidReferencedInThisBlock(event.id),
     );
     if (initialContent.current && initialContent.current !== updatedContent) {
       if (event.extendedProps.hasInfosInChildren) {
@@ -1121,7 +1129,10 @@ const Event = ({
               hasTime = true;
             } else {
               // Try to parse a single timestamp (e.g., "8:00")
-              const parsedTime = getNormalizedTimestamp(updatedContent, strictTimestampRegex);
+              const parsedTime = getNormalizedTimestamp(
+                updatedContent,
+                strictTimestampRegex,
+              );
               if (parsedTime) {
                 newStart = `${eventDate}T${parsedTime.timestamp}`;
                 // Keep existing end time or set to 1 hour after start
@@ -1147,12 +1158,12 @@ const Event = ({
             const gcalEventData = fcEventToGCalEvent(
               fcEvent,
               metadata.gCalCalendarId,
-              event.id
+              event.id,
             );
             const result = await updateGCalEvent(
               metadata.gCalCalendarId,
               metadata.gCalId,
-              gcalEventData
+              gcalEventData,
             );
             // Update metadata - include hadOriginalTimeRange so reverse sync won't duplicate timestamps
             // Set roamUpdated slightly in the future to ensure it's >= gCalUpdated from server
@@ -1184,7 +1195,10 @@ const Event = ({
         autoFocus={false}
         onInteraction={(e) => !e && setPopoverIsOpen(e)}
         position="bottom"
-        popoverClassName={Classes.POPOVER_CONTENT_SIZING}
+        popoverClassName={[
+          Classes.POPOVER_CONTENT_SIZING,
+          "fc-event-popover-wrapper",
+        ]}
         content={
           <div className={"fc-event-popover popover" + event.id}>
             <Icon
@@ -1218,6 +1232,11 @@ const Event = ({
                   </span>
                 </div>
               )}
+            {sourcePageName && !isGCalEvent && !isGTaskEvent && (
+              <div className="fc-event-source-page fc-event-source-page-popover">
+                <span>In [[{sourcePageName}]]</span>
+              </div>
+            )}
             {isGCalEvent || isGTaskEvent ? (
               // Google Calendar/Task event details
               <div className="fc-gcal-event-details">
@@ -1374,7 +1393,7 @@ const Event = ({
                               </span>
                             </a>
                           </li>
-                        )
+                        ),
                       )}
                     </ul>
                   </div>
@@ -1403,7 +1422,7 @@ const Event = ({
                       onClick={() =>
                         window.open(
                           event.extendedProps.gCalEventData.htmlLink,
-                          "_blank"
+                          "_blank",
                         )
                       }
                     >
@@ -1428,7 +1447,7 @@ const Event = ({
                   {(() => {
                     const connectedCalendars = getConnectedCalendars();
                     const calendar = connectedCalendars.find(
-                      (c) => c.id === event.extendedProps?.gCalCalendarId
+                      (c) => c.id === event.extendedProps?.gCalCalendarId,
                     );
                     return calendar?.syncDirection === "both" ? (
                       <>
@@ -1529,7 +1548,7 @@ const Event = ({
                           const gCalUrl = `https://calendar.google.com/calendar/event?eid=${btoa(
                             matchedGCalEventData.id +
                               " " +
-                              matchedGCalEventData.calendarId
+                              matchedGCalEventData.calendarId,
                           )}`;
                           window.open(gCalUrl, "_blank");
                         }
@@ -1563,7 +1582,7 @@ const Event = ({
                               const gCalUrl = `https://calendar.google.com/calendar/event?eid=${btoa(
                                 syncInfo.metadata.gCalId +
                                   " " +
-                                  syncInfo.metadata.gCalCalendarId
+                                  syncInfo.metadata.gCalCalendarId,
                               )}`;
                               window.open(gCalUrl, "_blank");
                             }
@@ -1580,7 +1599,7 @@ const Event = ({
                       list={
                         isSyncedToGCal
                           ? eventTagList.filter(
-                              (tag) => tag.name !== "Google calendar"
+                              (tag) => tag.name !== "Google calendar",
                             )
                           : eventTagList
                       }
@@ -1660,7 +1679,7 @@ const Event = ({
                                       handleSyncToCalendar(calendar)
                                     }
                                   />
-                                )
+                                ),
                               )}
                             </MenuItem>
                           </Menu>
@@ -1737,34 +1756,34 @@ const Event = ({
                 if (isChecked) {
                   updatedTitle = currentBlockContent.replace(
                     "{{[[DONE]]}}",
-                    "{{[[TODO]]}}"
+                    "{{[[TODO]]}}",
                   );
                   updatedClassNames = replaceItemAndGetUpdatedArray(
                     [...event.classNames],
                     "DONE",
-                    "TODO"
+                    "TODO",
                   );
                   updatedTags = replaceItemAndGetUpdatedArray(
                     [...eventTagList],
                     getTagFromName("DONE"),
                     getTagFromName("TODO"),
-                    "name"
+                    "name",
                   );
                 } else {
                   updatedTitle = currentBlockContent.replace(
                     "{{[[TODO]]}}",
-                    "{{[[DONE]]}}"
+                    "{{[[DONE]]}}",
                   );
                   updatedClassNames = replaceItemAndGetUpdatedArray(
                     [...event.classNames],
                     "TODO",
-                    "DONE"
+                    "DONE",
                   );
                   updatedTags = replaceItemAndGetUpdatedArray(
                     [...eventTagList],
                     getTagFromName("TODO"),
                     getTagFromName("DONE"),
-                    "name"
+                    "name",
                   );
                 }
                 const updatedColor = colorToDisplay(updatedTags);
@@ -1785,17 +1804,17 @@ const Event = ({
                   try {
                     await syncTaskCompletionToGoogle(
                       event.id,
-                      newCompletedState
+                      newCompletedState,
                     );
                     console.log(
                       `[Tasks] Synced TODO/DONE toggle to Google Tasks: ${
                         newCompletedState ? "completed" : "needsAction"
-                      }`
+                      }`,
                     );
                   } catch (error) {
                     console.error(
                       "[Tasks] Failed to sync TODO/DONE to Google Tasks:",
-                      error
+                      error,
                     );
                   }
                 }
@@ -1816,12 +1835,12 @@ const Event = ({
                       const gcalEventData = fcEventToGCalEvent(
                         fcEvent,
                         metadata.gCalCalendarId,
-                        event.id
+                        event.id,
                       );
                       const result = await updateGCalEvent(
                         metadata.gCalCalendarId,
                         metadata.gCalId,
-                        gcalEventData
+                        gcalEventData,
                       );
                       await updateSyncMetadata(event.id, {
                         gCalUpdated: result.updated,
@@ -1832,12 +1851,12 @@ const Event = ({
                       console.log(
                         `[GCal] Synced TODO/DONE toggle to Google Calendar: ${
                           newCompletedState ? "[[DONE]]" : "[[TODO]]"
-                        }`
+                        }`,
                       );
                     } catch (error) {
                       console.error(
                         "[GCal] Failed to sync TODO/DONE to Google Calendar:",
-                        error
+                        error,
                       );
                     }
                   }
@@ -1893,6 +1912,11 @@ const Event = ({
             isOpen={popoverIsOpen ? false : null}
             content={
               <>
+                {sourcePageName && !isGCalEvent && !isGTaskEvent && (
+                  <div className="fc-event-source-page">
+                    <span>In [[{sourcePageName}]]</span>
+                  </div>
+                )}
                 <p className={taskCompleted ? "fc-task-completed" : ""}>
                   {displayTitle}
                 </p>
@@ -1937,7 +1961,7 @@ const Event = ({
                     list={
                       isSyncedToGCal
                         ? eventTagList.filter(
-                            (tag) => tag.name !== "Google calendar"
+                            (tag) => tag.name !== "Google calendar",
                           )
                         : eventTagList
                     }
@@ -1987,6 +2011,9 @@ const Event = ({
                 ""
               )}
               {displayTitle}
+              {sourcePageName && !isGCalEvent && !isGTaskEvent && (
+                <span className="fc-event-source-tag">{sourcePageName}</span>
+              )}
             </span>
           </Tooltip>
         </div>

@@ -40,6 +40,7 @@ import {
   getBlocksUidReferencedInThisBlock,
   getFirstBlockUidByReferenceOnPage,
   getLinkedReferencesTrees,
+  getPageNameByPageUid,
   getPageUidByPageName,
   getParentBlock,
   getTreeByUid,
@@ -173,6 +174,9 @@ const filterTreeToGetEvents = async (
   // console.log("currentDate :>> ", currentDate);
   const events = [];
   const dateString = dateToISOString(currentDate);
+
+  const sourcePageUid = isRef ? tree?.[0]?.page?.uid : null;
+  const sourcePageName = sourcePageUid ? getPageNameByPageUid(sourcePageUid) : null;
 
   if (tree && tree.length)
     await processTreeRecursively(tree, isRef ? true : false);
@@ -313,6 +317,7 @@ const filterTreeToGetEvents = async (
                     crucialDateUid: crucialDateUid,
                     isInlineRef,
                     level: blockLevel,
+                    sourcePageName,
                   },
                   isCalendarTree,
                   isTimeGrid
@@ -485,6 +490,7 @@ const filterTreeToGetEvents = async (
                 crucialDateUid: hasCrucialDateRef,
                 refSourceUid: childRef.uid,
                 level,
+                sourcePageName,
               },
               isCalendarTree,
               isTimeGrid
@@ -572,6 +578,7 @@ export const parseEventObject = (
     startUid,
     refSourceUid,
     level,
+    sourcePageName,
   },
   isCalendarTree = true,
   isTimeGrid = true
@@ -638,6 +645,7 @@ export const parseEventObject = (
       untilUid,
       refSourceUid,
       level,
+      sourcePageName: sourcePageName || null,
     },
     color: backgroundColorDisplayed,
     display: "block",

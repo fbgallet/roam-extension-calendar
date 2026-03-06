@@ -338,6 +338,8 @@ const Calendar = ({
     const isTimeGridView = info.view.type.includes("time");
     const shouldShowTime = !isTimeGridView;
 
+    const sourcePageName = info.event.extendedProps?.sourcePageName || null;
+
     return (
       <Event
         displayTitle={title}
@@ -350,6 +352,7 @@ const Calendar = ({
         updateEvent={updateEvent}
         deleteEvent={deleteEvent}
         refreshCalendar={updateSize}
+        sourcePageName={sourcePageName}
       ></Event>
     );
   };
