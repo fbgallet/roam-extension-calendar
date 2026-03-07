@@ -17,6 +17,7 @@ import { unmountApp } from "./App";
 import { saveViewSetting } from "../util/data";
 import { EventTag } from "../models/EventTag";
 import TagPopover from "./TagPopover";
+import ReminderOverviewPopover from "./ReminderOverviewPopover";
 import { isAuthenticated } from "../services/googleCalendarService";
 
 const MultiSelectFilter = ({
@@ -371,6 +372,7 @@ const MultiSelectFilter = ({
           />
         )}
       />
+      <ReminderOverviewPopover eventsInViewRef={eventsInViewRef} />
       <div className="fc-options-section">
         <Tooltip
           hoverOpenDelay={400}

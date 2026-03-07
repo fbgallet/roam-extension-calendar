@@ -34,6 +34,14 @@ import {
   syncBlockToDefaultCalendar,
   showSyncResultToast,
 } from "./services/syncService";
+import {
+  startReminderPolling,
+  stopReminderPolling,
+  checkAndFireReminders,
+  cleanupOldReminders,
+  showReminderDialogForBlock,
+} from "./services/reminderService";
+import { getBlockContentByUid } from "./util/roamApi";
 
 export let mapOfTags = [];
 export let extensionStorage;
@@ -85,7 +93,7 @@ const panelConfig = {
             isToUpdate: true,
           });
           const index = mapOfTags.findIndex(
-            (tag) => tag.color === "transparent"
+            (tag) => tag.color === "transparent",
           );
           if (index > -1) {
             mapOfTags.splice(index, 1, calendarTag);
@@ -139,6 +147,29 @@ const panelConfig = {
         onChange: (evt) => {
           updateTagPagesWithUserList("doing", evt.target.value);
         },
+      },
+    },
+    {
+      id: "reminderTag",
+      name: "Reminder",
+      description:
+        "Page title for reminder tag and aliases separated by a comma. Events with this tag get an automatic reminder.",
+      action: {
+        type: "input",
+        onChange: (evt) => {
+          updateTagPagesWithUserList("reminder", evt.target.value);
+        },
+      },
+    },
+    {
+      id: "reminderDelay",
+      name: "Default reminder delay",
+      description:
+        "Default time before event to trigger an automatic reminder (for Reminder tag and quick reminder creation).",
+      action: {
+        type: "select",
+        items: ["10 min", "30 min", "1 hour", "1 day", "At event time"],
+        onChange: (evt) => {},
       },
     },
     {
@@ -326,7 +357,7 @@ const updateTagPagesWithUserList = (tagName, pageList) => {
         name: tagName,
         ...getStoredTagInfos(tagName),
         pages: getTrimedArrayFromList(pageList),
-      })
+      }),
     );
   } else tag.updatePages(getTrimedArrayFromList(pageList));
 };
@@ -342,7 +373,7 @@ const updateKeywordsInRangeRegex = (list, type) => {
   customizeRegex(
     type === "start" ? defaultStartDateRegex : defaultUntilDateRegex,
     normalizedList,
-    type === "start" ? 21 : 9
+    type === "start" ? 21 : 9,
   );
 };
 
@@ -354,14 +385,14 @@ const initializeMapOfTags = () => {
       name: "TODO",
       color: Colors.BLUE3,
       ...getStoredTagInfos("TODO"),
-    })
+    }),
   );
   mapOfTags.push(
     new EventTag({
       name: "DONE",
       color: Colors.GRAY5,
       ...getStoredTagInfos("DONE"),
-    })
+    }),
   );
   let tagPagesList = extensionStorage.get("importantTag");
   if (notNullOrCommaRegex.test(tagPagesList))
@@ -371,7 +402,7 @@ const initializeMapOfTags = () => {
         color: Colors.RED3,
         ...getStoredTagInfos("important"),
         pages: getTrimedArrayFromList(tagPagesList),
-      })
+      }),
     );
   tagPagesList = extensionStorage.get("doTag");
   if (notNullOrCommaRegex.test(tagPagesList))
@@ -381,7 +412,7 @@ const initializeMapOfTags = () => {
         color: Colors.GREEN1,
         ...getStoredTagInfos("do"),
         pages: getTrimedArrayFromList(tagPagesList),
-      })
+      }),
     );
   tagPagesList = extensionStorage.get("dueTag");
   if (notNullOrCommaRegex.test(tagPagesList))
@@ -391,7 +422,7 @@ const initializeMapOfTags = () => {
         color: Colors.VIOLET3,
         ...getStoredTagInfos("due"),
         pages: getTrimedArrayFromList(tagPagesList),
-      })
+      }),
     );
   tagPagesList = extensionStorage.get("doingTag");
   if (notNullOrCommaRegex.test(tagPagesList))
@@ -401,14 +432,24 @@ const initializeMapOfTags = () => {
         color: Colors.ORANGE3,
         ...getStoredTagInfos("doing"),
         pages: getTrimedArrayFromList(tagPagesList),
-      })
+      }),
+    );
+  tagPagesList = extensionStorage.get("reminderTag");
+  if (notNullOrCommaRegex.test(tagPagesList))
+    mapOfTags.push(
+      new EventTag({
+        name: "reminder",
+        color: Colors.CERULEAN3,
+        ...getStoredTagInfos("reminder"),
+        pages: getTrimedArrayFromList(tagPagesList),
+      }),
     );
   mapOfTags.push(
     new EventTag({
       name: "Google calendar",
       color: Colors.GRAY3,
       ...getStoredTagInfos("Google calendar"),
-    })
+    }),
   );
   const userTags = extensionStorage.get("userTags");
   if (notNullOrCommaRegex.test(userTags)) updageUserTags(userTags);
@@ -445,7 +486,7 @@ const updageUserTags = (list) => {
         color: Colors.GRAY3,
         ...getStoredTagInfos(tagName),
         isUserDefined: true,
-      })
+      }),
   );
 
   // Find insert position (before TODO if it exists at end)
@@ -555,7 +596,7 @@ export const initializeGCalTags = (calendarsOverride = null) => {
         mapOfTags.push(gcalTag);
         console.log(
           `Created separate EventTag for GCal calendar: ${tagName} with pages:`,
-          pages
+          pages,
         );
       } else {
         // Update existing tag with GCal properties and add trigger tags as pages
@@ -755,8 +796,8 @@ const cleanCalendarTagStore = (currentValue, storedValue) => {
         isToDisplay: tag.isToDisplay,
         isToDisplayInSb: tag.isToDisplayInSb,
         pages: tag.pages,
-      }))
-    )
+      })),
+    ),
   );
 };
 
@@ -781,6 +822,10 @@ export default {
       await extensionStorage.set("doTag", "do date");
     if (extensionStorage.get("dueTag") === null)
       await extensionStorage.set("dueTag", "due date");
+    if (extensionStorage.get("reminderTag") === null)
+      await extensionStorage.set("reminderTag", "reminder");
+    if (extensionStorage.get("reminderDelay") === null)
+      await extensionStorage.set("reminderDelay", "10 min");
     if (extensionStorage.get("userTags") === null)
       await extensionStorage.set("userTags", "");
     if (!extensionStorage.get("userStart"))
@@ -864,7 +909,7 @@ export default {
           calendars &&
           calendars.length > 0 &&
           calendars.some(
-            (cal) => cal.syncEnabled && cal.syncDirection !== "import"
+            (cal) => cal.syncEnabled && cal.syncDirection !== "import",
           )
         );
       },
@@ -875,12 +920,45 @@ export default {
       },
     });
 
+    // Add command palette command for setting reminders
+    extensionAPI.ui.commandPalette.addCommand({
+      label: "Full Calendar: Set Reminder",
+      callback: async () => {
+        const blockUid =
+          window.roamAlphaAPI.ui.getFocusedBlock()?.["block-uid"];
+        if (!blockUid) {
+          const toaster = Toaster.create({ position: Position.TOP });
+          toaster.show({
+            message: "No block is currently focused",
+            intent: Intent.WARNING,
+            icon: "warning-sign",
+            timeout: 3000,
+          });
+          return;
+        }
+        showReminderDialogForBlock(blockUid);
+      },
+    });
+
+    // Add /slash command for setting reminders
+    window.roamAlphaAPI.ui.slashCommand.addCommand({
+      label: "Full Calendar: Reminder",
+      callback: (args) => {
+        const blockUid =
+          args?.["block-uid"] ||
+          window.roamAlphaAPI.ui.getFocusedBlock()?.["block-uid"];
+        if (blockUid)
+          setTimeout(() => showReminderDialogForBlock(blockUid), 150);
+        return "";
+      },
+    });
+
     initializeMapOfTags();
 
     if (storedTagsInfo && storedTagsInfo.length)
       cleanCalendarTagStore(
         extensionStorage.get("calendarTag"),
-        storedTagsInfo.find((tag) => tag.color === "transparent")
+        storedTagsInfo.find((tag) => tag.color === "transparent"),
       );
 
     setTimeout(() => {
@@ -902,7 +980,7 @@ export default {
           const cleanupResult = cleanupOldMetadata();
           if (cleanupResult.removedCount > 0) {
             console.log(
-              `Google Calendar: Cleaned up ${cleanupResult.removedCount} old sync entries`
+              `Google Calendar: Cleaned up ${cleanupResult.removedCount} old sync entries`,
             );
           }
 
@@ -910,12 +988,12 @@ export default {
           const taskCleanupResult = cleanupOldTaskMetadata();
           if (taskCleanupResult.removedCount > 0) {
             console.log(
-              `Google Tasks: Cleaned up ${taskCleanupResult.removedCount} old sync entries`
+              `Google Tasks: Cleaned up ${taskCleanupResult.removedCount} old sync entries`,
             );
           }
         } else {
           console.log(
-            "Google Calendar: Not authenticated (connect via Google Calendar tag)"
+            "Google Calendar: Not authenticated (connect via Google Calendar tag)",
           );
         }
 
@@ -927,12 +1005,18 @@ export default {
         console.error("Google Calendar initialization error:", error);
       });
 
+    // Initialize reminders: cleanup old, fire missed, start polling
+    cleanupOldReminders();
+    checkAndFireReminders();
+    startReminderPolling();
+
     console.log("Full Calendar extension loaded.");
     //return;
   },
   onunload: () => {
     disconnectObserver();
     removeListeners();
+    stopReminderPolling();
 
     // Stop token refresh monitoring and cleanup event listeners to prevent memory leaks
     const {
@@ -944,7 +1028,7 @@ export default {
 
     // Properly unmount all Calendar instances to prevent zombie components
     const allCalendarInstances = document.querySelectorAll(
-      ".full-calendar-comp"
+      ".full-calendar-comp",
     );
     allCalendarInstances.forEach((instance) => {
       try {

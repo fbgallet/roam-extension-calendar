@@ -100,6 +100,8 @@ import {
 import GoogleCalendarIconSvg from "../services/google-calendar.svg";
 // Google Tasks icon for unimported task events
 import GoogleTasksIconSvg from "../services/google-task-logo.svg";
+import ReminderDialog from "./ReminderDialog";
+import { getRemindersForEvent } from "../services/reminderService";
 
 const Event = ({
   displayTitle,
@@ -119,6 +121,11 @@ const Event = ({
   const [popoverIsOpen, setPopoverIsOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleteGCalDialogOpen, setIsDeleteGCalDialogOpen] = useState(false);
+  const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false);
+  const [eventReminder, setEventReminder] = useState(() => {
+    const reminders = getRemindersForEvent(event.id);
+    return reminders.length > 0 ? reminders[0] : null;
+  });
   const [isExisting, setIsExisting] = useState(true);
   const [hasDuplicates, setHasDuplicates] = useState(false);
   const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
@@ -741,6 +748,23 @@ const Event = ({
       setIsCheckingDuplicates(false);
     }
   };
+
+  // Open popover when reminder toast is clicked
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.eventId === event.id) setPopoverIsOpen(true);
+    };
+    document.addEventListener("fc-open-event-popover", handler);
+    return () => document.removeEventListener("fc-open-event-popover", handler);
+  }, [event.id]);
+
+  // Load reminder state when popover opens
+  useEffect(() => {
+    if (popoverIsOpen) {
+      const reminders = getRemindersForEvent(event.id);
+      setEventReminder(reminders.length > 0 ? reminders[0] : null);
+    }
+  }, [popoverIsOpen]);
 
   // Check for duplicates when popover opens for synced events
   useEffect(() => {
@@ -1694,6 +1718,48 @@ const Event = ({
                     )
                   )}
                   <Icon
+                    icon="notifications"
+                    size={12}
+                    intent={eventReminder ? "primary" : "none"}
+                    className={
+                      eventReminder
+                        ? "fc-reminder-active"
+                        : "fc-reminder-inactive"
+                    }
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsReminderDialogOpen(true);
+                    }}
+                  />
+                  <ReminderDialog
+                    isOpen={isReminderDialogOpen}
+                    setIsOpen={setIsReminderDialogOpen}
+                    blockUid={event.id}
+                    eventTitle={event.title}
+                    eventDate={
+                      event.startStr
+                        ? event.startStr.split("T")[0]
+                        : event.start
+                          ? event.start.toISOString().split("T")[0]
+                          : ""
+                    }
+                    eventTime={
+                      event.extendedProps?.hasTime
+                        ? event.startStr
+                          ? event.startStr.split("T")[1]?.substring(0, 5)
+                          : null
+                        : null
+                    }
+                    eventEndTime={
+                      event.end && event.extendedProps?.hasTime
+                        ? (event.endStr || event.end.toISOString()).split("T")[1]?.substring(0, 5)
+                        : null
+                    }
+                    existingReminder={eventReminder}
+                    onSave={(r) => setEventReminder(r)}
+                    onDelete={() => setEventReminder(null)}
+                  />
+                  <Icon
                     icon="trash"
                     size="12"
                     onClick={() => setIsDeleteDialogOpen(true)}
@@ -1956,6 +2022,22 @@ const Event = ({
                     <span>Synced to Google Calendar</span>
                   </div>
                 )}
+                {eventReminder && (
+                  <div className="fc-reminder-tooltip-info">
+                    <Icon icon="notifications" size={12} />
+                    <span>
+                      Reminder:{" "}
+                      {new Date(
+                        eventReminder.snoozedUntil || eventReminder.remindAt
+                      ).toLocaleString([], {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+                )}
                 {eventTagList && eventTagList[0].name !== calendarTag.name ? (
                   <TagList
                     list={
@@ -2011,6 +2093,13 @@ const Event = ({
                 ""
               )}
               {displayTitle}
+              {eventReminder && (
+                <Icon
+                  icon="notifications"
+                  size={10}
+                  className="fc-reminder-inline-icon"
+                />
+              )}
               {sourcePageName && !isGCalEvent && !isGTaskEvent && (
                 <span className="fc-event-source-tag">{sourcePageName}</span>
               )}

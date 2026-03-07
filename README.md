@@ -82,12 +82,61 @@ To define a duration you can:
 
 In the settings, you can change how timestamps are displayed in the calendar and inserted in blocks.
 
+## Reminders
+
+You can set reminders for any block in your Roam graph or any event in the Calendar. Reminders fire as in-app toast notifications when the Roam tab is active, or as **browser notifications** when you are on another tab or window. NB: It's a feature independant of Google Calendar reminders.
+
+### Setting a reminder
+
+- In Full Calendar, click the bell icon 🔔 when creating an event or in an existing event.
+- In any Roam block, use `/reminder` slash command to open the reminder dialog.
+
+In the dialog, choose when to be reminded:
+
+- **Before event** (Exact time, 10 min before, 30 min before, 1 hour before, 1 day before) — requires the block to have a timestamp.
+- **From now** (In X min/hours/days/weeks) — independent of event time.
+- **Custom date & time** — pick any date and time.
+
+> [!TIP]
+> The reminder dialog auto-detects the time from your event or block content (timestamp or range) and pre-fills the reminder time accordingly. You can also write a delay expression directly in the block before running `/reminder`, and it will be pre-selected:
+>
+> - `+10min` or `in 10 min` or `for 2h` → reminder from now
+> - `10min before` or `-30min` → reminder before the event time
+
+### Managing reminders
+
+A bell icon 🔔 in the calendar toolbar shows the number of missed reminders and overdue events (only in the current view). Click it to open the reminder overview, where you can:
+
+- **Snooze** a missed reminder (5 min, 10 min, 30 min, 1 hour)
+- **Dismiss** a missed reminder (marks it as done)
+- **Edit or remove** upcoming reminders
+
+### When a reminder fires
+
+A toast notification appears with three actions:
+
+- **Accept** — marks the reminder as done and removes it permanently
+- **Snooze 10 min** — reschedules it 10 minutes later
+- **Reschedule** at a custom time and date
+- **Cancel** (or ✕) — closes the toast but keeps the reminder as "Missed" in the overview
+
+Click on the event title in the toast to open the block in the main view, or **Shift+click** to open it in the right sidebar.
+
+### Enabling browser notifications
+
+For reminders to appear when Roam is in a background tab, browser notifications must be enabled:
+
+1. **Grant permission in Roam**: Full Calendar will automatically request notification permission the first time you create a reminder.
+2. **Allow in browser settings**: Go to your browser's **Settings → Privacy and Security → Site Settings → Notifications** and make sure `roamresearch.com` is listed under "Allowed".
+3. **Allow in macOS**: Go to **System Settings → Notifications → [your browser]** and ensure:
+   - "Allow Notifications" is **ON**
+   - Alert style is set to **Banners** or **Alerts** (not "None")
+
 ## Events with date attributes
 
 Using "date attribute" is a way to define a block as a calendar event (it will always be displayed in the calendar if matching filter tags), anywhere in your graph. The term "attribute" designates a broader category than roam `attributes::`, as it can also refer to `#tags`, `[[page mentions]]`, or specific keywords to defined a given type of date:
 
 - **Event range**:
-
   - you can define start and end date for multi-day events using keywords before the date, directly in the event block, or in its direct children blocks. Start date is optional in DNP since the start date will be the corresping day by default.
   - The default **start** keywords are `date`, `from`, `start`, `begin`, `on`. They can be directly followed by a Roam date, separated by a space, eventually following one or two colon. E.g., using `start` keyword, all the following ways of writing will work:
     - `start [[August 5th, 2024]]`
@@ -146,6 +195,7 @@ By connecting a Google account to Full Calendar (see configuration below), you c
 <img width="360" height="475" alt="image" src="https://github.com/user-attachments/assets/6fc50a15-0962-4639-9bc0-febbddd9c181" />
 
 An event in Full calendar can be either:
+
 - a simple Roam block event (eventually as block reference)
 - a two-way synced event: Roam block + Google calendar event
 - a Google calendar event (only displayed, not linked to any Roam block)

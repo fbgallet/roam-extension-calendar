@@ -32,6 +32,10 @@ import {
   updateBlock,
 } from "../util/roamApi";
 import NewEventDialog from "./NewEventDialog";
+import {
+  getRemindersForEvent,
+  createReminderFromTag,
+} from "../services/reminderService";
 import { dateToISOString, eventTimeFormats, getDayOfYear } from "../util/dates";
 import {
   displayTime,
@@ -721,6 +725,26 @@ const Calendar = ({
             gCalId: metadata.gCalId,
             gCalCalendarId: metadata.gCalCalendarId,
           };
+        }
+
+        // Auto-create reminders for events with the reminder tag
+        if (
+          evt.extendedProps?.isReminderTagged &&
+          getRemindersForEvent(evt.id).length === 0
+        ) {
+          const startStr = evt.start || "";
+          const datePart = typeof startStr === "string"
+            ? startStr.split("T")[0]
+            : startStr;
+          const timePart = evt.extendedProps?.hasTime && typeof startStr === "string"
+            ? startStr.split("T")[1]?.substring(0, 5)
+            : null;
+          createReminderFromTag(
+            evt.id,
+            datePart,
+            timePart,
+            evt.title || ""
+          );
         }
       }
 

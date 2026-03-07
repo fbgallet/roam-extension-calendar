@@ -646,6 +646,7 @@ export const parseEventObject = (
       refSourceUid,
       level,
       sourcePageName: sourcePageName || null,
+      isReminderTagged: matchingTags.some((t) => t.name === "reminder"),
     },
     color: backgroundColorDisplayed,
     display: "block",

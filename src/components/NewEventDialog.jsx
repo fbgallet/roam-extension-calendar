@@ -1,4 +1,4 @@
-import { Button, Popover, HTMLSelect, ButtonGroup } from "@blueprintjs/core";
+import { Button, Popover, HTMLSelect, ButtonGroup, Tooltip, Icon } from "@blueprintjs/core";
 import {
   createChildBlock,
   deleteBlock,
@@ -12,12 +12,13 @@ import {
 } from "../util/roamApi";
 import { useRef, useState, useEffect } from "react";
 import { getCalendarUidFromPage } from "../util/data";
-import { getTimestampFromHM } from "../util/dates";
+import { getTimestampFromHM, getNormalizedTimestamp, strictTimestampRegex, parseRange } from "../util/dates";
 import {
   isAuthenticated,
   getConnectedCalendars,
 } from "../services/googleCalendarService";
 import GoogleCalendarIconSvg from "../services/google-calendar.svg";
+import ReminderDialog from "./ReminderDialog";
 
 // Sync mode constants
 const SYNC_MODE = {
@@ -43,8 +44,14 @@ const NewEventDialog = ({
   const [connectedCalendars, setConnectedCalendars] = useState([]);
   const [isGCalConnected, setIsGCalConnected] = useState(false);
   const [syncMode, setSyncMode] = useState(SYNC_MODE.ROAM_ONLY);
+  const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
+  const [pendingReminder, setPendingReminder] = useState(null);
+  const [reminderEventTime, setReminderEventTime] = useState(null);
+  const [reminderEventEndTime, setReminderEventEndTime] = useState(null);
   const renderRef = useRef(null);
   const popoverRef = useRef(null);
+  // Store the original 24h "HH:MM" focusedTime before handleNew converts it
+  const originalFocusedTime = useRef(null);
 
   // Get the selected calendar object
   const selectedCalendar = connectedCalendars.find(
@@ -113,6 +120,8 @@ const NewEventDialog = ({
   const handleNew = async () => {
     const calendarBlockUid = await getCalendarUidFromPage(pageUid);
     if (periodView.includes("time") && focusedTime) {
+      // Save original 24h time before converting for display
+      originalFocusedTime.current = focusedTime;
       focusedTime = getTimestampFromHM(
         parseInt(focusedTime.slice(0, 2)),
         parseInt(focusedTime.slice(3, 5))
@@ -188,6 +197,8 @@ const NewEventDialog = ({
       shouldSyncToGcal ? selectedCalendarId : null,
       gcalOnly
     );
+
+    // Reminder is already saved by ReminderDialog when user clicks Save
   };
 
   return (
@@ -297,7 +308,48 @@ const NewEventDialog = ({
                 </ButtonGroup>
               </div>
             )}
-            <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <Tooltip content="Set reminder for this event">
+                <Button
+                  icon="notifications"
+                  small
+                  minimal
+                  intent={pendingReminder ? "primary" : "none"}
+                  onClick={async () => {
+                    // Blur to force Roam to save block content before reading it
+                    const activeEl = document.activeElement;
+                    if (activeEl && renderRef.current?.contains(activeEl)) {
+                      activeEl.blur();
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 200));
+
+                    let startTime = null, endTime = null;
+                    if (eventUid) {
+                      const content = getBlockContentByUid(eventUid) || "";
+                      const parsedRange = parseRange(content);
+                      if (parsedRange) {
+                        startTime = parsedRange.range.start;
+                        endTime = parsedRange.range.end;
+                      } else {
+                        const parsedTime = getNormalizedTimestamp(content, strictTimestampRegex);
+                        if (parsedTime) startTime = parsedTime.timestamp;
+                      }
+                    }
+                    // Fallback to the original 24h time from the calendar grid click
+                    if (!startTime && originalFocusedTime.current) {
+                      startTime = originalFocusedTime.current;
+                    }
+                    // For all-day events (no time), default to 08:00 as reference
+                    // so "Before event" options are shown (e.g. "1 day before at 08:00")
+                    if (!startTime) {
+                      startTime = "08:00";
+                    }
+                    setReminderEventTime(startTime);
+                    setReminderEventEndTime(endTime);
+                    setReminderDialogOpen(true);
+                  }}
+                />
+              </Tooltip>
               <Button text="Cancel" onClick={handleCancel} />
               <Button
                 intent="primary"
@@ -312,6 +364,23 @@ const NewEventDialog = ({
       >
         <span></span>
       </Popover>
+      <ReminderDialog
+        isOpen={reminderDialogOpen}
+        setIsOpen={setReminderDialogOpen}
+        blockUid={eventUid}
+        eventTitle=""
+        eventDate={(() => {
+          const parts = pageUid ? pageUid.split("-") : [];
+          return parts.length === 3 && parts[2].length === 4
+            ? `${parts[2]}-${parts[0].padStart(2, "0")}-${parts[1].padStart(2, "0")}`
+            : pageUid;
+        })()}
+        eventTime={reminderEventTime}
+        eventEndTime={reminderEventEndTime}
+        existingReminder={pendingReminder}
+        onSave={(reminder) => setPendingReminder(reminder)}
+        onDelete={() => setPendingReminder(null)}
+      />
     </div>
   );
 };

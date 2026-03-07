@@ -1,4 +1,12 @@
-## v.8 (february, 2026) Fixed a critical issue
+## v.9 (March 2026) Reminders
+
+### New feature
+
+- Reminders for events (in Full calendar UI) or simple blocks (via /reminder command)
+- List of overdue events in the current view (past AND still TODO)
+- Display the page title of events located in non-DNP
+
+## v.8 (February, 2026) Fixed a critical issue
 
 - Fixed a critical issue on events loading in some conditions (like orphan block)
 - Better display of Year view (can see 3 events per day)
