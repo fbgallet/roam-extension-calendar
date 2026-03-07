@@ -4,10 +4,10 @@
 
 🆕 New in v.9 (March 2026):
 
-- Set Reminders (Notification) for events or simple blocks (see details below)
+- Set Reminders (Notification) for events or simple blocks (see [details below](https://github.com/fbgallet/roam-extension-calendar?tab=readme-ov-file#reminders))
 - See page title of events from a non-DNP (e.g. help to handle equivalent tasks from different project pages)
 
-See [changelog here for more details on updates and fixes](https://github.com/fbgallet/roam-extension-calendar/blob/main/CHANGELOG.md)
+See full [changelog here for more details on updates and fixes](https://github.com/fbgallet/roam-extension-calendar/blob/main/CHANGELOG.md)
 
 ![Demo FC](https://github.com/user-attachments/assets/58b75071-def5-48f2-83fc-e9e9384a24ff)
 
