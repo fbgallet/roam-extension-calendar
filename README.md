@@ -2,15 +2,12 @@
 
 ### A comprehensive calendar interface, supporting Google Calendar two-way sync, to handle your tasks and have an overview of events or any tagged content in your Daily Note Pages or Google Calendars.
 
-🆕 New in v.7 (23th January 2026):
+🆕 New in v.9 (March 2026):
 
-- Main fix: Google Authentification is now working in Roam Desktop app
-- Subtler calendar lines, especially in dark mode & smaller calendar buttons
-- and other fixes, see [changelog here for more details on updates and fixes](https://github.com/fbgallet/roam-extension-calendar/blob/main/CHANGELOG.md)
+- Set Reminders (Notification) for events or simple blocks (see details below)
+- See page title of events from a non-DNP (e.g. help to handle equivalent tasks from different project pages)
 
-🆕 New in v.6 (5th January 2026):
-
-- Complete support of **Google calendar** import, export or two-way sync (see [section below](https://github.com/fbgallet/roam-extension-calendar?tab=readme-ov-file#google-calendar-support) for detailed instructions)
+See [changelog here for more details on updates and fixes](https://github.com/fbgallet/roam-extension-calendar/blob/main/CHANGELOG.md)
 
 ![Demo FC](https://github.com/user-attachments/assets/58b75071-def5-48f2-83fc-e9e9384a24ff)
 

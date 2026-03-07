@@ -6,6 +6,10 @@
 - List of overdue events in the current view (past AND still TODO)
 - Display the page title of events located in non-DNP
 
+### Updates
+
+- Event popover is larger, adjust better to the content and can be resized
+
 ## v.8 (February, 2026) Fixed a critical issue
 
 - Fixed a critical issue on events loading in some conditions (like orphan block)
